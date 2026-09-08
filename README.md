@@ -34,3 +34,6 @@ atem-web-manager/
     └── hooks/                 # ⚙️ CUSTOM LOGIC (Invisible math)
         ├── useDevices.js      # Handles adding/deleting/saving IPs in memory and 3-second button timeouts
         └── useDragDrop.js     # Manages HTML5 drag-and-drop physics for both groups and quadrants
+
+
+        Testing my first Git commit.
