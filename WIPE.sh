@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # =========================================================================
-# ATEM WEB MANAGER - EXTERNAL SAFE WIPE UTILITY (v1.94)
+# ATEM WEB MANAGER - FULL FOLDER DESTRUCTION WIPE UTILITY (v1.95)
 # =========================================================================
 clear
 echo "================================================================="
-echo "       ATEM WEB MANAGER - EXTERNAL WORKSPACE WIPE"
+echo "       ATEM WEB MANAGER - FULL WORKSPACE ERASURE"
 echo "================================================================="
 
 TARGET_DIR="./ATEM_WEB_MANAGER"
@@ -30,19 +30,19 @@ if [ "$TOKEN_CONTENT" != "$SECRET_KEY" ]; then
 fi
 
 echo "[✓] Safety token verified."
-echo "[!] WARNING: You are about to completely wipe: $(cd "$TARGET_DIR" && pwd)"
-read -p "Are you sure? (y/N): " CONFIRM
+echo "[!] WARNING: You are about to COMPLETELY DELETE the entire folder:"
+echo "    $(cd "$TARGET_DIR" && pwd)"
+read -p "Are you sure? This cannot be undone! (y/N): " CONFIRM
 
 if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
-    echo "[*] Wiping target contents..."
+    echo "[*] Erasing entire project directory..."
     
-    # Deletes everything inside ATEM_WEB_MANAGER except the token file and .git folder 
-    # (so Git history remains intact and it doesn't throw directory-already-exists errors)
-    find "$TARGET_DIR" -mindepth 1 ! -name ".atem_workspace_token" ! -path "$TARGET_DIR/.git*" -exec rm -rf {} + 2>/dev/null
+    # Forcefully and completely removes the folder and all its contents
+    rm -rf "$TARGET_DIR"
 
     echo "================================================================="
-    echo "   WIPE COMPLETE. Run 'git pull origin main' inside the folder "
-    echo "   to instantly restore everything fresh from GitHub!"
+    echo "   FOLDER DESTRUCTION COMPLETE."
+    echo "   ATEM_WEB_MANAGER has been completely wiped from disk."
     echo "================================================================="
 else
     echo "[*] Wipe aborted."
