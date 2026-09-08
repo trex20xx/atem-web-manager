@@ -1,3 +1,8 @@
+
+---
+
+### 4. `FILE_TREE.md` (Full File - v1.84)
+```markdown
 # ATEM WEB MANAGER - PROJECT FILE TREE
 
 atem-web-manager/
@@ -36,7 +41,7 @@ atem-web-manager/
     │   │
     │   ├── Multiview/
     │   │   ├── QuadrantGrid.jsx   # 2x2 grid math container
-    │   │   └── Panel.jsx          # Dynamic panel container (Resolves Player vs Switchers)
+    │   │   └── Panel.jsx          # Dynamic panel container (Resolves Player vs Quadrant Skeletons)
     │   │
     │   ├── Panels/
     │   │   └── AtemConstellationBus.jsx # 10-Input PGM/PVW Switcher Panel (IP 192.168.10.240)
