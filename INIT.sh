@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =========================================================================
-# ATEM WEB MANAGER - ONE-LINER FRESH MACHINE BOOTSTRAPPER (v1.88)
+# ATEM WEB MANAGER - ONE-LINER FRESH MACHINE BOOTSTRAPPER (v1.89)
 # =========================================================================
 clear
 echo "================================================================="
@@ -70,7 +70,8 @@ if [ -d "bridge" ] && [ -f "bridge/package.json" ]; then
 fi
 
 echo "================================================================="
-echo "   BOOTSTRAP COMPLETE! YOUR WORKSPACE IS FULLY CONFIGURED."
-echo "   To start developing, run:"
-echo "   cd $INSTALL_DIR && npm run dev"
+echo "   BOOTSTRAP COMPLETE! LAUNCHING DEVELOPMENT SERVER..."
 echo "================================================================="
+
+# 7. Automatically launch the development server
+npm run dev
