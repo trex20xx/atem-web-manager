@@ -8,7 +8,7 @@ import { useDragDrop } from './hooks/useDragDrop';
 import { useLocalStorage } from './hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v1.79)
+// ATEM WEB MANAGER - MASTER LAYOUT (v1.82)
 // =========================================================================
 
 function App() {
@@ -19,7 +19,7 @@ function App() {
   const [sidebarVariant, setSidebarVariant] = useLocalStorage('atem_sidebarVariant', 'floating');
   
   const [enableDragDrop, setEnableDragDrop] = useLocalStorage('atem_enableDragDrop', true);
-  const [enableQuadrantDrag, setEnableQuadrantDrag] = useLocalStorage('atem_enableQuadrantDrag', true); // V1.79 Option
+  const [enableQuadrantDrag, setEnableQuadrantDrag] = useLocalStorage('atem_enableQuadrantDrag', true);
   const [showActionButton, setShowActionButton] = useLocalStorage('atem_showActionButton', true);
   const [forceUppercase, setForceUppercase] = useLocalStorage('atem_forceUppercase', true);
   
@@ -36,9 +36,10 @@ function App() {
   const { 
       handleQuadrantDragStart, handleQuadrantDragOver, 
       handleQuadrantDragLeave, handleQuadrantDrop 
-  } = useDragDrop(enableQuadrantDrag); // V1.79 passed config to hook
+  } = useDragDrop(enableQuadrantDrag);
 
-  const isConnected = deviceState.devices.some(d => d.status === 'online');
+  const connectedDevice = deviceState.devices.find(d => d.status === 'online');
+  const isConnected = !!connectedDevice;
 
   useEffect(() => {
     const handleResize = () => {
@@ -124,19 +125,17 @@ function App() {
       <GlobalTooltip />
       <div className="header" style={headerStyle}>ATEM WEB MANAGER</div>
       
-      {/* V1.79 Theme Sun/Moon Toggle */}
       <button className="theme-toggle-btn" onClick={toggleLightMode} title="Toggle Light/Dark Theme">
           {theme === 'light' ? (
-              <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> // Moon
+              <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           ) : (
-              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> // Sun
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
           )}
       </button>
 
-      {/* V1.79 Material Design Settings Gear */}
       <button className="gear-btn" onClick={() => setIsSettingsOpen(true)} title="Preferences (Cmd/Ctrl + ,)">
         <svg viewBox="0 0 24 24">
-            <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.05-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22l-1.92 3.32c-.12.22-.07.49.12.61l2.03 1.58c-.04.3-.06.61-.06.94s.02.64.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.49-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+            <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.05-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22l-1.92 3.32c-.12.22-.07.49.12.61l2.03 1.58c-.04.3-.06.61-.06.94s.02.64.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c-.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.49-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6s3.6,1.62,3.6,3.6-1.62 3.6-3.6 3.6z"/>
         </svg>
       </button>
 
@@ -146,7 +145,7 @@ function App() {
             onClick={() => setVersionVisible(!versionVisible)}
             style={{ opacity: versionVisible ? 1 : 0 }}
           >
-              v1.79
+              v1.82
           </div>
       )}
 
@@ -179,6 +178,7 @@ function App() {
               quadrantOrder={quadrantOrder}
               currentVideoSource={currentVideoSource}
               isConnected={isConnected}
+              connectedDevice={connectedDevice}
               enableQuadrantDrag={enableQuadrantDrag}
               handleQuadrantDragStart={handleQuadrantDragStart}
               handleQuadrantDragOver={handleQuadrantDragOver}
