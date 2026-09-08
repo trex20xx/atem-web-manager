@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # =========================================================================
-# ATEM WEB MANAGER - UNIVERSAL MACOS MASTER INIT SCRIPT (v1.85)
+# ATEM WEB MANAGER - ONE-LINER FRESH MACHINE BOOTSTRAPPER (v1.88)
 # =========================================================================
 clear
 echo "================================================================="
-echo "       ATEM WEB MANAGER - MACOS AUTOMATED INSTALLER"
+echo "       ATEM WEB MANAGER - BRAND NEW MACHINE BOOTSTRAPPER"
 echo "================================================================="
 
-# 1. Prompt for installation directory
+GITHUB_REPO="https://github.com/trex20xx/atem-web-manager.git"
 DEFAULT_DIR="/Users/$(whoami)/Downloads/VSCODE/PROGRAMMING/ATEM_WEB_MANAGER"
+
+# 1. Prompt for installation directory
 read -p "Enter target installation path [$DEFAULT_DIR]: " INSTALL_DIR
 INSTALL_DIR="${INSTALL_DIR:-$DEFAULT_DIR}"
 
@@ -16,56 +18,59 @@ echo "[*] Setting up workspace at: $INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR" || exit
 
-# 2. Request sudo upfront for silent installs if tools are missing
-echo "[*] Verifying administrative permissions (sudo password may be required)..."
-sudo -v
-while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+# 2. Fresh Machine Clone (Handles .git initialization automatically)
+if [ ! -d ".git" ]; then
+    echo "[*] Fresh machine detected. Cloning repository (including .git history)..."
+    git clone "$GITHUB_REPO" .
+else
+    echo "[*] Repository already exists here. Pulling latest updates..."
+    git pull origin main
+fi
 
-# 3. Check & Install Git
+# 3. Check & Install Git (Crucial for fresh Macs)
 if ! command -v git &> /dev/null; then
-    echo "[!] Git not found. Installing Xcode Command Line Tools..."
-    xcode-select --install || echo "[*] Please complete the popup installation window."
+    echo "[!] Git is not installed. Installing Xcode Command Line Tools..."
+    xcode-select --install
+    echo "[!] Please complete the Xcode command line tools prompt, then re-run this script."
+    exit 1
 else
     echo "[✓] Git is ready."
 fi
 
-# 4. Check & Install Node.js & npm
+# 4. Check & Install Node.js & npm (Crucial for fresh Macs)
 if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
-    echo "[!] Node.js not found. Installing via Homebrew..."
+    echo "[!] Node.js/npm not found. Installing Homebrew & Node.js..."
     if ! command -v brew &> /dev/null; then
-        echo "[*] Installing Homebrew..."
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        # Add Homebrew to Apple Silicon / Intel path dynamically
+        if [ -d "/opt/homebrew/bin" ]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        elif [ -d "/usr/local/bin" ]; then
+            eval "$(/usr/local/bin/brew shellenv)"
+        fi
     fi
     brew install node
 else
     echo "[✓] Node.js ($(node -v)) and npm are ready."
 fi
 
-# 5. Repository Setup / Pull
-if [ -d ".git" ]; then
-    echo "[*] Existing Git repository detected. Pulling latest code..."
-    git pull origin main || echo "[*] Offline or manual pull required."
-else
-    echo "[*] Initializing local repository..."
-    git init
-fi
-
-# 6. Install Main App Dependencies
+# 5. Install Main App Dependencies
 if [ -f "package.json" ]; then
-    echo "[*] Installing main application packages..."
+    echo "[*] Installing frontend application dependencies..."
     npm install
 else
-    echo "[!] Warning: package.json missing in root. Ensure files are populated."
+    echo "[X] Error: package.json missing. Clone may have failed."
+    exit 1
 fi
 
-# 7. Install ATEM Bridge Dependencies
+# 6. Install Embedded ATEM Bridge Dependencies
 if [ -d "bridge" ] && [ -f "bridge/package.json" ]; then
-    echo "[*] Installing embedded ATEM hardware bridge packages..."
+    echo "[*] Installing embedded ATEM hardware bridge dependencies..."
     cd bridge && npm install && cd ..
 fi
 
 echo "================================================================="
-echo "   INSTALLATION SUCCESSFUL!"
-echo "   To start the app and local bridge simultaneously, run:"
-echo "   npm run dev"
+echo "   BOOTSTRAP COMPLETE! YOUR WORKSPACE IS FULLY CONFIGURED."
+echo "   To start developing, run:"
+echo "   cd $INSTALL_DIR && npm run dev"
 echo "================================================================="
