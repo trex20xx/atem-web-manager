@@ -4,56 +4,33 @@ import DeviceList from './DeviceList';
 import BottomActionBtn from './BottomActionBtn';
 
 // =========================================================================
-// ATEM WEB MANAGER - SIDEBAR COMPONENT (v1.75)
+// ATEM WEB MANAGER - SIDEBAR COMPONENT (v1.78)
 // =========================================================================
-// Draggable sidebar layout containing Search, Devices, and Action button.
 
 const Sidebar = ({ 
     height, 
     showActionButton, 
     enableDragDrop, 
     forceUppercase, 
-    deviceState 
+    deviceState,
+    variant = 'classic'
 }) => {
-    // Inactivity timer logic for the bottom button container hiding mechanism
-    const [isHovered, setIsHovered] = useState(true);
-    let inactivityTimer = null;
-
-    const resetInactivityTimer = () => {
-        setIsHovered(true);
-        clearTimeout(inactivityTimer);
-        inactivityTimer = setTimeout(() => {
-            if (deviceState.actionState === 'select-none') {
-                setIsHovered(false);
-            }
-        }, 3000);
-    };
+    // V1.78 Hover Logic simplified (removed timer)
+    const [isHovered, setIsHovered] = useState(false);
 
     return (
         <div 
-            className="sidebar" 
+            className={`sidebar variant-${variant}`} 
             style={{ height: `${height}px` }}
-            onMouseMove={resetInactivityTimer}
-            onClick={resetInactivityTimer}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
         >
-            {/* 1. SEARCH BAR */}
-            <SearchBar 
-                deviceState={deviceState} 
-                showActionButton={showActionButton} 
-            /> 
-            
-            {/* 2. DEVICE LIST & GROUPS */}
-            <DeviceList 
-                deviceState={deviceState} 
-                enableDragDrop={enableDragDrop}
-                forceUppercase={forceUppercase}
-            /> 
-
-            {/* 3. BOTTOM ACTION BUTTON */}
+            <SearchBar deviceState={deviceState} showActionButton={showActionButton} /> 
+            <DeviceList deviceState={deviceState} enableDragDrop={enableDragDrop} forceUppercase={forceUppercase} /> 
             <BottomActionBtn 
                 deviceState={deviceState} 
-                showActionButton={showActionButton}
-                isVisible={isHovered || deviceState.actionState !== 'select-none'}
+                showActionButton={showActionButton} 
+                isVisible={isHovered || deviceState.actionState !== 'select-none'} 
             /> 
         </div>
     );

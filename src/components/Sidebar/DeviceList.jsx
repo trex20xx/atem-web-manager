@@ -1,25 +1,41 @@
 import React, { useState } from 'react';
 import DeviceRow from './DeviceRow';
 import ColorDropdown from './ColorDropdown';
+import Skeleton from '../UI/Skeleton';
 import { useDragDrop } from '../../hooks/useDragDrop';
 
 // =========================================================================
-// ATEM WEB MANAGER - DEVICE LIST & GROUPS (v1.75)
+// ATEM WEB MANAGER - DEVICE LIST (v1.78)
 // =========================================================================
 
 const DeviceList = ({ deviceState, enableDragDrop, forceUppercase }) => {
     const { 
-        devices, setDevices, searchFilter, groupSettings, setGroupSettings, 
+        isLoading, devices, setDevices, searchFilter, groupSettings, setGroupSettings, 
         selectedDeviceId, setSelectedDeviceId, selectedGroupContext, setSelectedGroupContext,
         editingId, setEditingId, editingGroupContext, setEditingGroupContext,
         setActionState, connectDevice, validIP, ipTaken, groupExists
     } = deviceState;
 
     const { handleDeviceDragStart, handleGroupDragOver, handleGroupDragLeave, handleGroupDrop } = useDragDrop(enableDragDrop);
-
     const [groupEditForm, setGroupEditForm] = useState({ name: '', colorTag: '', description: '' });
 
-    // Grouping Math
+    // V1.78 - Removed Divider from Skeleton UI
+    if (isLoading) {
+        return (
+            <div className="device-list" style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <Skeleton height="20px" width="40%" style={{ marginBottom: '8px' }} borderRadius="4px" />
+                <Skeleton height="30px" />
+                <Skeleton height="30px" />
+                <Skeleton height="30px" />
+                <Skeleton height="30px" />
+                <div style={{ margin: '12px 0' }}></div>
+                <Skeleton height="20px" width="30%" style={{ marginBottom: '8px' }} borderRadius="4px" />
+                <Skeleton height="30px" />
+                <Skeleton height="30px" />
+            </div>
+        );
+    }
+
     const groups = { UNGROUPED: [] };
     Object.keys(groupSettings).forEach(g => { groups[g.toUpperCase()] = []; });
 

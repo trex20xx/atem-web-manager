@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - SETTINGS MODAL (v1.75)
+// ATEM WEB MANAGER - SETTINGS MODAL (v1.79)
 // =========================================================================
 
 const SettingsModal = ({ 
     isOpen, onClose, theme, setTheme, panelRadius, setPanelRadius, 
     titlePosition, setTitlePosition, showVersion, setShowVersion,
-    enableDragDrop, setEnableDragDrop, showActionButton, setShowActionButton,
-    forceUppercase, setForceUppercase, currentVideoSource, setCurrentVideoSource,
-    quadrantOrder, setQuadrantOrder
+    enableDragDrop, setEnableDragDrop, enableQuadrantDrag, setEnableQuadrantDrag,
+    showActionButton, setShowActionButton, forceUppercase, setForceUppercase, 
+    currentVideoSource, setCurrentVideoSource, quadrantOrder, setQuadrantOrder, 
+    sidebarVariant, setSidebarVariant
 }) => {
     const modalRef = useRef(null);
     const [activeTab, setActiveTab] = useState('general');
@@ -17,9 +18,8 @@ const SettingsModal = ({
     const [pos, setPos] = useState({ x: 0, y: 0 });
     const dragOffset = useRef({ x: 0, y: 0 });
 
-    // Draggable Window Logic
     const handleMouseDown = (e) => {
-        if (e.target.closest('button')) return;
+        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) return;
         setIsDragging(true);
         const rect = modalRef.current.getBoundingClientRect();
         dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -45,7 +45,6 @@ const SettingsModal = ({
         };
     }, [isDragging]);
 
-    // Reset position when opened
     useEffect(() => {
         if (isOpen) setPos({ x: 0, y: 0 });
     }, [isOpen]);
@@ -108,6 +107,7 @@ const SettingsModal = ({
                                     <div className="setting-group-control">
                                         <select value={theme} onChange={e => setTheme(e.target.value)}>
                                             <option value="default">Dark (Default)</option>
+                                            <option value="light">Light UI</option>
                                             <option value="monokai">Monokai</option>
                                             <option value="dracula">Dracula</option>
                                             <option value="onedark">One Dark Pro</option>
@@ -122,8 +122,17 @@ const SettingsModal = ({
                                         <input type="range" min="0" max="24" step="1" value={panelRadius} onChange={e => setPanelRadius(e.target.value)} />
                                     </div>
                                 </div>
-                                <div style={{ margin: '24px 0', borderTop: '1px solid #111' }}></div>
+                                <div style={{ margin: '24px 0', borderTop: '1px solid var(--atem-border)' }}></div>
                                 
+                                <div className="setting-group">
+                                    <label>Sidebar Design:</label>
+                                    <div className="setting-group-control">
+                                        <select value={sidebarVariant} onChange={e => setSidebarVariant(e.target.value)}>
+                                            <option value="classic">Classic (Solid)</option>
+                                            <option value="floating">Floating (Glass)</option>
+                                        </select>
+                                    </div>
+                                </div>
                                 <div className="setting-group">
                                     <label>Enable Drag & Drop:</label>
                                     <div className="setting-group-control">
@@ -153,7 +162,14 @@ const SettingsModal = ({
 
                         {activeTab === 'multiview' && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div style={{ color: '#fff', fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>Quadrant Order</div>
+                                <div className="setting-group" style={{ justifyContent: 'flex-start', margin: 0 }}>
+                                    <label style={{ flex: 'none', textAlign: 'left', marginRight: '16px' }}>Enable Quadrant Dragging:</label>
+                                    <div className="setting-group-control" style={{ flex: 'none' }}>
+                                        <input type="checkbox" className="toggle-switch" checked={enableQuadrantDrag} onChange={e => setEnableQuadrantDrag(e.target.checked)} />
+                                    </div>
+                                </div>
+                                <div style={{ borderTop: '1px solid var(--atem-border)' }}></div>
+                                <div style={{ color: 'var(--atem-text)', fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>Quadrant Order</div>
                                 <div className="quadrant-grid-wrapper">
                                     <div className="quad-row">
                                         <div className="quad-box">

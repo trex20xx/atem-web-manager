@@ -1,48 +1,45 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar/Sidebar';
 import QuadrantGrid from './components/Multiview/QuadrantGrid';
 import SettingsModal from './components/Settings/SettingsModal';
+import GlobalTooltip from './components/UI/GlobalTooltip';
 import { useDevices } from './hooks/useDevices';
 import { useDragDrop } from './hooks/useDragDrop';
+import { useLocalStorage } from './hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v1.75)
+// ATEM WEB MANAGER - MASTER LAYOUT (v1.79)
 // =========================================================================
-// Controls the absolute resize math for the 16:9 locked aspect ratio,
-// mounts the global UI elements, and houses the child components.
 
 function App() {
-  // --- Global Settings State ---
-  const [theme, setTheme] = useState('default');
-  const [panelRadius, setPanelRadius] = useState(4); // [LOCKED] Default 4px, Max 24px
-  const [titlePosition, setTitlePosition] = useState('off');
+  const [theme, setTheme] = useLocalStorage('atem_theme', 'default');
+  const [panelRadius, setPanelRadius] = useLocalStorage('atem_panelRadius', 9);
+  const [titlePosition, setTitlePosition] = useLocalStorage('atem_titlePosition', 'off');
+  const [showVersion, setShowVersion] = useLocalStorage('atem_showVersion', true);
+  const [sidebarVariant, setSidebarVariant] = useLocalStorage('atem_sidebarVariant', 'floating');
+  
+  const [enableDragDrop, setEnableDragDrop] = useLocalStorage('atem_enableDragDrop', true);
+  const [enableQuadrantDrag, setEnableQuadrantDrag] = useLocalStorage('atem_enableQuadrantDrag', true); // V1.79 Option
+  const [showActionButton, setShowActionButton] = useLocalStorage('atem_showActionButton', true);
+  const [forceUppercase, setForceUppercase] = useLocalStorage('atem_forceUppercase', true);
+  
+  const [currentVideoSource, setCurrentVideoSource] = useLocalStorage('atem_currentVideoSource', 'https://stream.mux.com/BV3YZtogl89mg9VcNBhhnHm02Y34zI1nlMuMQfAbl3dM/highest.mp4');
+  const [quadrantOrder, setQuadrantOrder] = useLocalStorage('atem_quadrantOrder', [1, 2, 3, 4]);
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [showVersion, setShowVersion] = useState(true);
+  const [versionVisible, setVersionVisible] = useState(true);
   
-  // Toggles & Preferences
-  const [enableDragDrop, setEnableDragDrop] = useState(true);
-  const [showActionButton, setShowActionButton] = useState(true);
-  const [forceUppercase, setForceUppercase] = useState(true);
-  
-  // Media State
-  const [currentVideoSource, setCurrentVideoSource] = useState('https://stream.mux.com/BV3YZtogl89mg9VcNBhhnHm02Y34zI1nlMuMQfAbl3dM/highest.mp4');
-  const [quadrantOrder, setQuadrantOrder] = useState([1, 2, 3, 4]);
-  
-  // --- Dashboard Math State ([LOCKED] 16:9 strict sizing) ---
   const [dashboardStyle, setDashboardStyle] = useState({ width: '100%', height: '100%' });
   const [headerStyle, setHeaderStyle] = useState({ display: 'none' });
 
-  // --- Initialize Custom Hooks ---
   const deviceState = useDevices();
   const { 
       handleQuadrantDragStart, handleQuadrantDragOver, 
       handleQuadrantDragLeave, handleQuadrantDrop 
-  } = useDragDrop(enableDragDrop);
+  } = useDragDrop(enableQuadrantDrag); // V1.79 passed config to hook
 
-  // Check if any device is connected for Quadrant 1 rendering
   const isConnected = deviceState.devices.some(d => d.status === 'online');
 
-  // --- [LOCKED] Dashboard Math Logic ---
   useEffect(() => {
     const handleResize = () => {
       const sidebarWidth = 260;
@@ -95,7 +92,6 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, [titlePosition]);
 
-  // --- Global Keybind for Settings (Cmd/Ctrl + ,) ---
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === ',') {
@@ -110,96 +106,80 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // --- Sync Theme to Document ---
   useEffect(() => {
-    if (theme === 'default') {
-      document.documentElement.removeAttribute('data-theme');
-    } else {
-      document.documentElement.setAttribute('data-theme', theme);
-    }
+    if (theme === 'default') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // --- Sync Global Radius Variable ---
   useEffect(() => {
     document.documentElement.style.setProperty('--panel-radius', `${panelRadius}px`);
   }, [panelRadius]);
 
-  // Prevent drag-drop from acting weird globally if not on an actual dropzone
-  useEffect(() => {
-    const preventDefault = (e) => { if (!enableDragDrop) e.preventDefault(); };
-    window.addEventListener('dragover', preventDefault);
-    window.addEventListener('drop', preventDefault);
-    return () => {
-      window.removeEventListener('dragover', preventDefault);
-      window.removeEventListener('drop', preventDefault);
-    };
-  }, [enableDragDrop]);
+  const toggleLightMode = () => {
+      setTheme(prev => prev === 'light' ? 'default' : 'light');
+  };
 
   return (
     <>
-      {/* Global Overlays */}
-      <div className="header" style={headerStyle}>
-        ATEM WEB MANAGER
-      </div>
+      <GlobalTooltip />
+      <div className="header" style={headerStyle}>ATEM WEB MANAGER</div>
       
-      <button 
-        className="gear-btn" 
-        onClick={() => setIsSettingsOpen(true)} 
-        title="Preferences (Cmd/Ctrl + ,)"
-      >
-        ⚙
+      {/* V1.79 Theme Sun/Moon Toggle */}
+      <button className="theme-toggle-btn" onClick={toggleLightMode} title="Toggle Light/Dark Theme">
+          {theme === 'light' ? (
+              <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> // Moon
+          ) : (
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> // Sun
+          )}
+      </button>
+
+      {/* V1.79 Material Design Settings Gear */}
+      <button className="gear-btn" onClick={() => setIsSettingsOpen(true)} title="Preferences (Cmd/Ctrl + ,)">
+        <svg viewBox="0 0 24 24">
+            <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.05-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22l-1.92 3.32c-.12.22-.07.49.12.61l2.03 1.58c-.04.3-.06.61-.06.94s.02.64.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.49-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+        </svg>
       </button>
 
       {showVersion && (
-        <div className="version-tag">v1.75</div>
+          <div 
+            className="version-tag" 
+            onClick={() => setVersionVisible(!versionVisible)}
+            style={{ opacity: versionVisible ? 1 : 0 }}
+          >
+              v1.79
+          </div>
       )}
 
-      {/* Settings Modal Engine */}
       <SettingsModal 
-          isOpen={isSettingsOpen} 
-          onClose={() => setIsSettingsOpen(false)}
-          theme={theme}
-          setTheme={setTheme}
-          panelRadius={panelRadius}
-          setPanelRadius={setPanelRadius}
-          titlePosition={titlePosition}
-          setTitlePosition={setTitlePosition}
-          showVersion={showVersion}
-          setShowVersion={setShowVersion}
-          enableDragDrop={enableDragDrop}
-          setEnableDragDrop={setEnableDragDrop}
-          showActionButton={showActionButton}
-          setShowActionButton={setShowActionButton}
-          forceUppercase={forceUppercase}
-          setForceUppercase={setForceUppercase}
-          currentVideoSource={currentVideoSource}
-          setCurrentVideoSource={setCurrentVideoSource}
-          quadrantOrder={quadrantOrder}
-          setQuadrantOrder={setQuadrantOrder}
+          isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)}
+          theme={theme} setTheme={setTheme}
+          panelRadius={panelRadius} setPanelRadius={setPanelRadius}
+          titlePosition={titlePosition} setTitlePosition={setTitlePosition}
+          showVersion={showVersion} setShowVersion={setShowVersion}
+          enableDragDrop={enableDragDrop} setEnableDragDrop={setEnableDragDrop}
+          enableQuadrantDrag={enableQuadrantDrag} setEnableQuadrantDrag={setEnableQuadrantDrag}
+          showActionButton={showActionButton} setShowActionButton={setShowActionButton}
+          forceUppercase={forceUppercase} setForceUppercase={setForceUppercase}
+          currentVideoSource={currentVideoSource} setCurrentVideoSource={setCurrentVideoSource}
+          quadrantOrder={quadrantOrder} setQuadrantOrder={setQuadrantOrder}
+          sidebarVariant={sidebarVariant} setSidebarVariant={setSidebarVariant}
       /> 
 
-      {/* Main Layout Container */}
       <div className="dashboard">
-        
-        {/* Left Sidebar */}
         <Sidebar 
             height={dashboardStyle.height}
             showActionButton={showActionButton}
             enableDragDrop={enableDragDrop}
             forceUppercase={forceUppercase}
             deviceState={deviceState}
+            variant={sidebarVariant}
         />
-
-        {/* Multiview Quadrants */}
-        <main 
-          className="quadrant-wrapper" 
-          style={{ width: `${dashboardStyle.width}px`, height: `${dashboardStyle.height}px` }}
-        >
+        <main className="quadrant-wrapper" style={{ width: `${dashboardStyle.width}px`, height: `${dashboardStyle.height}px` }}>
           <QuadrantGrid 
               quadrantOrder={quadrantOrder}
               currentVideoSource={currentVideoSource}
               isConnected={isConnected}
-              enableDragDrop={enableDragDrop}
+              enableQuadrantDrag={enableQuadrantDrag}
               handleQuadrantDragStart={handleQuadrantDragStart}
               handleQuadrantDragOver={handleQuadrantDragOver}
               handleQuadrantDragLeave={handleQuadrantDragLeave}

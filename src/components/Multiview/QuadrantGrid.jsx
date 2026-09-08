@@ -2,11 +2,11 @@ import React from 'react';
 import Panel from './Panel';
 
 // =========================================================================
-// ATEM WEB MANAGER - QUADRANT GRID (v1.75)
+// ATEM WEB MANAGER - QUADRANT GRID (v1.79)
 // =========================================================================
 
 const QuadrantGrid = ({ 
-    quadrantOrder, currentVideoSource, isConnected, enableDragDrop,
+    quadrantOrder, currentVideoSource, isConnected, enableQuadrantDrag,
     handleQuadrantDragStart, handleQuadrantDragOver, handleQuadrantDragLeave, handleQuadrantDrop, setQuadrantOrder
 }) => {
     const handleSwapCallback = (sourceIndex, targetIndex) => {
@@ -26,7 +26,7 @@ const QuadrantGrid = ({
                     positionIndex={posIndex}
                     currentVideoSource={currentVideoSource}
                     isConnected={isConnected}
-                    enableDragDrop={enableDragDrop}
+                    enableQuadrantDrag={enableQuadrantDrag}
                     handleDragStart={handleQuadrantDragStart}
                     handleDragOver={handleQuadrantDragOver}
                     handleDragLeave={handleQuadrantDragLeave}

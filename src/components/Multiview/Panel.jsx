@@ -2,17 +2,17 @@ import React from 'react';
 import Player from '../VideoPlayer/Player';
 
 // =========================================================================
-// ATEM WEB MANAGER - PANEL COMPONENT (v1.75)
+// ATEM WEB MANAGER - PANEL COMPONENT (v1.79)
 // =========================================================================
 
 const Panel = ({ 
     panelId, positionIndex, currentVideoSource, isConnected, 
-    enableDragDrop, handleDragStart, handleDragOver, handleDragLeave, handleDrop 
+    enableQuadrantDrag, handleDragStart, handleDragOver, handleDragLeave, handleDrop 
 }) => {
     return (
         <div 
             className="panel"
-            draggable={enableDragDrop}
+            draggable={enableQuadrantDrag}
             onDragStart={(e) => handleDragStart(e, positionIndex)}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
