@@ -1,37 +1,56 @@
+# ATEM WEB MANAGER - PROJECT FILE TREE
 
----
-
-### 3. `HANDOVER.md` (Full File - v1.90)
-```markdown
-# ATEM WEB MANAGER - AI HANDOVER STATE
-**Current Version:** v1.90
-**Architecture:** React 18, Vite, CSS Variables, Componentized Hooks, Automated Cross-Platform Bootstrappers.
-
-## 1. STRICT RULES OF ENGAGEMENT
-- **INCREMENT VERSION:** Update version numbers in comments and UI with every iteration.
-- **NO UNREQUESTED CHANGES:** Never modify existing functionality, logic, or design unless explicitly requested.
-- **FULL FILES ONLY:** ALWAYS provide full updated files when changes are made. NOT snippets. 
-- **GIT / GITHUB WORKFLOW:** Provide code/commands to save changes in Git + GitHub ONLY AFTER confirmation.
-- **[LOCKED] ELEMENTS:** Never alter corner radii, Video.js transparency, YouTube SVG masks, or 16:9 math.
-
-## 2. RECENT UPDATES (v1.90 Context)
-- Finalized cross-platform `INIT.sh` (macOS) and `INIT.bat` (Windows) scripts. Both scripts fully bootstrap the workspace, check dependencies, install packages, and automatically execute `npm run dev`.
-- Synchronized documentation across README, CHANGELOG, and HANDOVER.
-
-## 3. FILE TREE
 atem-web-manager/
-├── package.json               
-├── vite.config.js             
-├── index.html                 
-├── CHANGELOG.md               
-├── README.md                  
-├── HANDOVER.md                
-├── INIT.sh                    # Automated macOS Bootstrapper & Launcher
-├── INIT.bat                   # Automated Windows Bootstrapper & Launcher
-└── src/                       
-    ├── main.jsx               
-    ├── App.jsx                
-    ├── index.css              
-    ├── bridge/                # Node.js ATEM UDP-to-WebSocket bridge server
-    ├── components/            # UI, Sidebar, Multiview, Panels, VideoPlayer, Settings
-    └── hooks/                 # useDevices, useDragDrop, useLocalStorage
+├── package.json               # Frontend project dependencies (React, Video.js, etc.)
+├── vite.config.js             # Vite build tool configuration
+├── index.html                 # Empty HTML shell that mounts the React app
+├── CHANGELOG.md               # Version history and migration logs
+├── README.md                  # Project instructions and architecture rules
+├── HANDOVER.md                # AI chat session state and context persistence
+├── FILE_TREE.md               # Visual project file map (THIS FILE)
+├── INIT.sh                    # Automated macOS bootstrapper & dev server launcher
+├── INIT.bat                   # Automated Windows bootstrapper & dev server launcher
+│
+└── src/                       # 🧠 CORE SOURCE CODE DIRECTORY
+    ├── main.jsx               # React 18 DOM mount bootstrapper
+    ├── App.jsx                # Master Layout (16:9 Math, Theme Sync, & Root State)
+    ├── index.css              # Global styles, [LOCKED] design rules, and themes
+    │
+    ├── bridge/                # 🔌 LOCAL HARDWARE BRIDGE DAEMON
+    │   ├── package.json       # Node.js dependencies for ATEM communication
+    │   └── server.js          # UDP-to-WebSocket bridge for physical switchers
+    │
+    ├── components/            # 🧱 REACT COMPONENT BLOCKS
+    │   ├── UI/
+    │   │   ├── Skeleton.jsx       # Shimmering grey loading placeholders
+    │   │   ├── GlobalTooltip.jsx  # Description hover popup engine
+    │   │   └── ErrorBoundary.jsx  # Crash trap for unstable hardware components
+    │   │
+    │   ├── Sidebar/
+    │   │   ├── Sidebar.jsx        # Variant-supported Master Sidebar container
+    │   │   ├── SearchBar.jsx      # IP validation, filtering, and search mechanics
+    │   │   ├── DeviceList.jsx     # Device maps, group sections, and skeleton triggers
+    │   │   ├── DeviceRow.jsx      # Individual device row view and inline editing
+    │   │   ├── ColorDropdown.jsx  # DaVinci-styled muted color picker
+    │   │   └── BottomActionBtn.jsx# 3-State Add/Delete/Confirm timeout button
+    │   │
+    │   ├── Multiview/
+    │   │   ├── QuadrantGrid.jsx   # 2x2 grid math container
+    │   │   └── Panel.jsx          # Dynamic panel container (Resolves Player vs Switchers)
+    │   │
+    │   ├── Panels/
+    │   │   └── AtemConstellationBus.jsx # 10-Input PGM/PVW Switcher Panel (IP 192.168.10.240)
+    │   │
+    │   ├── VideoPlayer/
+    │   │   ├── Player.jsx         # Video.js v8 initialization & YouTube API tech
+    │   │   ├── OverlayDrawer.jsx  # Transparency sliders, wipe controls, and file pickers
+    │   │   └── QualityMenu.jsx    # 4K/1080p/720p floating resolution drawer
+    │   │   └── SnapshotEngine.js  # Offscreen canvas clipping and screenshot download math
+    │   │
+    │   └── Settings/
+    │       └── SettingsModal.jsx  # DaVinci-style draggable tabbed preferences overlay
+    │
+    └── hooks/                 # ⚙️ CUSTOM LOGIC HOOKS
+        ├── useDevices.js      # Core state model, IP regex checks, and simulated load hooks
+        ├── useDragDrop.js     # HTML5 drag-and-drop physics for devices and quadrants
+        └── useLocalStorage.js # Browser memory synchronization (Local Database wrapper)
