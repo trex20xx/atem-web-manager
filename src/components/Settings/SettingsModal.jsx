@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - SETTINGS MODAL (v1.79)
+// ATEM WEB MANAGER - SETTINGS MODAL (v2.07)
 // =========================================================================
 
 const SettingsModal = ({ 
-    isOpen, onClose, theme, setTheme, panelRadius, setPanelRadius, 
+    isOpen, onClose, theme, setTheme, panelRadius, setPanelRadius, tallyOpacity, setTallyOpacity,
     titlePosition, setTitlePosition, showVersion, setShowVersion,
     enableDragDrop, setEnableDragDrop, enableQuadrantDrag, setEnableQuadrantDrag,
     showActionButton, setShowActionButton, forceUppercase, setForceUppercase, 
@@ -117,9 +117,15 @@ const SettingsModal = ({
                                     </div>
                                 </div>
                                 <div className="setting-group">
-                                    <label>Corner Radius (<span>{panelRadius}px</span>):</label>
+                                    <label>Corner Radius ({panelRadius}px):</label>
                                     <div className="setting-group-control">
                                         <input type="range" min="0" max="24" step="1" value={panelRadius} onChange={e => setPanelRadius(e.target.value)} />
+                                    </div>
+                                </div>
+                                <div className="setting-group">
+                                    <label>Tally Brightness ({tallyOpacity}%):</label>
+                                    <div className="setting-group-control">
+                                        <input type="range" min="10" max="100" step="5" value={tallyOpacity} onChange={e => setTallyOpacity(e.target.value)} />
                                     </div>
                                 </div>
                                 <div style={{ margin: '24px 0', borderTop: '1px solid var(--atem-border)' }}></div>

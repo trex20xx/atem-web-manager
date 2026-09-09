@@ -1,21 +1,19 @@
 #!/usr/bin/env bash
 # =========================================================================
-# ATEM WEB MANAGER - INSTANT GIT PUSH UTILITY (v1.92)
+# ATEM WEB MANAGER - MACOS QUICK PUSH UTILITY (v2.05)
 # =========================================================================
 clear
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/.." || exit
+
 echo "================================================================="
-echo "       ATEM WEB MANAGER - QUICK PUSH TO GITHUB"
+echo "       ATEM WEB MANAGER - QUICK PUSH TO GITHUB (v2.05)"
 echo "================================================================="
 
-# Show current git status so you know what files changed
 git status
-
 echo ""
 read -p "Enter your commit message: " COMMIT_MSG
-
-if [ -z "$COMMIT_MSG" ]; then
-    COMMIT_MSG="fix: rapid troubleshooting update"
-fi
+COMMIT_MSG="${COMMIT_MSG:-fix: project update}"
 
 echo "[*] Staging all changes..."
 git add -A

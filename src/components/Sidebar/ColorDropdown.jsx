@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { mutedColors } from '../../hooks/useDevices';
 
 // =========================================================================
-// ATEM WEB MANAGER - COLOR DROPDOWN (v1.75)
+// ATEM WEB MANAGER - COLOR DROPDOWN (v2.07)
 // =========================================================================
 
 const ColorDropdown = ({ currentColor, onChange }) => {
@@ -10,7 +10,7 @@ const ColorDropdown = ({ currentColor, onChange }) => {
     const wrapperRef = useRef(null);
 
     const matched = mutedColors.find(m => m.hex === currentColor);
-    const label = matched ? matched.name : 'Custom';
+    const label = matched && matched.hex ? matched.name : 'No Color';
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -26,10 +26,20 @@ const ColorDropdown = ({ currentColor, onChange }) => {
         <div className="color-dropdown-box" ref={wrapperRef}>
             <div className="color-dropdown-toggle" onClick={() => setIsOpen(!isOpen)}>
                 <div 
-                    className="color-swatch-box" 
-                    style={{ background: currentColor || 'transparent', border: !currentColor ? '1px solid var(--group-divider-color)' : 'none' }}
+                    className="color-swatch-box current-color-swatch" 
+                    style={{ background: currentColor || 'transparent', border: !currentColor ? '1px dashed var(--muted)' : 'none' }}
                 ></div>
                 <span className="color-label">{label}</span>
+                {currentColor && (
+                    <button
+                        type="button"
+                        className="clear-color-x"
+                        onClick={(e) => { e.stopPropagation(); onChange(''); }}
+                        title="Clear color"
+                    >
+                        &times;
+                    </button>
+                )}
             </div>
             {isOpen && (
                 <div className="color-dropdown-list show">
@@ -41,9 +51,9 @@ const ColorDropdown = ({ currentColor, onChange }) => {
                         >
                             <div 
                                 className="color-swatch-box" 
-                                style={{ background: c.hex || 'transparent', border: !c.hex ? '1px solid var(--group-divider-color)' : 'none' }}
+                                style={{ background: c.hex || 'transparent', border: !c.hex ? '1px dashed var(--muted)' : 'none' }}
                             ></div>
-                            <span>{c.name}</span>
+                            <span>{c.hex ? c.name : 'No Color (Default)'}</span>
                         </div>
                     ))}
                 </div>

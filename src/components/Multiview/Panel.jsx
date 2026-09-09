@@ -1,21 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Player from '../VideoPlayer/Player';
 import AtemConstellationBus from '../Panels/AtemConstellationBus';
 import ErrorBoundary from '../UI/ErrorBoundary';
 import Skeleton from '../UI/Skeleton';
+import QuadrantContextMenu from '../UI/QuadrantContextMenu';
 
 // =========================================================================
-// ATEM WEB MANAGER - PANEL COMPONENT (v1.84)
+// ATEM WEB MANAGER - PANEL COMPONENT (v2.07)
 // =========================================================================
-// Renders Quadrant Skeletons during initial startup (isLoading).
 
 const Panel = ({ 
     panelId, positionIndex, currentVideoSource, isConnected, connectedDevice, isLoading,
-    enableQuadrantDrag, handleDragStart, handleDragOver, handleDragLeave, handleDrop 
+    enableQuadrantDrag, handleDragStart, handleDragOver, handleDragLeave, handleDrop, onReorderQuadrant 
 }) => {
+    const [contextMenu, setContextMenu] = useState(null);
+
+    const handleContextMenu = (e) => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY });
+    };
 
     const renderPanelContent = () => {
-        // V1.84 - Render Shimmering Quadrant Skeletons during startup load
         if (isLoading) {
             return (
                 <div style={{ width: '100%', height: '100%', padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '16px' }}>
@@ -42,21 +47,38 @@ const Panel = ({
     const content = renderPanelContent();
 
     return (
-        <div 
-            className="panel"
-            draggable={enableQuadrantDrag && !isLoading}
-            onDragStart={(e) => handleDragStart(e, positionIndex)}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, positionIndex)}
-        >
-            <div className="panel-muted-num">{panelId}</div>
-            <div className="panel-content">
-                <ErrorBoundary>
-                    {content}
-                </ErrorBoundary>
+        <>
+            <div 
+                className="panel"
+                draggable={enableQuadrantDrag && !isLoading}
+                onDragStart={(e) => handleDragStart(e, positionIndex)}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, positionIndex)}
+                onContextMenu={handleContextMenu}
+            >
+                <div className="panel-muted-num">{panelId}</div>
+                <div className="panel-content">
+                    <ErrorBoundary>
+                        {content}
+                    </ErrorBoundary>
+                </div>
             </div>
-        </div>
+
+            {contextMenu && (
+                <QuadrantContextMenu 
+                    x={contextMenu.x}
+                    y={contextMenu.y}
+                    currentQuad={panelId}
+                    onClose={() => setContextMenu(null)}
+                    onSelectQuadrant={(quadId) => {
+                        if (onReorderQuadrant) {
+                            onReorderQuadrant(positionIndex, quadId);
+                        }
+                    }}
+                />
+            )}
+        </>
     );
 };
 

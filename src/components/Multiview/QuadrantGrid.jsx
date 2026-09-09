@@ -2,7 +2,7 @@ import React from 'react';
 import Panel from './Panel';
 
 // =========================================================================
-// ATEM WEB MANAGER - QUADRANT GRID (v1.84)
+// ATEM WEB MANAGER - QUADRANT GRID (v2.07)
 // =========================================================================
 
 const QuadrantGrid = ({ 
@@ -14,6 +14,19 @@ const QuadrantGrid = ({
         const temp = newOrder[targetIndex];
         newOrder[targetIndex] = newOrder[sourceIndex];
         newOrder[sourceIndex] = temp;
+        setQuadrantOrder(newOrder);
+    };
+
+    const handleReorderQuadrant = (slotIndex, quadId) => {
+        const newOrder = [...quadrantOrder];
+        const currentQuadInSlot = newOrder[slotIndex];
+        
+        if (currentQuadInSlot === quadId) return;
+
+        const indexOfSourceQuad = newOrder.indexOf(quadId);
+        newOrder[slotIndex] = quadId;
+        newOrder[indexOfSourceQuad] = currentQuadInSlot;
+        
         setQuadrantOrder(newOrder);
     };
 
@@ -33,6 +46,7 @@ const QuadrantGrid = ({
                     handleDragOver={handleQuadrantDragOver}
                     handleDragLeave={handleQuadrantDragLeave}
                     handleDrop={(e, targetIndex) => handleQuadrantDrop(e, targetIndex, handleSwapCallback)}
+                    onReorderQuadrant={handleReorderQuadrant}
                 />
             ))}
         </>
