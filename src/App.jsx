@@ -8,7 +8,7 @@ import { useDragDrop } from './hooks/useDragDrop';
 import { useLocalStorage } from './hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v2.34.0)
+// ATEM WEB MANAGER - MASTER LAYOUT (v2.35.0)
 // =========================================================================
 
 function App() {
@@ -133,7 +133,7 @@ function App() {
             onClick={() => setShowVersion(prev => !prev)}
             title={showVersion ? "Click to hide" : "Click to reveal"}
           >
-            v2.34.0
+            v2.35.0
           </span>
 
           <div 

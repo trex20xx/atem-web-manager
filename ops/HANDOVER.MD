@@ -1,6 +1,6 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-**Current Version:** v2.32.0
-**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Self-Bootstrapping CLI with Signal Traps.
+**Current Version:** v2.35.0
+**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Unified Operations Suite.
 
 ---
 
@@ -28,8 +28,8 @@ ATEM_WEB_MANAGER/
 ├── .atem_workspace_token          # Required for secure WIPE execution
 ├── .gitignore
 ├── package.json
-├── vite.config.js
-├── index.html
+├── vite.config.js                 # Vite bundler & host configuration (Port 3000)
+├── index.html                     # HTML root shell mounting /src/main.jsx
 │
 ├── ops/                           # Operations & Documentation
 │   ├── CHANGELOG.MD               # Complete history archive (v1.72+)

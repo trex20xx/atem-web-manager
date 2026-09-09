@@ -1,4 +1,15 @@
+
+---
+
+### File 3: `ops/CHANGELOG.MD` — Complete Version History Archive (v1.72+)
+
+```markdown
 # ATEM WEB MANAGER - Complete Version History
+
+## [v2.35.0] - macOS Deployment Verification & File Extension Parity
+- Resolved macOS Finder extension hiding behavior (`index.html.txt`) and validated root HTML entry point loading.
+- Confirmed full system operational state across macOS Safari and native UNIX daemon environments.
+- Synchronized master version tags and documentation across root and `ops/`.
 
 ## [v2.34.0] - Root Entry Structure Restoration (index.html & vite.config.js)
 - Restored root `index.html` structure with `<div id="root">` DOM anchor and `/src/main.jsx` module script tag, resolving empty HTML shell delivery.
