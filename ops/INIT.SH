@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "========================================================================="
-echo " ATEM WEB MANAGER - INITIALIZING (v2.24.0)"
+echo " ATEM WEB MANAGER - INITIALIZING (v2.30.0)"
 echo "========================================================================="
 
 # Hardcoded GitHub Repository Address
@@ -34,39 +34,39 @@ if [ ! -f "$PROJECT_ROOT/package.json" ]; then
     fi
 fi
 
+# 2. Check and Install Root Dependencies
 cd "$PROJECT_ROOT" || exit
 
-# Verify Node
 if ! command -v node &> /dev/null; then
     echo "[ERROR] Node.js is not installed or not in PATH."
     exit 1
 fi
 
-# 2. Check and Install Dependencies
 if [ ! -d "node_modules" ]; then
     echo "[INFO] Installing frontend dependencies..."
     npm install
 fi
 
-cd bridge || exit
+# 3. Check and Install Bridge Dependencies
+cd "$PROJECT_ROOT/bridge" || exit
 if [ ! -d "node_modules" ]; then
     echo "[INFO] Installing hardware bridge dependencies..."
     npm install
 fi
-cd ..
 
-# 3. Terminate Lingering Bridge Processes on Port 8080
+# 4. Terminate Lingering Bridge Processes on Port 8080
 echo "[INFO] Cleaning up lingering bridge services..."
 PIDS=$(lsof -t -i:8080)
 if [ ! -z "$PIDS" ]; then
     kill -9 $PIDS
 fi
 
-# 4. Launch Hardware Bridge in Background from specific directory
+# 5. Launch Hardware Bridge in Background (from absolute bridge directory)
 echo "[INFO] Starting ATEM Hardware Bridge (Background Daemon)..."
-cd bridge && nohup node server.js > /dev/null 2>&1 &
-cd ..
+cd "$PROJECT_ROOT/bridge" || exit
+nohup node server.js > /dev/null 2>&1 &
 
-# 5. Launch Vite UI
+# 6. Launch Vite UI (from absolute project root)
+cd "$PROJECT_ROOT" || exit
 echo "[INFO] Starting Vite UI Application..."
 npm run dev

@@ -1,5 +1,30 @@
 # ATEM WEB MANAGER - Complete Version History
 
+## [v2.30.0] - macOS Subshell Directory Drift Fix
+- Resolved a critical Bash subshell quirk in `INIT.SH` where `cd bridge && ... &` trapped the directory change in a background process, causing the subsequent `cd ..` to eject the user from the project root.
+- Enforced absolute `$PROJECT_ROOT` pathing for all directory traversals in macOS deployment scripts to guarantee execution context stability.
+
+## [v2.29.0] - macOS Initialization Verification & Bridge Daemon Start
+- Verified flawless pull state on macOS hardware.
+- Synchronized `ops/INIT.SH` to ensure background bridge daemon (`nohup node server.js &`) launches properly post-migration, rectifying missing service from legacy bootstrapper execution.
+
+## [v2.28.0] - macOS Migration Preparation
+- Logged environment transition from Windows to macOS.
+- Verified readiness of native UNIX shell scripts (`INIT.SH`, `STOP.SH`, `WIPE.SH`, `PUSH.SH`) for standard bash/zsh execution.
+
+## [v2.27.0] - Explicit Portable Node Pathing & VBScript Daemon Launcher
+- Replaced PowerShell background execution in `INIT.BAT` with a dynamically generated VBScript (`atem_bridge_launcher.vbs`) to guarantee 100% hidden execution and flawless handling of spaces in file paths.
+- Enforced strict explicit paths for `node.exe` and `npm.cmd` when a custom portable Node.js directory is provided.
+- Fixed bridge daemon launch failures caused by missing `-WorkingDirectory` contexts in background processes.
+
+## [v2.26.0] - Auto-Detect Portable Node.js Engine
+- Upgraded `INIT.BAT` with smart detection for portable (non-global) Node.js installations.
+- Implemented an interactive prompt to capture custom `node.exe` paths (e.g., NVM or extracted binaries) if global `node -v` fails.
+- Added persistent path caching via `.atem_node_path` so the user is only prompted once.
+
+## [v2.25.0] - Strict Delayed Expansion Validation
+- Replaced volatile `if errorlevel 1` checks with strict `if !ERRORLEVEL! NEQ 0` delayed expansion evaluation in `INIT.BAT` to prevent inherited error codes from failing the Node.js validation check.
+
 ## [v2.24.0] - Robust Node Execution Validation in Auto-Clone Initialization
 - Replaced volatile `where node` verification in `INIT.BAT` with bulletproof `call node -v` execution checking to bypass delayed expansion artifacts.
 - Added pre-clone Git environment verification to gracefully intercept clone failures.
