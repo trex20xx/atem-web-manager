@@ -1,6 +1,6 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-**Current Version:** v2.31.0
-**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Unified Operations Suite.
+**Current Version:** v2.32.0
+**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Self-Bootstrapping CLI with Signal Traps.
 
 ---
 
@@ -34,8 +34,8 @@ ATEM_WEB_MANAGER/
 ├── ops/                           # Operations & Documentation
 │   ├── CHANGELOG.MD               # Complete history archive (v1.72+)
 │   ├── HANDOVER.MD                # Master documentation and spec (THIS FILE)
-│   ├── OPS.BAT                    # Master Interactive Windows CLI (Init, Stop, Push, Pull, Branch, Merge, Wipe)
-│   └── OPS.SH                     # Master Interactive macOS/Linux CLI (Init, Stop, Push, Pull, Branch, Merge, Wipe)
+│   ├── OPS.BAT                    # Master Windows CLI with Signal Trap & Self-Bootstrap
+│   └── OPS.SH                     # Master macOS/Linux CLI with Signal Trap & Self-Bootstrap
 │
 ├── bridge/                        # Node.js Hardware Bridge
 │   ├── package.json
@@ -47,9 +47,9 @@ ATEM_WEB_MANAGER/
     ├── index.css                  # Global styles, Apple Switch, Pill Context Menu, Macro Grid
     ├── components/            
     │   ├── UI/                    # Skeleton, GlobalTooltip, ErrorBoundary, QuadrantContextMenu
-    │   ├── Sidebar/               # Sidebar, SearchBar, DeviceList, DeviceRow, ColorDropdown, BottomActionBtn
-    │   ├── Multiview/             # QuadrantGrid, Panel (Routes Q1 Player, Q2 Macros, Q3 Switcher)
-    │   ├── Panels/                # AtemConstellationBus.jsx, AtemMacros.jsx (Hardware-locked to 192.168.10.240)
-    │   ├── VideoPlayer/           # Player, OverlayDrawer, QualityMenu, SnapshotEngine
-    │   └── Settings/              # SettingsModal
-    └── hooks/                     # useDevices, useDragDrop, useLocalStorage
+    │   ├── Sidebar/           # Sidebar, SearchBar, DeviceList, DeviceRow, ColorDropdown, BottomActionBtn
+    │   ├── Multiview/         # QuadrantGrid, Panel (Routes Q1 Player, Q2 Macros, Q3 Switcher)
+    │   ├── Panels/            # AtemConstellationBus.jsx, AtemMacros.jsx (Hardware-locked to 192.168.10.240)
+    │   ├── VideoPlayer/       # Player, OverlayDrawer, QualityMenu, SnapshotEngine
+    │   └── Settings/          # SettingsModal
+    └── hooks/                 # useDevices, useDragDrop, useLocalStorage

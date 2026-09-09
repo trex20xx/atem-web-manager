@@ -1,10 +1,15 @@
 
 ---
 
-### File 4: `ops/CHANGELOG.MD`
+### File 5: `ops/CHANGELOG.MD`
 
 ```markdown
 # ATEM WEB MANAGER - Complete Version History
+
+## [v2.32.0] - Automated Bridge Termination on Exit & Zero-Backup One-Liner Bootstrap
+- Integrated bash signal traps (`trap cleanup_bridge EXIT INT TERM`) into `ops/OPS.SH` and post-exit listeners into `ops/OPS.BAT` to automatically terminate the background bridge daemon (port 8080) when the Vite UI server stops.
+- Upgraded `OPS.SH` with self-bootstrapping capabilities: users can now download and execute `OPS.SH` via a single curl command with zero pre-existing files on disk.
+- Documented ghost-script workspace destruction architecture and zero-backup deployment flows in `ops/HANDOVER.MD`.
 
 ## [v2.31.0] - Operations Unification, Git Executable Bit Fix & Documentation Consolidation
 - Replaced scattered automation scripts with a unified, interactive operations suite: `ops/OPS.SH` (macOS) and `ops/OPS.BAT` (Windows) handling Init, Stop, Push, Pull, Branch, Merge, and Wipe.

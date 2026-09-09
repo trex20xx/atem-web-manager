@@ -1,21 +1,28 @@
 #!/usr/bin/env bash
 # =========================================================================
-# ATEM WEB MANAGER - MASTER OPERATIONS SUITE (v2.31.0)
+# ATEM WEB MANAGER - MASTER OPERATIONS SUITE (v2.32.0)
 # =========================================================================
-# Unified Interactive CLI: Init, Stop, Push, Pull, Branch, Merge, Wipe.
+# Self-bootstrapping CLI with signal traps for automatic daemon termination.
 
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_URL="https://github.com/robertmirt/ATEM_WEB_MANAGER.git"
-TOKEN_FILE="$PROJECT_ROOT/.atem_workspace_token"
-EXPECTED_KEY="ATEM_MANAGER_SECURE_WIPE_KEY_2026"
+TOKEN_KEY="ATEM_MANAGER_SECURE_WIPE_KEY_2026"
 
-cd "$PROJECT_ROOT" || exit 1
+# Detect project root or default to local clone path
+if [ -f "$(pwd)/package.json" ]; then
+    PROJECT_ROOT="$(pwd)"
+elif [ -f "$(dirname "${BASH_SOURCE[0]}")/../package.json" ]; then
+    PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+else
+    PROJECT_ROOT="$(pwd)/ATEM_WEB_MANAGER"
+fi
+
+cd "$PROJECT_ROOT" 2>/dev/null
 
 show_menu() {
     clear
-    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "detached")
+    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "not-cloned")
     echo "========================================================================="
-    echo "        ATEM WEB MANAGER - OPERATIONS SUITE (v2.31.0)                   "
+    echo "        ATEM WEB MANAGER - OPERATIONS SUITE (v2.32.0)                   "
     echo "        Active Branch: [$CURRENT_BRANCH]                                "
     echo "========================================================================="
     echo "  [1] INIT    - Install dependencies, start bridge, and launch UI       "
@@ -32,44 +39,77 @@ show_menu() {
 
 do_init() {
     echo ""
-    echo "[INFO] Running Initialization..."
-    
-    # Verify Node
+    echo "[INFO] Verifying workspace..."
+
+    # 1. Auto-Clone if project is missing
+    if [ ! -f "$PROJECT_ROOT/package.json" ]; then
+        echo "[INFO] Project files not detected in current directory."
+        read -p "Enter installation target directory [$PROJECT_ROOT]: " USER_DIR
+        PROJECT_ROOT="${USER_DIR:-$PROJECT_ROOT}"
+        
+        echo "[INFO] Cloning 'main' branch from $REPO_URL..."
+        git clone -b main "$REPO_URL" "$PROJECT_ROOT"
+        if [ $? -ne 0 ]; then
+            echo "[ERROR] Git clone failed. Check your internet connection."
+            read -p "Press Enter to continue..."
+            return
+        fi
+    fi
+
+    cd "$PROJECT_ROOT" || exit 1
+
+    # 2. Verify Node
     if ! command -v node &> /dev/null; then
         echo "[ERROR] Node.js is not installed or not in PATH."
         read -p "Press Enter to continue..."
         return
     fi
 
-    # Install Frontend Dependencies
+    # 3. Install Frontend Dependencies
     if [ ! -d "$PROJECT_ROOT/node_modules" ]; then
         echo "[INFO] Installing frontend dependencies..."
         npm install
     fi
 
-    # Install Bridge Dependencies
+    # 4. Install Bridge Dependencies
     if [ ! -d "$PROJECT_ROOT/bridge/node_modules" ]; then
         echo "[INFO] Installing bridge dependencies..."
         cd "$PROJECT_ROOT/bridge" && npm install
         cd "$PROJECT_ROOT" || exit 1
     fi
 
-    # Kill Lingering Bridge on Port 8080
+    # 5. Terminate Lingering Bridge on Port 8080
     PIDS=$(lsof -t -i:8080 2>/dev/null)
     if [ -n "$PIDS" ]; then
         echo "[INFO] Terminating old bridge instance..."
         kill -9 $PIDS 2>/dev/null
     fi
 
-    # Launch Bridge Daemon in Background
+    # 6. Launch Bridge Daemon in Background
     echo "[INFO] Starting ATEM Hardware Bridge (Background Daemon)..."
     cd "$PROJECT_ROOT/bridge" || exit 1
     nohup node server.js > /dev/null 2>&1 &
     cd "$PROJECT_ROOT" || exit 1
 
-    # Launch Vite Development Server
+    # 7. Setup Trap: Auto-terminate bridge daemon when Vite exits (Ctrl+C)
+    cleanup_bridge() {
+        echo ""
+        echo "[INFO] Vite UI stopped. Terminating background bridge daemon..."
+        BRIDGE_PIDS=$(lsof -t -i:8080 2>/dev/null)
+        if [ -n "$BRIDGE_PIDS" ]; then
+            kill -9 $BRIDGE_PIDS 2>/dev/null
+            echo "[SUCCESS] Bridge daemon terminated cleanly."
+        fi
+    }
+    trap cleanup_bridge EXIT INT TERM
+
+    # 8. Launch Vite Development Server
     echo "[INFO] Starting Vite UI Application..."
     npm run dev
+
+    # Reset signal traps after clean exit
+    trap - EXIT INT TERM
+    cleanup_bridge
 }
 
 do_stop() {
@@ -142,13 +182,14 @@ do_merge() {
 do_wipe() {
     echo ""
     echo "[SECURITY] Verifying workspace token..."
+    TOKEN_FILE="$PROJECT_ROOT/.atem_workspace_token"
     if [ ! -f "$TOKEN_FILE" ]; then
         echo "[ERROR] Security token '$TOKEN_FILE' missing! Wipe aborted."
         read -p "Press Enter to continue..."
         return
     fi
     KEY=$(cat "$TOKEN_FILE")
-    if [ "$KEY" != "$EXPECTED_KEY" ]; then
+    if [ "$KEY" != "$TOKEN_KEY" ]; then
         echo "[ERROR] Security token mismatch! Wipe aborted."
         read -p "Press Enter to continue..."
         return
@@ -162,13 +203,13 @@ do_wipe() {
         return
     fi
 
-    # Kill active processes
+    # Terminate active processes
     PIDS=$(lsof -t -i:8080 -i:5173 2>/dev/null)
     if [ -n "$PIDS" ]; then kill -9 $PIDS 2>/dev/null; fi
 
     cd /tmp || exit 1
     rm -rf "$PROJECT_ROOT"
-    echo "[SUCCESS] Project directory completely erased."
+    echo "[SUCCESS] Project directory completely erased from drive."
     exit 0
 }
 

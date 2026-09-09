@@ -1,21 +1,21 @@
 @echo off
 setlocal EnableDelayedExpansion
-title ATEM WEB MANAGER - OPERATIONS SUITE (v2.31.0)
+title ATEM WEB MANAGER - OPERATIONS SUITE (v2.32.0)
+
+set "REPO_URL=https://github.com/robertmirt/ATEM_WEB_MANAGER.git"
+set "EXPECTED_KEY=ATEM_MANAGER_SECURE_WIPE_KEY_2026"
 
 set "PROJECT_ROOT=%~dp0\.."
 if not exist "%PROJECT_ROOT%\package.json" set "PROJECT_ROOT=%CD%"
 cd /d "%PROJECT_ROOT%"
 
-set "TOKEN_FILE=%PROJECT_ROOT%\.atem_workspace_token"
-set "EXPECTED_KEY=ATEM_MANAGER_SECURE_WIPE_KEY_2026"
-
 :MENU
 cls
 for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set "CURRENT_BRANCH=%%b"
-if "!CURRENT_BRANCH!"=="" set "CURRENT_BRANCH=detached"
+if "!CURRENT_BRANCH!"=="" set "CURRENT_BRANCH=not-cloned"
 
 echo =========================================================================
-echo         ATEM WEB MANAGER - OPERATIONS SUITE (v2.31.0)                    
+echo         ATEM WEB MANAGER - OPERATIONS SUITE (v2.32.0)                    
 echo         Active Branch: [!CURRENT_BRANCH!]                                
 echo =========================================================================
 echo   [1] INIT    - Install dependencies, start bridge, and launch UI        
@@ -41,7 +41,17 @@ goto MENU
 
 :DO_INIT
 echo.
-echo [INFO] Initializing environment...
+echo [INFO] Verifying workspace...
+
+:: Auto-clone if missing
+if not exist "%PROJECT_ROOT%\package.json" (
+    echo [INFO] Project files not found in current directory.
+    set /p "USER_DIR=Enter installation path (e.g. C:\Users\robert.mirt\Desktop\ATEM_WEB_MANAGER): "
+    if "!USER_DIR!"=="" set "USER_DIR=%CD%\ATEM_WEB_MANAGER"
+    git clone -b main !REPO_URL! "!USER_DIR!"
+    set "PROJECT_ROOT=!USER_DIR!"
+    cd /d "!PROJECT_ROOT!"
+)
 
 :: Portable Node check
 set "NODE_EXE=node"
@@ -75,7 +85,15 @@ echo WshShell.CurrentDirectory = "!PROJECT_ROOT!\bridge" >> "!VBS_SCRIPT!"
 echo WshShell.Run """!NODE_EXE!"" server.js", 0, False >> "!VBS_SCRIPT!"
 cscript //nologo "!VBS_SCRIPT!"
 
+:: Launch Vite UI
 call "!NPM_EXE!" run dev
+
+:: Automatic Bridge Termination on Vite Exit
+echo.
+echo [INFO] Vite UI stopped. Terminating background bridge daemon...
+for /f "tokens=5" %%a in ('netstat -aon ^| find ":8080" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
+echo [SUCCESS] Bridge daemon terminated cleanly.
+pause
 goto MENU
 
 :DO_STOP
@@ -131,6 +149,7 @@ goto MENU
 
 :DO_WIPE
 echo.
+set "TOKEN_FILE=%PROJECT_ROOT%\.atem_workspace_token"
 if not exist "%TOKEN_FILE%" (
     echo [ERROR] Security token '%TOKEN_FILE%' not found. Aborted.
     pause
@@ -157,7 +176,7 @@ set "GHOST=%TEMP%\atem_wiper.bat"
 echo @echo off > "%GHOST%"
 echo timeout /t 3 /nobreak ^>nul >> "%GHOST%"
 echo rmdir /s /q "%PROJECT_ROOT%" >> "%GHOST%"
-echo echo [SUCCESS] Entire workspace deleted. >> "%GHOST%"
+echo echo [SUCCESS] Entire workspace deleted from drive. >> "%GHOST%"
 echo pause >> "%GHOST%"
 echo del "%%~f0" >> "%GHOST%"
 start "" "%GHOST%"
