@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableDelayedExpansion
-title ATEM WEB MANAGER - BOOTSTRAPPER (v2.25.0)
+title ATEM WEB MANAGER - BOOTSTRAPPER (v2.26.0)
 
 :: Hardcoded GitHub Repository Address
 set "REPO_URL=https://github.com/robertmirt/ATEM_WEB_MANAGER.git"
@@ -46,18 +46,48 @@ if not exist "%PROJECT_ROOT%\package.json" (
 
 echo.
 echo =========================================================================
-echo  ATEM WEB MANAGER - INITIALIZING (v2.25.0)
+echo  ATEM WEB MANAGER - INITIALIZING (v2.26.0)
 echo =========================================================================
 echo.
 
-:: 2. Verify Node.js Environment (Using strict delayed expansion check to prevent inherited errors)
+:: 2. Verify Node.js Environment (With Portable / Custom Path Support)
+set "NODE_EXE=node"
 call node -v >nul 2>&1
 if !ERRORLEVEL! NEQ 0 (
-    echo [ERROR] Node.js is not installed or not in PATH.
-    echo Please install Node.js from https://nodejs.org/
-    pause
-    exit /b 1
+    :: Check if a custom path was previously saved
+    if exist "%PROJECT_ROOT%\.atem_node_path" (
+        set /p CUSTOM_NODE_PATH=<"%PROJECT_ROOT%\.atem_node_path"
+        set "PATH=!CUSTOM_NODE_PATH!;!PATH!"
+    )
+    
+    call node -v >nul 2>&1
+    if !ERRORLEVEL! NEQ 0 (
+        echo [WARNING] Node.js is not globally installed in your system PATH.
+        echo If you are using a portable version, please provide the folder path.
+        echo ^(e.g., C:\Users\robert.mirt\Downloads\APPS\INSTALLED\node-v24.20.0-win-x64^)
+        echo.
+        set /p CUSTOM_NODE_PATH="Portable Node.js Folder Path: "
+        
+        if "!CUSTOM_NODE_PATH!"=="" (
+            echo [ERROR] No path provided. Aborting.
+            pause
+            exit /b 1
+        )
+        
+        if not exist "!CUSTOM_NODE_PATH!\node.exe" (
+            echo [ERROR] node.exe was not found in "!CUSTOM_NODE_PATH!".
+            pause
+            exit /b 1
+        )
+        
+        :: Save it so we never have to ask again
+        echo !CUSTOM_NODE_PATH!> "%PROJECT_ROOT%\.atem_node_path"
+        set "PATH=!CUSTOM_NODE_PATH!;!PATH!"
+    )
 )
+
+:: Resolve exact absolute path for PowerShell Background task execution
+for %%X in (node.exe) do (set "NODE_EXE=%%~dp$PATH:Xnode.exe")
 
 :: 3. Check and Install Root Dependencies
 if not exist "node_modules\" (
@@ -78,9 +108,9 @@ for /f "tokens=5" %%a in ('netstat -aon ^| find ":8080" ^| find "LISTENING"') do
     taskkill /f /pid %%a >nul 2>nul
 )
 
-:: 6. Launch Hardware Bridge COMPLETELY HIDDEN in Background with EXACT Working Directory
+:: 6. Launch Hardware Bridge COMPLETELY HIDDEN in Background
 echo [INFO] Starting ATEM Hardware Bridge (Background Daemon)...
-powershell -NoProfile -WindowStyle Hidden -Command "Start-Process node -ArgumentList 'server.js' -WorkingDirectory '%PROJECT_ROOT%\bridge' -WindowStyle Hidden"
+powershell -NoProfile -WindowStyle Hidden -Command "Start-Process '!NODE_EXE!' -ArgumentList 'server.js' -WorkingDirectory '%PROJECT_ROOT%\bridge' -WindowStyle Hidden"
 
 :: 7. Launch Vite Development Server in Current Console
 echo [INFO] Starting Vite UI Application...
