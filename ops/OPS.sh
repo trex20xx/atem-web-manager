@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =========================================================================
-# ATEM WEB MANAGER - MASTER OPERATIONS SUITE (v2.36.0)
+# ATEM WEB MANAGER - MASTER OPERATIONS SUITE (v2.37.0)
 # =========================================================================
 # Unified Interactive CLI: Init, Stop, Push, Pull, Branch, Merge, Wipe, Export.
 
@@ -22,7 +22,7 @@ show_menu() {
     clear
     CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "not-cloned")
     echo "========================================================================="
-    echo "        ATEM WEB MANAGER - OPERATIONS SUITE (v2.36.0)                   "
+    echo "        ATEM WEB MANAGER - OPERATIONS SUITE (v2.37.0)                   "
     echo "        Active Branch: [$CURRENT_BRANCH]                                "
     echo "========================================================================="
     echo "  [1] INIT    - Install dependencies, start bridge, and launch UI       "

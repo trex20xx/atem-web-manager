@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableDelayedExpansion
-title ATEM WEB MANAGER - OPERATIONS SUITE (v2.36.0)
+title ATEM WEB MANAGER - OPERATIONS SUITE (v2.37.0)
 
 set "REPO_URL=https://github.com/trex20xx/atem-web-manager.git"
 set "EXPECTED_KEY=ATEM_MANAGER_SECURE_WIPE_KEY_2026"
@@ -15,7 +15,7 @@ for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set "CURR
 if "!CURRENT_BRANCH!"=="" set "CURRENT_BRANCH=not-cloned"
 
 echo =========================================================================
-echo         ATEM WEB MANAGER - OPERATIONS SUITE (v2.36.0)                    
+echo         ATEM WEB MANAGER - OPERATIONS SUITE (v2.37.0)                    
 echo         Active Branch: [!CURRENT_BRANCH!]                                
 echo =========================================================================
 echo   [1] INIT    - Install dependencies, start bridge, and launch UI        

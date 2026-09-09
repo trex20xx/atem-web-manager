@@ -1,5 +1,5 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-**Current Version:** v2.36.0
+**Current Version:** v2.37.0
 **Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Unified Operations Suite with Codebase Exporter.
 
 ---
@@ -27,6 +27,7 @@
 ATEM_WEB_MANAGER/
 ├── .atem_workspace_token          # Required for secure WIPE execution
 ├── .gitignore                     # Excludes node_modules, dist, codebase.txt, logs
+├── package-lock.json              # Preserved in Git for deterministic dependency tree
 ├── package.json
 ├── vite.config.js                 # Vite bundler & host configuration (Port 3000)
 ├── index.html                     # HTML root shell mounting /src/main.jsx
@@ -38,6 +39,7 @@ ATEM_WEB_MANAGER/
 │   └── OPS.SH                     # Master macOS/Linux CLI (Init, Stop, Push, Pull, Branch, Merge, Wipe, Export)
 │
 ├── bridge/                        # Node.js Hardware Bridge
+│   ├── package-lock.json          # Bridge deterministic lockfile
 │   ├── package.json
 │   └── server.js                  # Live two-way ATEM polling, macro triggers & WebSocket broadcast
 │
@@ -46,10 +48,27 @@ ATEM_WEB_MANAGER/
     ├── App.jsx                    # Master Layout, Top Control Bar, Synchronized Collapse
     ├── index.css                  # Global styles, Apple Switch, Pill Context Menu, Macro Grid
     ├── components/            
-    │   ├── UI/                # Skeleton, GlobalTooltip, ErrorBoundary, QuadrantContextMenu
+    │   ├── UI/                    # Skeleton, GlobalTooltip, ErrorBoundary, QuadrantContextMenu
     │   ├── Sidebar/           # Sidebar, SearchBar, DeviceList, DeviceRow, ColorDropdown, BottomActionBtn
     │   ├── Multiview/         # QuadrantGrid, Panel (Routes Q1 Player, Q2 Macros, Q3 Switcher)
     │   ├── Panels/            # AtemConstellationBus.jsx, AtemMacros.jsx (Hardware-locked to 192.168.10.240)
     │   ├── VideoPlayer/       # Player, OverlayDrawer, QualityMenu, SnapshotEngine
     │   └── Settings/          # SettingsModal
     └── hooks/                 # useDevices, useDragDrop, useLocalStorage
+```
+
+---
+
+## 3. MASTER OPERATIONS CLI (`OPS.SH` & `OPS.BAT`)
+Execute directly from inside your project directory:
+- **macOS / Linux:** `bash ops/OPS.SH`
+- **Windows:** `ops\OPS.BAT`
+
+### Zero-Backup One-Liner Bootstrapper (macOS / Linux)
+Because the repository is private, clone and launch using Git authentication:
+```bash
+git clone https://github.com/trex20xx/atem-web-manager.git ATEM_WEB_MANAGER && cd ATEM_WEB_MANAGER && bash ops/OPS.SH
+```
+
+### Signal Trap & Process Lifecycle
+When you launch the Vite UI using option `[1] INIT`, the scripts attach an automatic exit trap. Pressing `Ctrl + C` to stop the Vite server automatically searches for and kills the background Node.js bridge daemon on port 8080.

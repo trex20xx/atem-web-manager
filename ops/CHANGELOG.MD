@@ -1,10 +1,9 @@
-
----
-
-### File 6: `ops/CHANGELOG.MD` — Complete Version History Archive (v1.72+)
-
-```markdown
 # ATEM WEB MANAGER - Complete Version History
+
+## [v2.37.0] - Markdown Code Fence Formatting & Package Lockfile Clarification
+- Fortified code block fence formatting across AI delivery artifacts to eliminate nested block parser errors.
+- Clarified lockfile lifecycle: validated `package-lock.json` retention in repository while intentionally excluding lockfile hashes from AI codebase exports.
+- Synchronized master application version tag to v2.37.0 across layout and documentation.
 
 ## [v2.36.0] - AI Codebase Packaging Engine & Workspace Hygiene
 - Added option `[8] EXPORT` to both `ops/OPS.SH` and `ops/OPS.BAT` to automatically serialize root configuration files, bridge server scripts, and React source trees into `codebase.txt`.
