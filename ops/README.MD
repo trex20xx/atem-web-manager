@@ -14,7 +14,7 @@
 - **Corner Radii:** Buttons `--pill-radius: 24px` | Panels `--panel-radius: 9px`
 - **Video Player UI:** YouTube replica layout with SVG masks, STRICT 30% overlay transparency (`rgba(30, 30, 30, 0.3)`)
 - **Multiview 16:9:** Strictly maintained aspect ratio under all resize/collapse states
-- **Hardware Target IP:** Switcher panel strictly locked to `192.168.10.240`
+- **Hardware Target IP:** Switcher and Macro panels strictly locked to `192.168.10.240`
 - **Sidebar Dimensions:** Row height locked to `30px`, 4px equidistant edit button geometry
 - **Top Bar:** Apple-style tactile slider with embedded SVG sun/moon icons matching settings gear; synchronized collapse/zoom animations
 

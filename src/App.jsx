@@ -8,9 +8,9 @@ import { useDragDrop } from './hooks/useDragDrop';
 import { useLocalStorage } from './hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v2.16.0)
+// ATEM WEB MANAGER - MASTER LAYOUT (v2.19.0)
 // =========================================================================
-// Unified Top Navigation Bar, Zero-Overlap 16:9 Math, Apple Theme Switch.
+// Centered Zoomed Quadrants, Synchronized Sidebar, High-Contrast Apple Switch.
 
 function App() {
   const [theme, setTheme] = useLocalStorage('atem_theme', 'default');
@@ -42,7 +42,7 @@ function App() {
   const connectedDevice = deviceState.devices.find(d => d.status === 'online');
   const isConnected = !!connectedDevice;
 
-  // Zero-Overlap 16:9 Math Engine (Accounting cleanly for Top Bar)
+  // Zero-Overlap 16:9 Math Engine
   useEffect(() => {
     const handleResize = () => {
       const topBarHeight = 42;
@@ -62,8 +62,8 @@ function App() {
       }
 
       setDashboardStyle({
-        width: Math.max(100, width),
-        height: Math.max(100, height)
+        width: Math.max(100, Math.round(width)),
+        height: Math.max(100, Math.round(height))
       });
     };
 
@@ -138,10 +138,10 @@ function App() {
             onClick={() => setShowVersion(prev => !prev)}
             title={showVersion ? "Click to hide" : "Click to reveal"}
           >
-            v2.16.0
+            v2.19.0
           </span>
 
-          {/* Apple-Style Monochrome Theme Switch with Sun/Moon Icons */}
+          {/* Apple-Style Monochrome Theme Switch with Solid Black Sun/Moon Icons */}
           <div 
             className={`apple-theme-switch ${theme === 'light' ? 'active' : ''}`}
             onClick={toggleLightMode}
@@ -149,12 +149,20 @@ function App() {
           >
             <div className="apple-switch-thumb">
               {theme === 'light' ? (
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.29 1.29c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.29 1.29c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41l-1.29-1.29zm-13.78 1.41l1.29-1.29c.39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0l-1.29 1.29c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0zm12.37-12.37l1.29-1.29c.39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0l-1.29 1.29c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0z"/>
+                <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#000000" strokeWidth="2.8" strokeLinecap="round">
+                  <circle cx="12" cy="12" r="4.5" fill="#000000" stroke="none" />
+                  <line x1="12" y1="1.5" x2="12" y2="4.5" />
+                  <line x1="12" y1="19.5" x2="12" y2="22.5" />
+                  <line x1="1.5" y1="12" x2="4.5" y2="12" />
+                  <line x1="19.5" y1="12" x2="22.5" y2="12" />
+                  <line x1="4.5" y1="4.5" x2="6.7" y2="6.7" />
+                  <line x1="17.3" y1="17.3" x2="19.5" y2="19.5" />
+                  <line x1="4.5" y1="19.5" x2="6.7" y2="17.3" />
+                  <line x1="17.3" y1="6.7" x2="19.5" y2="4.5" />
                 </svg>
               ) : (
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12.3 2a10 10 0 0 0-.19 2 10 10 0 0 0 10 10c.7 0 1.37-.07 2-.19A10 10 0 0 1 12.3 2z"/>
+                <svg viewBox="0 0 24 24" width="10" height="10" fill="#000000">
+                  <path d="M20.5 14.8A9 9 0 0 1 9.2 3.5a9.5 9.5 0 1 0 11.3 11.3z" />
                 </svg>
               )}
             </div>

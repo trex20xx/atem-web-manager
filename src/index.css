@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.16.0)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.19.0)
  * =========================================================================
  */
 
@@ -21,6 +21,8 @@
     --device-font-weight:400;
     --green:#34a853;
     --red:#ea4335;
+    --orange:#e67e22;
+    --orange-hl:#ff9436;
     --tally-opacity: 0.85;
 
     --atem-bg: #222222;
@@ -70,19 +72,61 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .top-bar-version:hover { color: var(--text); }
 .top-bar-version.faded:hover { opacity: 0.35; }
 
-/* Apple-Style Sized Theme Switch with Embedded Sun/Moon Icons */
+/* Apple-Style Sized Theme Switch with Embedded Solid Black Icons */
 .apple-theme-switch { width: 36px; height: 20px; border-radius: 10px; background: #222; border: 1px solid #444; display: flex; align-items: center; padding: 2px; cursor: pointer; transition: background 0.25s ease, border-color 0.25s ease; position: relative; }
-.apple-switch-thumb { width: 14px; height: 14px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; color: #121212; transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); transform: translateX(0); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-.apple-switch-thumb svg { width: 9px; height: 9px; display: block; }
+.apple-switch-thumb { width: 14px; height: 14px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; color: #000000; transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); transform: translateX(0); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+.apple-switch-thumb svg { width: 10px; height: 10px; display: block; }
 .apple-theme-switch.active { background: #383838; border-color: #666; }
 .apple-theme-switch.active .apple-switch-thumb { transform: translateX(16px); }
 
-/* Left-Anchored Dashboard for Flawless Collapsed Alignment */
-.dashboard{ flex: 1; width: 100%; display: flex; justify-content: flex-start; align-items: center; gap: var(--gap); padding: 8px 16px 16px 16px; box-sizing: border-box; overflow: hidden; }
+/* Centering Dashboard with Marginal Padding Boundary */
+.dashboard{ 
+    flex: 1; 
+    width: 100%; 
+    display: flex; 
+    justify-content: flex-start; 
+    align-items: center; 
+    gap: var(--gap); 
+    padding: 8px 16px 16px 16px; 
+    box-sizing: border-box; 
+    overflow: hidden; 
+    position: relative; 
+}
 
-/* Smooth Simultaneous Width & Opacity Sidebar Collapse */
-.sidebar{ width:260px; min-width:260px; background:var(--panel); border-radius:var(--panel-radius); display:flex; flex-direction:column; overflow:hidden; transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease, margin 0.35s ease; opacity: 1; }
-.sidebar.collapsed { width: 0 !important; min-width: 0 !important; opacity: 0 !important; margin: 0 !important; pointer-events: none !important; overflow: hidden !important; }
+.dashboard.sidebar-collapsed { 
+    justify-content: center; /* Horizontally centers zoomed quadrants within 16px padding */
+}
+
+/* Smooth Simultaneous Width, Height, and Slide-Out Transition */
+.sidebar{ 
+    width: 260px; 
+    min-width: 260px; 
+    background: var(--panel); 
+    border-radius: var(--panel-radius); 
+    display: flex; 
+    flex-direction: column; 
+    overflow: hidden; 
+    opacity: 1;
+    transform: translateX(0);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                width 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+                min-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+                margin 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+                height 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+                opacity 0.25s ease;
+    flex-shrink: 0;
+}
+
+.sidebar.collapsed { 
+    width: 0 !important; 
+    min-width: 0 !important; 
+    margin-right: calc(-1 * var(--gap)) !important;
+    margin-left: 0 !important;
+    opacity: 0 !important; 
+    transform: translateX(-100%) !important;
+    pointer-events: none !important; 
+    overflow: hidden !important; 
+}
 
 .search-container{ padding: 8px 8px 4px 8px; width: 100%; }
 .device-list{ flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
@@ -167,7 +211,15 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .edit-save{ background:var(--green); }
 .edit-cancel{ background:#4a4a4a; }
 
-.quadrant-wrapper{ display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:var(--gap); flex-shrink: 0; transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
+.quadrant-wrapper{ 
+    display:grid; 
+    grid-template-columns:1fr 1fr; 
+    grid-template-rows:1fr 1fr; 
+    gap:var(--gap); 
+    flex-shrink: 0; 
+    transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+                height 0.35s cubic-bezier(0.4, 0, 0.2, 1); 
+}
 
 .panel { background:var(--panel); display:flex; flex-direction:column; position:relative; clip-path: inset(0 round var(--panel-radius)); -webkit-transform: translateZ(0); transform: translateZ(0); }
 .panel.drag-over-quadrant { background:rgba(150,150,150,0.2); }
@@ -241,7 +293,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .sidebar.variant-classic { background: var(--panel); }
 .sidebar.variant-floating { background: rgba(31, 31, 31, 0.5); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5); }
 
-/* ATEM SWITCHER CSS */
+/* ATEM SWITCHER BUS CSS */
 .atem-constellation-panel { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 12px; background: var(--panel); box-sizing: border-box; font-family: var(--le-font-family); color: var(--text); user-select: none; overflow: hidden; }
 .atem-bus-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(150,150,150,0.15); padding-bottom: 4px; flex-shrink: 0; }
 .atem-bus-title-group { display: flex; align-items: center; gap: 6px; }
@@ -276,3 +328,281 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-bus-lock-badge { background: rgba(234, 67, 53, 0.15); border: 1px solid rgba(234, 67, 53, 0.4); color: var(--red); font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 4px; letter-spacing: 0.8px; }
 .atem-bus-lock-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
 .atem-bus-lock-desc strong { color: var(--text); font-family: monospace; }
+
+/* =========================================================================
+   ATEM MACROS PANEL (QUADRANT 2)
+   ========================================================================= */
+.atem-macros-panel {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #181818;
+    box-sizing: border-box;
+    font-family: var(--le-font-family);
+    color: var(--text);
+    user-select: none;
+    overflow: hidden;
+}
+
+.macro-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.macro-header-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: #dedede;
+}
+
+.macro-mode-switch {
+    display: flex;
+    background: #101010;
+    border-radius: 4px;
+    padding: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.macro-mode-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.macro-mode-btn.active {
+    background: #2b2b2b;
+    color: var(--orange-hl);
+}
+
+/* Control Toolbar */
+.macro-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 2px;
+}
+
+.macro-toggle-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.macro-toggle-circle {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 255, 255, 0.4);
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.macro-toggle-circle.active {
+    background: var(--orange);
+    border-color: var(--orange-hl);
+    box-shadow: 0 0 4px rgba(230, 126, 34, 0.5);
+}
+
+.macro-toggle-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text);
+    opacity: 0.9;
+}
+
+.macro-actions-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.macro-action-btn {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #262626;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s ease;
+    padding: 0;
+}
+
+.macro-action-btn svg {
+    width: 11px;
+    height: 11px;
+    fill: currentColor;
+}
+
+.macro-action-btn:hover:not(:disabled) {
+    background: #333333;
+    color: var(--text);
+}
+
+.macro-action-btn.play-btn.ready {
+    color: var(--green);
+}
+
+.macro-action-btn.stop-btn.active {
+    color: var(--red);
+    background: #3a1c1a;
+}
+
+.macro-action-btn.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* 20-Button Matrix Grid (2 Columns x 10 Rows) */
+.macro-matrix-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: repeat(10, 1fr);
+    gap: 3px 6px;
+    padding: 4px 0;
+    overflow: hidden;
+}
+
+.macro-slot-btn {
+    background: #202020;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    color: #bcbcbc;
+    font-size: 10px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: all 0.12s ease;
+}
+
+.macro-slot-btn:hover {
+    background: #2a2a2a;
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
+}
+
+.macro-slot-btn.selected {
+    border-color: var(--orange);
+    background: #2f2720;
+    color: #ffffff;
+}
+
+.macro-slot-btn.running {
+    border-color: var(--green) !important;
+    background: #1b2d1f !important;
+    color: #ffffff !important;
+    animation: pulse 1s infinite alternate;
+}
+
+.macro-slot-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+}
+
+/* Status Bar */
+.macro-status-bar {
+    background: #141414;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 3px;
+    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 2px 0;
+}
+
+.macro-status-text {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.4px;
+}
+
+/* Pagination Footer with Carousel Dots */
+.macro-pagination-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 2px;
+}
+
+.macro-page-nav-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    transition: all 0.15s ease;
+}
+
+.macro-page-nav-btn:hover:not(:disabled) {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.macro-page-nav-btn:disabled {
+    opacity: 0.2;
+    cursor: not-allowed;
+}
+
+.macro-page-dots-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.macro-page-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #383838;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.macro-page-dot:hover {
+    background: #666666;
+}
+
+.macro-page-dot.active {
+    background: #ffffff;
+    transform: scale(1.2);
+}

@@ -1,6 +1,6 @@
 # ATEM WEB MANAGER - MASTER AI HANDOVER SPECIFICATION
-**Current Version:** v2.17.0
-**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, Full Bidirectional ATEM Bridge via receivedCommands, Silent Background Daemon.
+**Current Version:** v2.19.0
+**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge.
 
 ---
 
@@ -16,7 +16,7 @@
    - **Corner Radii:** Buttons use `--pill-radius: 24px`. Panels use `--panel-radius: 9px`.
    - **Video Player UI:** YouTube UI replica layout using custom SVG masks, STRICT 30% transparency (`rgba(30, 30, 30, 0.3)`).
    - **Multiview 16:9 Aspect Ratio:** Strictly maintained under all resize conditions.
-   - **Hardware-Locked IP:** The `AtemConstellationBus.jsx` panel is locked exclusively to IP `192.168.10.240`.
+   - **Hardware-Locked IP:** `AtemConstellationBus.jsx` and `AtemMacros.jsx` are locked exclusively to IP `192.168.10.240`.
    - **Sidebar Devices, Groups & Edit Panels Design:** Row height `30px`, 4px equidistant edit button geometry, pill edit fields, and color dropdown clear mechanics.
    - **Top Bar & Navigation:** Apple-style sliding switch with embedded SVG sun/moon icons matching the settings gear size; synchronized sidebar collapse and multiview vertical zoom transitions.
 
@@ -44,11 +44,17 @@ ATEM_WEB_MANAGER/
 │
 ├── bridge/                    # Node.js Hardware Bridge
 │   ├── package.json
-│   └── server.js              # Live two-way ATEM polling & WebSocket broadcast
+│   └── server.js              # Live two-way ATEM polling, macro triggers & WebSocket broadcast
 │
 └── src/                       # React Application Source
     ├── main.jsx
     ├── App.jsx                # Master Layout, Top Control Bar, Synchronized Collapse
-    ├── index.css              # Global styles, Apple Switch, Pill Context Menu
-    ├── components/            # UI, Sidebar, Multiview, Panels, VideoPlayer, Settings
+    ├── index.css              # Global styles, Apple Switch, Pill Context Menu, Macro Grid
+    ├── components/            
+    │   ├── UI/                # Skeleton, GlobalTooltip, ErrorBoundary, QuadrantContextMenu
+    │   ├── Sidebar/           # Sidebar, SearchBar, DeviceList, DeviceRow, ColorDropdown, BottomActionBtn
+    │   ├── Multiview/         # QuadrantGrid, Panel
+    │   ├── Panels/            # AtemConstellationBus.jsx, AtemMacros.jsx
+    │   ├── VideoPlayer/       # Player, OverlayDrawer, QualityMenu, SnapshotEngine
+    │   └── Settings/          # SettingsModal
     └── hooks/                 # useDevices, useDragDrop, useLocalStorage

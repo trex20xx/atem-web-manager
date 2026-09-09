@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import Player from '../VideoPlayer/Player';
 import AtemConstellationBus from '../Panels/AtemConstellationBus';
+import AtemMacros from '../Panels/AtemMacros';
 import ErrorBoundary from '../UI/ErrorBoundary';
 import Skeleton from '../UI/Skeleton';
 import QuadrantContextMenu from '../UI/QuadrantContextMenu';
 
 // =========================================================================
-// ATEM WEB MANAGER - PANEL COMPONENT (v2.08)
+// ATEM WEB MANAGER - PANEL COMPONENT (v2.19.0)
 // =========================================================================
-// Automatically suppresses background numbers when active content is mounted.
+// Quadrant 1: Player | Quadrant 2: ATEM Macros | Quadrant 3: Switcher Bus
 
 const Panel = ({ 
     panelId, positionIndex, currentVideoSource, isConnected, connectedDevice, isLoading,
@@ -36,6 +37,10 @@ const Panel = ({
 
         if (panelId === 1 && isConnected) {
             return <Player currentVideoSource={currentVideoSource} />;
+        }
+
+        if (panelId === 2 && isConnected && connectedDevice?.ip === '192.168.10.240') {
+            return <AtemMacros connectedDevice={connectedDevice} />;
         }
 
         if (panelId === 3 && isConnected && connectedDevice?.ip === '192.168.10.240') {

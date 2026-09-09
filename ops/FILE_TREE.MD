@@ -1,13 +1,9 @@
-# ATEM WEB MANAGER - PROJECT FILE TREE (v2.09)
+# ATEM WEB MANAGER - PROJECT FILE TREE (v2.19.0)
 
 ATEM_WEB_MANAGER/
 ├── package.json               
 ├── vite.config.js             
 ├── index.html                 
-├── CHANGELOG.MD               
-├── README.MD                  
-├── HANDOVER.MD                
-├── FILE_TREE.MD               
 ├── ops/                       
 │   ├── CHANGELOG.MD           
 │   ├── README.MD              
@@ -27,10 +23,10 @@ ATEM_WEB_MANAGER/
     ├── App.jsx                
     ├── index.css              
     ├── components/            
-    │   ├── UI/                # Skeleton, GlobalTooltip, ErrorBoundary, QuadrantContextMenu (Pill Styled)
+    │   ├── UI/                # Skeleton, GlobalTooltip, ErrorBoundary, QuadrantContextMenu
     │   ├── Sidebar/           # Sidebar, SearchBar, DeviceList, DeviceRow, ColorDropdown, BottomActionBtn
-    │   ├── Multiview/         # QuadrantGrid, Panel
-    │   ├── Panels/            # AtemConstellationBus.jsx (Two-way tally sync, device font)
+    │   ├── Multiview/         # QuadrantGrid, Panel (Routes Q1 Player, Q2 Macros, Q3 Switcher)
+    │   ├── Panels/            # AtemConstellationBus.jsx, AtemMacros.jsx (Hardware-locked)
     │   ├── VideoPlayer/       # Player, OverlayDrawer, QualityMenu, SnapshotEngine
     │   └── Settings/          # SettingsModal
     └── hooks/                 # useDevices, useDragDrop, useLocalStorage

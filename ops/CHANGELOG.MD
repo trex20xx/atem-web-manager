@@ -1,5 +1,18 @@
 # ATEM WEB MANAGER - Complete Version History
 
+## [v2.19.0] - ATEM Macros in Quadrant 2 & Centered Collapsed Layout
+- Implemented full ATEM Macros Panel (`src/components/Panels/AtemMacros.jsx`) in Quadrant 2 supporting 100 macros across 5 pages of 20 buttons.
+- Added flat pagination controls with 5 interactive carousel indicator dots.
+- Added Recall & Run toggle with selective execution guard (macros only execute on selection when Recall & Run is active).
+- Added transport controls (Loop, Play/Run, and Stop) linked to `bridge/server.js`.
+- Configured `.dashboard.sidebar-collapsed` to center zoomed quadrants horizontally within the 16px marginal boundary.
+
+## [v2.18.0] - Right-Pinned Quadrant Zoom, Smooth Sidebar Sliding & High-Contrast Icons
+- Fixed quadrant layout anchor: pinned rightmost edge during collapse so the grid expands cleanly to the left, aligning with the 16px hamburger menu boundary.
+- Added negative gap compensation (`margin-right: -8px`) to `.sidebar.collapsed` to eliminate the remaining offset.
+- Added synchronized `height` and `transform: translateX(-100%)` transitions to `.sidebar`, preventing vertical jump artifacts when toggling.
+- Replaced low-contrast icons with crisp, solid jet-black Sun and Moon vector icons centered on the white thumb circle.
+
 ## [v2.17.0] - Silent Background Bridge Daemon & Global Git Staging Rule
 - Re-architected `ops/INIT.BAT` to launch `bridge/server.js` completely hidden in the background via PowerShell `-WindowStyle Hidden`, eliminating the second terminal window.
 - Added automatic cleanup of lingering port 8080 processes in `ops/INIT.BAT` prior to launching.

@@ -1,8 +1,7 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.13.0)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.19.0)
 // =========================================================================
-// Full bidirectional synchronization between physical ATEM hardware 
-// (UDP 9910) and React frontend (WebSocket 8080).
+// Bidirectional switcher bus & macro execution sync over WebSocket (8080).
 
 const { Atem } = require('atem-connection');
 const WebSocket = require('ws');
@@ -10,8 +9,8 @@ const WebSocket = require('ws');
 const ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
 
-console.log(`[ATEM Bridge v2.13.0] Starting bridge service...`);
-console.log(`[ATEM Bridge v2.13.0] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v2.19.0] Starting bridge service...`);
+console.log(`[ATEM Bridge v2.19.0] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 const atem = new Atem();
 let isAtemConnected = false;
@@ -40,15 +39,27 @@ function broadcastState(targetWs = null) {
             }
         }
 
+        // Extract Macro state if available
+        let macroPlayer = { isRunning: false, isWaiting: false, loop: false, macroIndex: -1 };
+        let macroProperties = [];
+        if (atem && atem.state && atem.state.macro) {
+            if (atem.state.macro.macroPlayer) {
+                macroPlayer = atem.state.macro.macroPlayer;
+            }
+            if (atem.state.macro.macroProperties) {
+                macroProperties = atem.state.macro.macroProperties;
+            }
+        }
+
         const payload = JSON.stringify({
             type: 'STATE',
             hardwareConnected,
             pgm: currentPgm,
             pvw: currentPvw,
-            inTransition: currentInTransition
+            inTransition: currentInTransition,
+            macroPlayer,
+            macroProperties
         });
-
-        console.log(`[ATEM Bridge ➔ UI Broadcast] PGM=${currentPgm} | PVW=${currentPvw} | InTrans=${currentInTransition} | Hardware=${hardwareConnected ? 'ONLINE' : 'OFFLINE'}`);
 
         if (targetWs && targetWs.readyState === WebSocket.OPEN) {
             targetWs.send(payload);
@@ -65,48 +76,53 @@ function broadcastState(targetWs = null) {
     }
 }
 
-// 1. Direct hardware packet listener: catches physical button presses instantly
-atem.on('receivedCommands', (commands) => {
-    let stateChanged = false;
-    for (const cmd of commands) {
-        const raw = cmd.rawName || (cmd.constructor ? cmd.constructor.name : '');
-        const props = cmd.properties || {};
+// Universal command parser for physical ATEM hardware packets
+function handleHardwareCommand(cmd) {
+    if (!cmd) return false;
+    const raw = cmd.rawName || (cmd.constructor ? cmd.constructor.name : '');
+    const props = cmd.properties || {};
+    let changed = false;
 
-        // Physical ATEM Program Input change
-        if (raw === 'PrgI' || raw.includes('ProgramInput')) {
-            const src = props.source !== undefined ? props.source : props.programInput;
-            if (typeof src === 'number') {
-                currentPgm = src;
-                stateChanged = true;
-                console.log(`[ATEM Bridge ⬅ Physical ATEM Event] Hardware changed Program to Input ${src}`);
-            }
+    if (raw === 'PrgI' || raw.includes('ProgramInput')) {
+        const src = props.source !== undefined ? props.source : props.programInput;
+        if (typeof src === 'number') {
+            currentPgm = src;
+            changed = true;
+            console.log(`[ATEM Bridge ⬅ Physical Switcher Event] Program changed to Input ${src}`);
         }
-
-        // Physical ATEM Preview Input change
-        else if (raw === 'PrvI' || raw.includes('PreviewInput')) {
-            const src = props.source !== undefined ? props.source : props.previewInput;
-            if (typeof src === 'number') {
-                currentPvw = src;
-                stateChanged = true;
-                console.log(`[ATEM Bridge ⬅ Physical ATEM Event] Hardware changed Preview to Input ${src}`);
-            }
+    } else if (raw === 'PrvI' || raw.includes('PreviewInput')) {
+        const src = props.source !== undefined ? props.source : props.previewInput;
+        if (typeof src === 'number') {
+            currentPvw = src;
+            changed = true;
+            console.log(`[ATEM Bridge ⬅ Physical Switcher Event] Preview changed to Input ${src}`);
         }
-
-        // Physical ATEM Transition change
-        else if (raw === 'TrPr' || raw === 'TrPs' || raw.includes('TransitionPosition')) {
-            if (props.inTransition !== undefined) {
-                currentInTransition = !!props.inTransition;
-                stateChanged = true;
-            }
+    } else if (raw === 'TrPr' || raw === 'TrPs' || raw.includes('TransitionPosition')) {
+        if (props.inTransition !== undefined) {
+            currentInTransition = !!props.inTransition;
+            changed = true;
         }
+    } else if (raw === 'MRPr' || raw === 'MRPr' || raw.includes('Macro')) {
+        changed = true;
     }
 
-    if (stateChanged) {
-        broadcastState();
+    return changed;
+}
+
+atem.on('receivedCommand', (command) => {
+    if (handleHardwareCommand(command)) broadcastState();
+});
+
+atem.on('receivedCommands', (commands) => {
+    if (Array.isArray(commands)) {
+        let changed = false;
+        for (const cmd of commands) {
+            if (handleHardwareCommand(cmd)) changed = true;
+        }
+        if (changed) broadcastState();
     }
 });
 
-// 2. High-level state changed listener
 atem.on('stateChanged', () => {
     broadcastState();
 });
@@ -144,39 +160,45 @@ wss.on('connection', (ws) => {
     ws.on('message', (message) => {
         try {
             const data = JSON.parse(message);
-            console.log(`[ATEM Bridge ⬅ UI Command] Action: ${data.action}`, data.input !== undefined ? `| Input: ${data.input}` : '');
 
             if (data.action === 'CONNECT' || data.action === 'GET_STATE') {
                 broadcastState(ws);
             } else if (data.action === 'SET_PGM' && data.input !== undefined) {
                 const inputNum = parseInt(data.input, 10);
                 currentPgm = inputNum;
-                atem.changeProgramInput(inputNum, 0).catch((e) => {
-                    console.error('[ATEM Bridge] PGM Change Error:', e.message || e);
-                });
+                atem.changeProgramInput(inputNum, 0).catch((e) => console.error('[ATEM Bridge] PGM Error:', e.message || e));
                 broadcastState();
             } else if (data.action === 'SET_PVW' && data.input !== undefined) {
                 const inputNum = parseInt(data.input, 10);
                 currentPvw = inputNum;
-                atem.changePreviewInput(inputNum, 0).catch((e) => {
-                    console.error('[ATEM Bridge] PVW Change Error:', e.message || e);
-                });
+                atem.changePreviewInput(inputNum, 0).catch((e) => console.error('[ATEM Bridge] PVW Error:', e.message || e));
                 broadcastState();
             } else if (data.action === 'CUT') {
                 const temp = currentPgm;
                 currentPgm = currentPvw;
                 currentPvw = temp;
-                atem.cut(0).catch((e) => {
-                    console.error('[ATEM Bridge] CUT Error:', e.message || e);
-                });
+                atem.cut(0).catch((e) => console.error('[ATEM Bridge] CUT Error:', e.message || e));
                 broadcastState();
             } else if (data.action === 'AUTO') {
-                atem.autoTransition(0).catch((e) => {
-                    console.error('[ATEM Bridge] AUTO Error:', e.message || e);
-                });
+                atem.autoTransition(0).catch((e) => console.error('[ATEM Bridge] AUTO Error:', e.message || e));
+            } else if (data.action === 'MACRO_RUN' && data.index !== undefined) {
+                const mIdx = parseInt(data.index, 10);
+                console.log(`[ATEM Bridge ➔ Executing Macro] Index: ${mIdx}`);
+                if (typeof atem.macroRun === 'function') {
+                    atem.macroRun(mIdx).catch((e) => console.error('[ATEM Bridge] Macro Run Error:', e.message || e));
+                }
+            } else if (data.action === 'MACRO_STOP') {
+                console.log(`[ATEM Bridge ➔ Stopping Macro]`);
+                if (typeof atem.macroStop === 'function') {
+                    atem.macroStop().catch((e) => console.error('[ATEM Bridge] Macro Stop Error:', e.message || e));
+                }
+            } else if (data.action === 'MACRO_CONTINUE') {
+                if (typeof atem.macroContinue === 'function') {
+                    atem.macroContinue().catch((e) => console.error('[ATEM Bridge] Macro Continue Error:', e.message || e));
+                }
             }
         } catch (err) {
-            console.error('[ATEM Bridge] Failed to process message:', err);
+            console.error('[ATEM Bridge] Message processing error:', err);
         }
     });
 
