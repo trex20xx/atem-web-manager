@@ -1,6 +1,7 @@
-# ATEM WEB MANAGER - PROJECT FILE TREE (v2.22.0)
+# ATEM WEB MANAGER - PROJECT FILE TREE (v2.23.0)
 
 ATEM_WEB_MANAGER/
+├── .atem_workspace_token
 ├── package.json               
 ├── vite.config.js             
 ├── index.html                 

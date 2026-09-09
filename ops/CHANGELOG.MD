@@ -1,5 +1,11 @@
 # ATEM WEB MANAGER - Complete Version History
 
+## [v2.23.0] - Secure Workspace Wiper, Main Branch Auto-Clone & Bridge Daemon Pathing Fix
+- Implemented asynchronous ghost-script architecture in `WIPE.BAT` to securely bypass Windows file-locking and delete the root directory gracefully.
+- Enforced strict security token check (`ATEM_MANAGER_SECURE_WIPE_KEY_2026` inside `.atem_workspace_token`) across both `WIPE` scripts to prevent accidental hard drive erasure.
+- Upgraded `INIT.BAT` and `INIT.SH` to prompt for target directory, hardcode repository URLs, and explicitly clone the `main` branch.
+- Fixed background daemon initialization failure by explicitly injecting `-WorkingDirectory '%PROJECT_ROOT%\bridge'` into the PowerShell invocation array.
+
 ## [v2.22.0] - Bulletproof Operational Scripts & Auto-Cloning Setup
 - Re-architected `WIPE.BAT` and `WIPE.SH` to perform "Deep Cleans" (wiping `node_modules`, caches, and `dist`) rather than nuking the entire folder, preserving `.git` repo safety.
 - Upgraded `INIT.BAT` and `INIT.SH` with smart repository location. If the scripts are run outside the project, they will automatically prompt for the GitHub URL, clone the repo, and proceed with setup.

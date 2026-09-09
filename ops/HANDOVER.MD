@@ -1,6 +1,6 @@
 # ATEM WEB MANAGER - MASTER AI HANDOVER SPECIFICATION
-**Current Version:** v2.22.0
-**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Silent Background Daemon with STOP Utility.
+**Current Version:** v2.23.0
+**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Silent Background Daemon with STOP Utility, Auto-Cloning Secure Workspace Wiper.
 
 ---
 
@@ -24,7 +24,7 @@
 
 ## 2. FILE TREE
 ATEM_WEB_MANAGER/
-├── .atem_workspace_token
+├── .atem_workspace_token      # Required for secure WIPE.BAT execution
 ├── .gitignore
 ├── package.json
 ├── vite.config.js
@@ -35,10 +35,10 @@ ATEM_WEB_MANAGER/
 │   ├── README.MD              
 │   ├── HANDOVER.MD            # THIS FILE
 │   ├── FILE_TREE.MD           
-│   ├── INIT.BAT               
+│   ├── INIT.BAT               # Auto-clones repo to user path if run externally
 │   ├── STOP.BAT               # Kills lingering hidden background daemon processes
 │   ├── PUSH.BAT               
-│   ├── WIPE.BAT               # Deep cleans dependencies but preserves source files
+│   ├── WIPE.BAT               # Securely deletes entire project via ghost temp-script
 │   ├── INIT.SH                
 │   ├── STOP.SH                
 │   ├── PUSH.SH                

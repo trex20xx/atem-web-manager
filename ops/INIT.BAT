@@ -1,6 +1,9 @@
 @echo off
 setlocal EnableDelayedExpansion
-title ATEM WEB MANAGER - BOOTSTRAPPER (v2.22.0)
+title ATEM WEB MANAGER - BOOTSTRAPPER (v2.23.0)
+
+:: Hardcoded GitHub Repository Address
+set "REPO_URL=https://github.com/robertmirt/ATEM_WEB_MANAGER.git"
 
 :: 1. Smart Project Location & Auto-Cloning
 set "PROJECT_ROOT=%~dp0\.."
@@ -12,22 +15,28 @@ if not exist "%PROJECT_ROOT%\package.json" (
     echo =========================================================================
     echo  ATEM WEB MANAGER - WORKSPACE NOT FOUND
     echo =========================================================================
-    echo [INFO] The ATEM_WEB_MANAGER project was not found in this directory.
-    set /p REPO_URL="Paste your GitHub repository URL to clone it now (or leave blank to cancel): "
-    if "!REPO_URL!"=="" (
-        echo [ABORT] No URL provided.
+    echo [INFO] You are running INIT outside of the project directory.
+    echo.
+    set /p INSTALL_DIR="Enter full path to install ATEM WEB MANAGER (e.g. C:\Users\robert.mirt\Desktop): "
+    if "!INSTALL_DIR!"=="" (
+        echo [ABORT] No directory provided.
         pause
         exit /b 1
     )
-    echo [INFO] Cloning repository...
-    git clone !REPO_URL! ATEM_WEB_MANAGER
-    set "PROJECT_ROOT=%CD%\ATEM_WEB_MANAGER"
+    if not exist "!INSTALL_DIR!" mkdir "!INSTALL_DIR!"
+    cd /d "!INSTALL_DIR!"
+    echo.
+    echo [INFO] Cloning 'main' branch from !REPO_URL!...
+    git clone -b main !REPO_URL! ATEM_WEB_MANAGER
+    set "PROJECT_ROOT=!INSTALL_DIR!\ATEM_WEB_MANAGER"
+    cd /d "!PROJECT_ROOT!"
+) else (
+    cd /d "%PROJECT_ROOT%"
 )
 
-cd /d "%PROJECT_ROOT%"
-
+echo.
 echo =========================================================================
-echo  ATEM WEB MANAGER - INITIALIZING (v2.22.0)
+echo  ATEM WEB MANAGER - INITIALIZING (v2.23.0)
 echo =========================================================================
 echo.
 
@@ -47,21 +56,21 @@ if not exist "node_modules\" (
 )
 
 :: 4. Check and Install Bridge Dependencies
-if not exist "bridge\node_modules\" (
+cd bridge
+if not exist "node_modules\" (
     echo [INFO] Installing hardware bridge dependencies...
-    cd bridge
     call npm install
-    cd ..
 )
+cd ..
 
 :: 5. Terminate Any Lingering Bridge Processes on Port 8080
 for /f "tokens=5" %%a in ('netstat -aon ^| find ":8080" ^| find "LISTENING"') do (
     taskkill /f /pid %%a >nul 2>nul
 )
 
-:: 6. Launch Hardware Bridge COMPLETELY HIDDEN in Background
+:: 6. Launch Hardware Bridge COMPLETELY HIDDEN in Background with EXACT Working Directory
 echo [INFO] Starting ATEM Hardware Bridge (Background Daemon)...
-powershell -NoProfile -WindowStyle Hidden -Command "Start-Process node -ArgumentList 'bridge\server.js' -WindowStyle Hidden"
+powershell -NoProfile -WindowStyle Hidden -Command "Start-Process node -ArgumentList 'server.js' -WorkingDirectory '%PROJECT_ROOT%\bridge' -WindowStyle Hidden"
 
 :: 7. Launch Vite Development Server in Current Console
 echo [INFO] Starting Vite UI Application...
