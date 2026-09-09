@@ -1,32 +1,17 @@
 @echo off
-:: =========================================================================
-:: ATEM WEB MANAGER - WINDOWS QUICK PUSH UTILITY (v2.05)
-:: =========================================================================
-TITLE ATEM Web Manager - Push to GitHub
-color 0B
-cls
+title ATEM WEB MANAGER - AUTO PUSH
+cd /d "%~dp0\.."
 
-cd /d "%~dp0.."
-
-echo ================================================================
-echo        ATEM WEB MANAGER - QUICK PUSH TO GITHUB (v2.05)
-echo ================================================================
-
-git status
+echo =========================================================================
+echo  ATEM WEB MANAGER - GITHUB AUTO PUSH (v2.22.0)
+echo =========================================================================
 echo.
-set /p "COMMIT_MSG=Enter your commit message: "
-if "%COMMIT_MSG%"=="" set "COMMIT_MSG=fix: project update"
+set /p desc="Enter your commit description: "
 
-echo [*] Staging all changes...
 git add -A
+git commit -m "%desc%"
+git push -u origin main
 
-echo [*] Committing with message: "%COMMIT_MSG%"...
-git commit -m "%COMMIT_MSG%"
-
-echo [*] Pushing to GitHub (main branch)...
-git push origin main
-
-echo ================================================================
-echo    SUCCESSFULLY PUSHED TO GITHUB!
-echo ================================================================
+echo.
+echo [SUCCESS] Code safely pushed to GitHub!
 pause

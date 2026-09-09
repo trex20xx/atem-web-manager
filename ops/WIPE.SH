@@ -1,42 +1,25 @@
-#!/usr/bin/env bash
-# =========================================================================
-# ATEM WEB MANAGER - MACOS SECURE WORKSPACE WIPE UTILITY (v2.05)
-# =========================================================================
-clear
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+#!/bin/bash
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$PROJECT_ROOT" || exit
 
-SAFETY_TOKEN_FILE="$PROJECT_ROOT/.atem_workspace_token"
-SECRET_KEY="ATEM_MANAGER_SECURE_WIPE_KEY_2026"
+echo "========================================================================="
+echo " ATEM WEB MANAGER - DEEP CLEAN WORKSPACE (v2.22.0)"
+echo "========================================================================="
+echo "[WARNING] This will safely delete all generated node_modules, cache,"
+echo "and dist builds to fix dependency errors."
+echo ""
+echo "Your source code and .git repository will REMAIN SAFE."
+echo ""
+read -p "Press Enter to continue or Ctrl+C to abort..."
 
-echo "================================================================="
-echo "       ATEM WEB MANAGER - SECURE WORKSPACE ERASURE (v2.05)"
-echo "================================================================="
-echo "[*] Verifying safety token in: $PROJECT_ROOT"
+echo "[INFO] Wiping Root node_modules..."
+rm -rf node_modules package-lock.json
 
-if [ ! -f "$SAFETY_TOKEN_FILE" ]; then
-    echo "[X] ERROR: Safety token missing in $PROJECT_ROOT! Aborting."
-    exit 1
-fi
+echo "[INFO] Wiping Bridge node_modules..."
+rm -rf bridge/node_modules bridge/package-lock.json
 
-TOKEN_CONTENT=$(tr -d '[:space:]' < "$SAFETY_TOKEN_FILE")
-if [ "$TOKEN_CONTENT" != "$SECRET_KEY" ]; then
-    echo "[X] ERROR: Safety token mismatch! Aborting."
-    exit 1
-fi
+echo "[INFO] Wiping Dist builds..."
+rm -rf dist
 
-echo "[✓] Safety token verified."
-echo "[!] WARNING: You are about to COMPLETELY DELETE the project folder:"
-echo "    $PROJECT_ROOT"
-read -p "Are you sure? This cannot be undone! (y/N): " CONFIRM
-
-if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
-    echo "[*] Erasing project directory..."
-    cd "$PROJECT_ROOT/.." || exit
-    rm -rf "$PROJECT_ROOT"
-    echo "================================================================="
-    echo "   FOLDER DESTRUCTION COMPLETE. Project successfully erased."
-    echo "================================================================="
-else
-    echo "[*] Wipe aborted."
-fi
+echo ""
+echo "[SUCCESS] Workspace deep cleaned successfully! Run INIT.SH to rebuild."

@@ -1,54 +1,29 @@
 @echo off
-:: =========================================================================
-:: ATEM WEB MANAGER - WINDOWS SECURE FOLDER WIPE UTILITY (v2.05)
-:: =========================================================================
-TITLE ATEM Web Manager - Safe Workspace Destruction
-color 0C
-cls
+title ATEM WEB MANAGER - WIPE UTILITY
+cd /d "%~dp0\.."
 
-set "SCRIPT_DIR=%~dp0"
-set "PROJECT_ROOT=%SCRIPT_DIR%.."
-set "SAFETY_TOKEN=%PROJECT_ROOT%\.atem_workspace_token"
-set "SECRET_KEY=ATEM_MANAGER_SECURE_WIPE_KEY_2026"
-
-echo ================================================================
-echo        ATEM WEB MANAGER - SECURE WORKSPACE ERASURE (v2.05)
-echo ================================================================
-
-if not exist "%PROJECT_ROOT%" (
-    echo [X] ERROR: Project root not found!
-    pause
-    exit /b 1
-)
-
-echo [*] Verifying safety token in %PROJECT_ROOT%...
-if not exist "%SAFETY_TOKEN%" (
-    echo [X] ERROR: Safety token missing in project folder! Aborting.
-    pause
-    exit /b 1
-)
-
-set /p TOKEN_CONTENT=<"%SAFETY_TOKEN%"
-if not "%TOKEN_CONTENT%"=="%SECRET_KEY%" (
-    echo [X] ERROR: Safety token mismatch! Aborting.
-    pause
-    exit /b 1
-)
-
-echo [✓] Safety token verified.
-echo [!] WARNING: You are about to COMPLETELY DELETE:
-echo     %PROJECT_ROOT%
+echo =========================================================================
+echo  ATEM WEB MANAGER - DEEP CLEAN WORKSPACE (v2.22.0)
+echo =========================================================================
+echo [WARNING] This will safely delete all generated node_modules, cache,
+echo and dist builds to fix dependency errors.
 echo.
-set /p "CONFIRM=Are you sure? This cannot be undone! (y/N): "
+echo Your source code and .git repository will REMAIN SAFE.
+echo.
+pause
 
-if /i "%CONFIRM%"=="y" (
-    echo [*] Deleting project directory...
-    cd /d "%PROJECT_ROOT%\.."
-    rmdir /s /q "%PROJECT_ROOT%"
-    echo ================================================================
-    echo    FOLDER DESTRUCTION COMPLETE. Project successfully erased.
-    echo ================================================================
-) else (
-    echo [*] Wipe aborted.
-)
+echo [INFO] Wiping Root node_modules...
+if exist "node_modules\" rmdir /s /q "node_modules"
+if exist "package-lock.json" del /q "package-lock.json"
+
+echo [INFO] Wiping Bridge node_modules...
+if exist "bridge\node_modules\" rmdir /s /q "bridge\node_modules"
+if exist "bridge\package-lock.json" del /q "bridge\package-lock.json"
+
+echo [INFO] Wiping Dist builds...
+if exist "dist\" rmdir /s /q "dist"
+
+echo.
+echo [SUCCESS] Workspace deep cleaned successfully! Run INIT.BAT to rebuild.
+echo.
 pause

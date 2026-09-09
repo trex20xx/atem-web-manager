@@ -1,5 +1,5 @@
 # ATEM WEB MANAGER - MASTER AI HANDOVER SPECIFICATION
-**Current Version:** v2.21.0
+**Current Version:** v2.22.0
 **Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Silent Background Daemon with STOP Utility.
 
 ---
@@ -38,8 +38,9 @@ ATEM_WEB_MANAGER/
 │   ├── INIT.BAT               
 │   ├── STOP.BAT               # Kills lingering hidden background daemon processes
 │   ├── PUSH.BAT               
-│   ├── WIPE.BAT               
+│   ├── WIPE.BAT               # Deep cleans dependencies but preserves source files
 │   ├── INIT.SH                
+│   ├── STOP.SH                
 │   ├── PUSH.SH                
 │   └── WIPE.SH                
 │

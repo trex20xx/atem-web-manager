@@ -1,7 +1,7 @@
 @echo off
 title ATEM WEB MANAGER - STOP DAEMONS
 echo =========================================================================
-echo  ATEM WEB MANAGER - STOPPING BACKGROUND SERVICES (v2.21.0)
+echo  ATEM WEB MANAGER - STOPPING BACKGROUND SERVICES (v2.22.0)
 echo =========================================================================
 echo.
 

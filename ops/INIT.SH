@@ -1,64 +1,52 @@
-#!/usr/bin/env bash
-# =========================================================================
-# ATEM WEB MANAGER - MACOS AUTOMATED BOOTSTRAPPER & LAUNCHER (v2.05)
-# =========================================================================
-clear
-echo "================================================================="
-echo "       ATEM WEB MANAGER - MACOS BOOTSTRAPPER (v2.05)"
-echo "================================================================="
+#!/bin/bash
+echo "========================================================================="
+echo " ATEM WEB MANAGER - INITIALIZING (v2.22.0)"
+echo "========================================================================="
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$SCRIPT_DIR/.."
+# 1. Smart Project Location & Auto-Cloning
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [ ! -f "$PROJECT_ROOT/package.json" ]; then
+    PROJECT_ROOT="$(pwd)"
+    if [ ! -f "$PROJECT_ROOT/package.json" ]; then
+        echo "[INFO] The ATEM_WEB_MANAGER project was not found in this directory."
+        read -p "Paste your GitHub repository URL to clone it now (or leave blank to cancel): " REPO_URL
+        if [ -z "$REPO_URL" ]; then
+            echo "[ABORT] No URL provided."
+            exit 1
+        fi
+        echo "[INFO] Cloning repository..."
+        git clone "$REPO_URL" ATEM_WEB_MANAGER
+        PROJECT_ROOT="$(pwd)/ATEM_WEB_MANAGER"
+    fi
+fi
+
 cd "$PROJECT_ROOT" || exit
 
-# 1. Verify Git
-if ! command -v git &> /dev/null; then
-    echo "[!] Git is not installed. Triggering Xcode Command Line Tools..."
-    xcode-select --install
-    exit 1
-else
-    echo "[✓] Git is ready: $(git --version)"
-fi
-
-# 2. Verify Node.js & npm
-if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
-    echo "[!] Node.js/npm not found. Installing via Homebrew..."
-    if ! command -v brew &> /dev/null; then
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        [ -d "/opt/homebrew/bin" ] && eval "$(/opt/homebrew/bin/brew shellenv)"
-        [ -d "/usr/local/bin" ] && eval "$(/usr/local/bin/brew shellenv)"
-    fi
-    brew install node
-else
-    echo "[✓] Node.js ($(node -v)) and npm ($(npm -v)) are ready."
-fi
-
-# 3. Install Frontend Dependencies
-if [ -f "package.json" ]; then
-    echo "[*] Installing frontend application dependencies..."
+# 2. Check and Install Dependencies
+if [ ! -d "node_modules" ]; then
+    echo "[INFO] Installing frontend dependencies..."
     npm install
-else
-    echo "[X] Error: package.json missing in project root."
-    exit 1
 fi
 
-# 4. Install Embedded Bridge Dependencies
-if [ -d "bridge" ] && [ -f "bridge/package.json" ]; then
-    echo "[*] Installing ATEM hardware bridge dependencies..."
-    cd bridge && npm install && cd "$PROJECT_ROOT" || exit
+if [ ! -d "bridge/node_modules" ]; then
+    echo "[INFO] Installing hardware bridge dependencies..."
+    cd bridge || exit
+    npm install
+    cd ..
 fi
 
-echo "================================================================="
-echo "   LAUNCHING ATEM BRIDGE & FRONTEND DEVELOPMENT SERVER..."
-echo "================================================================="
-
-# 5. Launch ATEM Bridge Daemon in background (matching Windows start)
-if [ -f "bridge/server.js" ]; then
-    echo "[*] Starting ATEM Hardware Bridge daemon on ws://localhost:8080..."
-    node bridge/server.js &
-    BRIDGE_PID=$!
-    trap 'kill $BRIDGE_PID 2>/dev/null' EXIT
+# 3. Terminate Lingering Bridge Processes on Port 8080
+echo "[INFO] Cleaning up lingering bridge services..."
+PIDS=$(lsof -t -i:8080)
+if [ ! -z "$PIDS" ]; then
+    kill -9 $PIDS
 fi
 
-# 6. Launch Vite Development Server
+# 4. Launch Hardware Bridge in Background
+echo "[INFO] Starting ATEM Hardware Bridge (Background Daemon)..."
+nohup node bridge/server.js > /dev/null 2>&1 &
+
+# 5. Launch Vite UI
+echo "[INFO] Starting Vite UI Application..."
 npm run dev

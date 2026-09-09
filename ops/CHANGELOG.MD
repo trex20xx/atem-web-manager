@@ -1,5 +1,11 @@
 # ATEM WEB MANAGER - Complete Version History
 
+## [v2.22.0] - Bulletproof Operational Scripts & Auto-Cloning Setup
+- Re-architected `WIPE.BAT` and `WIPE.SH` to perform "Deep Cleans" (wiping `node_modules`, caches, and `dist`) rather than nuking the entire folder, preserving `.git` repo safety.
+- Upgraded `INIT.BAT` and `INIT.SH` with smart repository location. If the scripts are run outside the project, they will automatically prompt for the GitHub URL, clone the repo, and proceed with setup.
+- Added macOS/Linux equivalent `STOP.SH` utility for cross-platform background daemon termination.
+- Upgraded `PUSH.BAT` and `PUSH.SH` styling and execution paths.
+
 ## [v2.21.0] - Dedicated Background Daemon Kill Script (STOP.BAT)
 - Created `ops/STOP.BAT` to automatically locate and terminate any hidden Node.js bridge daemon processes running on port 8080.
 - Resolved documentation ambiguities regarding the `-WindowStyle Hidden` execution lifecycle.

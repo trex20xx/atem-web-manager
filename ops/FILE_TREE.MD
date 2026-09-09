@@ -1,4 +1,4 @@
-# ATEM WEB MANAGER - PROJECT FILE TREE (v2.21.0)
+# ATEM WEB MANAGER - PROJECT FILE TREE (v2.22.0)
 
 ATEM_WEB_MANAGER/
 ├── package.json               
@@ -14,6 +14,7 @@ ATEM_WEB_MANAGER/
 │   ├── PUSH.BAT               
 │   ├── WIPE.BAT               
 │   ├── INIT.SH                
+│   ├── STOP.SH                
 │   ├── PUSH.SH                
 │   └── WIPE.SH                
 ├── bridge/                    
