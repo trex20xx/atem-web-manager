@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # =========================================================================
-# ATEM WEB MANAGER - MASTER OPERATIONS SUITE (v2.32.0)
+# ATEM WEB MANAGER - MASTER OPERATIONS SUITE (v2.36.0)
 # =========================================================================
-# Self-bootstrapping CLI with signal traps for automatic daemon termination.
+# Unified Interactive CLI: Init, Stop, Push, Pull, Branch, Merge, Wipe, Export.
 
-REPO_URL="https://github.com/robertmirt/ATEM_WEB_MANAGER.git"
+REPO_URL="https://github.com/trex20xx/atem-web-manager.git"
 TOKEN_KEY="ATEM_MANAGER_SECURE_WIPE_KEY_2026"
 
 # Detect project root or default to local clone path
@@ -22,7 +22,7 @@ show_menu() {
     clear
     CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "not-cloned")
     echo "========================================================================="
-    echo "        ATEM WEB MANAGER - OPERATIONS SUITE (v2.32.0)                   "
+    echo "        ATEM WEB MANAGER - OPERATIONS SUITE (v2.36.0)                   "
     echo "        Active Branch: [$CURRENT_BRANCH]                                "
     echo "========================================================================="
     echo "  [1] INIT    - Install dependencies, start bridge, and launch UI       "
@@ -32,9 +32,10 @@ show_menu() {
     echo "  [5] BRANCH  - Create and switch to a new Git branch                   "
     echo "  [6] MERGE   - Merge a specified branch into your current branch       "
     echo "  [7] WIPE    - Secure token check & complete project directory erasure "
-    echo "  [8] EXIT                                                              "
+    echo "  [8] EXPORT  - Package full codebase into codebase.txt for AI sessions "
+    echo "  [9] EXIT                                                              "
     echo "========================================================================="
-    read -p "Select an option [1-8]: " OPTION
+    read -p "Select an option [1-9]: " OPTION
 }
 
 do_init() {
@@ -213,6 +214,46 @@ do_wipe() {
     exit 0
 }
 
+do_export() {
+    echo ""
+    echo "[INFO] Packaging complete codebase into codebase.txt..."
+    OUTPUT_FILE="$PROJECT_ROOT/codebase.txt"
+    > "$OUTPUT_FILE"
+
+    # 1. Root configuration files
+    for f in "index.html" "vite.config.js" "package.json"; do
+        if [ -f "$PROJECT_ROOT/$f" ]; then
+            echo "=== FILE: $f ===" >> "$OUTPUT_FILE"
+            cat "$PROJECT_ROOT/$f" >> "$OUTPUT_FILE"
+            echo -e "\n" >> "$OUTPUT_FILE"
+        fi
+    done
+
+    # 2. Bridge hardware server files
+    for f in "bridge/package.json" "bridge/server.js"; do
+        if [ -f "$PROJECT_ROOT/$f" ]; then
+            echo "=== FILE: $f ===" >> "$OUTPUT_FILE"
+            cat "$PROJECT_ROOT/$f" >> "$OUTPUT_FILE"
+            echo -e "\n" >> "$OUTPUT_FILE"
+        fi
+    done
+
+    # 3. All React application source files (js, jsx, css)
+    if [ -d "$PROJECT_ROOT/src" ]; then
+        find "$PROJECT_ROOT/src" -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.css" \) | sort | while read -r file; do
+            rel_path="${file#$PROJECT_ROOT/}"
+            echo "=== FILE: $rel_path ===" >> "$OUTPUT_FILE"
+            cat "$file" >> "$OUTPUT_FILE"
+            echo -e "\n" >> "$OUTPUT_FILE"
+        done
+    fi
+
+    FILE_SIZE=$(ls -lh "$OUTPUT_FILE" | awk '{print $5}')
+    echo "[SUCCESS] Complete codebase saved to: codebase.txt ($FILE_SIZE)"
+    echo "[INFO] Ready to upload directly to any AI chat session."
+    read -p "Press Enter to continue..."
+}
+
 while true; do
     show_menu
     case "$OPTION" in
@@ -223,7 +264,8 @@ while true; do
         5) do_branch ;;
         6) do_merge ;;
         7) do_wipe ;;
-        8) exit 0 ;;
-        *) echo "Invalid option. Select 1-8."; sleep 1 ;;
+        8) do_export ;;
+        9) exit 0 ;;
+        *) echo "Invalid option. Select 1-9."; sleep 1 ;;
     esac
 done

@@ -1,6 +1,6 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-**Current Version:** v2.35.0
-**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Unified Operations Suite.
+**Current Version:** v2.36.0
+**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Unified Operations Suite with Codebase Exporter.
 
 ---
 
@@ -26,7 +26,7 @@
 ```text
 ATEM_WEB_MANAGER/
 ├── .atem_workspace_token          # Required for secure WIPE execution
-├── .gitignore
+├── .gitignore                     # Excludes node_modules, dist, codebase.txt, logs
 ├── package.json
 ├── vite.config.js                 # Vite bundler & host configuration (Port 3000)
 ├── index.html                     # HTML root shell mounting /src/main.jsx
@@ -34,8 +34,8 @@ ATEM_WEB_MANAGER/
 ├── ops/                           # Operations & Documentation
 │   ├── CHANGELOG.MD               # Complete history archive (v1.72+)
 │   ├── HANDOVER.MD                # Master documentation and spec (THIS FILE)
-│   ├── OPS.BAT                    # Master Windows CLI with Signal Trap & Self-Bootstrap
-│   └── OPS.SH                     # Master macOS/Linux CLI with Signal Trap & Self-Bootstrap
+│   ├── OPS.BAT                    # Master Windows CLI (Init, Stop, Push, Pull, Branch, Merge, Wipe, Export)
+│   └── OPS.SH                     # Master macOS/Linux CLI (Init, Stop, Push, Pull, Branch, Merge, Wipe, Export)
 │
 ├── bridge/                        # Node.js Hardware Bridge
 │   ├── package.json
@@ -46,7 +46,7 @@ ATEM_WEB_MANAGER/
     ├── App.jsx                    # Master Layout, Top Control Bar, Synchronized Collapse
     ├── index.css                  # Global styles, Apple Switch, Pill Context Menu, Macro Grid
     ├── components/            
-    │   ├── UI/                    # Skeleton, GlobalTooltip, ErrorBoundary, QuadrantContextMenu
+    │   ├── UI/                # Skeleton, GlobalTooltip, ErrorBoundary, QuadrantContextMenu
     │   ├── Sidebar/           # Sidebar, SearchBar, DeviceList, DeviceRow, ColorDropdown, BottomActionBtn
     │   ├── Multiview/         # QuadrantGrid, Panel (Routes Q1 Player, Q2 Macros, Q3 Switcher)
     │   ├── Panels/            # AtemConstellationBus.jsx, AtemMacros.jsx (Hardware-locked to 192.168.10.240)

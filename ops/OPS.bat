@@ -1,8 +1,8 @@
 @echo off
 setlocal EnableDelayedExpansion
-title ATEM WEB MANAGER - OPERATIONS SUITE (v2.32.0)
+title ATEM WEB MANAGER - OPERATIONS SUITE (v2.36.0)
 
-set "REPO_URL=https://github.com/robertmirt/ATEM_WEB_MANAGER.git"
+set "REPO_URL=https://github.com/trex20xx/atem-web-manager.git"
 set "EXPECTED_KEY=ATEM_MANAGER_SECURE_WIPE_KEY_2026"
 
 set "PROJECT_ROOT=%~dp0\.."
@@ -15,7 +15,7 @@ for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set "CURR
 if "!CURRENT_BRANCH!"=="" set "CURRENT_BRANCH=not-cloned"
 
 echo =========================================================================
-echo         ATEM WEB MANAGER - OPERATIONS SUITE (v2.32.0)                    
+echo         ATEM WEB MANAGER - OPERATIONS SUITE (v2.36.0)                    
 echo         Active Branch: [!CURRENT_BRANCH!]                                
 echo =========================================================================
 echo   [1] INIT    - Install dependencies, start bridge, and launch UI        
@@ -25,9 +25,10 @@ echo   [4] PULL    - Pull latest changes from remote for active branch
 echo   [5] BRANCH  - Create and switch to a new Git branch                    
 echo   [6] MERGE   - Merge a specified branch into your current branch        
 echo   [7] WIPE    - Secure token check ^& complete project directory erasure 
-echo   [8] EXIT                                                               
+echo   [8] EXPORT  - Package full codebase into codebase.txt for AI sessions  
+echo   [9] EXIT                                                               
 echo =========================================================================
-set /p "CHOICE=Select an option [1-8]: "
+set /p "CHOICE=Select an option [1-9]: "
 
 if "%CHOICE%"=="1" goto DO_INIT
 if "%CHOICE%"=="2" goto DO_STOP
@@ -36,7 +37,8 @@ if "%CHOICE%"=="4" goto DO_PULL
 if "%CHOICE%"=="5" goto DO_BRANCH
 if "%CHOICE%"=="6" goto DO_MERGE
 if "%CHOICE%"=="7" goto DO_WIPE
-if "%CHOICE%"=="8" exit /b 0
+if "%CHOICE%"=="8" goto DO_EXPORT
+if "%CHOICE%"=="9" exit /b 0
 goto MENU
 
 :DO_INIT
@@ -46,7 +48,7 @@ echo [INFO] Verifying workspace...
 :: Auto-clone if missing
 if not exist "%PROJECT_ROOT%\package.json" (
     echo [INFO] Project files not found in current directory.
-    set /p "USER_DIR=Enter installation path (e.g. C:\Users\robert.mirt\Desktop\ATEM_WEB_MANAGER): "
+    set /p "USER_DIR=Enter installation path: "
     if "!USER_DIR!"=="" set "USER_DIR=%CD%\ATEM_WEB_MANAGER"
     git clone -b main !REPO_URL! "!USER_DIR!"
     set "PROJECT_ROOT=!USER_DIR!"
@@ -168,7 +170,6 @@ if "!CONFIRM!" NEQ "DELETE" (
     goto MENU
 )
 
-:: Terminate ports
 for /f "tokens=5" %%a in ('netstat -aon ^| find ":8080" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
 for /f "tokens=5" %%a in ('netstat -aon ^| find ":5173" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
 
@@ -181,3 +182,32 @@ echo pause >> "%GHOST%"
 echo del "%%~f0" >> "%GHOST%"
 start "" "%GHOST%"
 exit
+
+:DO_EXPORT
+echo.
+echo [INFO] Packaging complete codebase into codebase.txt...
+set "OUT_FILE=%PROJECT_ROOT%\codebase.txt"
+break > "%OUT_FILE%"
+
+for %%F in (index.html vite.config.js package.json bridge\package.json bridge\server.js) do (
+    if exist "%PROJECT_ROOT%\%%F" (
+        echo === FILE: %%F === >> "%OUT_FILE%"
+        type "%PROJECT_ROOT%\%%F" >> "%OUT_FILE%"
+        echo. >> "%OUT_FILE%"
+        echo. >> "%OUT_FILE%"
+    )
+)
+
+for /r "%PROJECT_ROOT%\src" %%F in (*.js *.jsx *.css) do (
+    set "FULL_PATH=%%F"
+    set "REL_PATH=!FULL_PATH:%PROJECT_ROOT%\=!"
+    echo === FILE: !REL_PATH! === >> "%OUT_FILE%"
+    type "%%F" >> "%OUT_FILE%"
+    echo. >> "%OUT_FILE%"
+    echo. >> "%OUT_FILE%"
+)
+
+echo [SUCCESS] Complete codebase saved to: codebase.txt
+echo [INFO] Ready to upload directly to any AI chat session.
+pause
+goto MENU

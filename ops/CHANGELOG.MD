@@ -1,10 +1,15 @@
 
 ---
 
-### File 3: `ops/CHANGELOG.MD` — Complete Version History Archive (v1.72+)
+### File 6: `ops/CHANGELOG.MD` — Complete Version History Archive (v1.72+)
 
 ```markdown
 # ATEM WEB MANAGER - Complete Version History
+
+## [v2.36.0] - AI Codebase Packaging Engine & Workspace Hygiene
+- Added option `[8] EXPORT` to both `ops/OPS.SH` and `ops/OPS.BAT` to automatically serialize root configuration files, bridge server scripts, and React source trees into `codebase.txt`.
+- Fortified `.gitignore` to exclude generated AI dumps (`codebase.txt`), temporary Windows environment paths (`.atem_node_path`), and macOS `.DS_Store` artifacts.
+- Synchronized application version tag to v2.36.0 across all components.
 
 ## [v2.35.0] - macOS Deployment Verification & File Extension Parity
 - Resolved macOS Finder extension hiding behavior (`index.html.txt`) and validated root HTML entry point loading.
