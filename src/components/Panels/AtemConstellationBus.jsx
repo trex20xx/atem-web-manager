@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.12.0)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.13.0)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -45,9 +45,15 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                     if (data.hardwareConnected !== undefined) {
                         setBridgeStatus(data.hardwareConnected ? 'linked' : 'standby');
                     }
-                    if (typeof data.pgm === 'number') setPgmInput(data.pgm);
-                    if (typeof data.pvw === 'number') setPvwInput(data.pvw);
-                    if (typeof data.inTransition === 'boolean') setInTransition(data.inTransition);
+                    if (data.pgm !== undefined) {
+                        setPgmInput(Number(data.pgm));
+                    }
+                    if (data.pvw !== undefined) {
+                        setPvwInput(Number(data.pvw));
+                    }
+                    if (data.inTransition !== undefined) {
+                        setInTransition(Boolean(data.inTransition));
+                    }
                 } catch (err) {
                     console.error("[AtemBus UI] Data Parse Error:", err);
                 }

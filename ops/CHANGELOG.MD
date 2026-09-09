@@ -1,5 +1,11 @@
 # ATEM WEB MANAGER - Complete Version History
 
+## [v2.13.0] - Direct ATEM Command Packet Listener via receivedCommands
+- Hooked directly into `atem.on('receivedCommands')` to capture raw `PrgI` (Program) and `PrvI` (Preview) UDP packets sent when pressing physical switcher buttons.
+- Eliminated reliance on `stateChanged` path filters which were failing on Constellation HD hardware events.
+- Maintained authoritative `currentPgm` and `currentPvw` cache in `bridge/server.js` with instant WebSocket broadcast.
+- Ensured explicit numeric coercion on client `setPgmInput` and `setPvwInput` state updates.
+
 ## [v2.12.0] - Documentation Consolidation to /ops & Tally State Telemetry
 - Consolidated all project documentation exclusively into the `/ops/` directory.
 - Verified bidirectional tally communication telemetry between physical switcher and UI.
