@@ -1,5 +1,10 @@
 # ATEM WEB MANAGER - Complete Version History
 
+## [v2.24.0] - Robust Node Execution Validation in Auto-Clone Initialization
+- Replaced volatile `where node` verification in `INIT.BAT` with bulletproof `call node -v` execution checking to bypass delayed expansion artifacts.
+- Added pre-clone Git environment verification to gracefully intercept clone failures.
+- Harmonized error output and cross-platform checks across `INIT.BAT` and `INIT.SH`.
+
 ## [v2.23.0] - Secure Workspace Wiper, Main Branch Auto-Clone & Bridge Daemon Pathing Fix
 - Implemented asynchronous ghost-script architecture in `WIPE.BAT` to securely bypass Windows file-locking and delete the root directory gracefully.
 - Enforced strict security token check (`ATEM_MANAGER_SECURE_WIPE_KEY_2026` inside `.atem_workspace_token`) across both `WIPE` scripts to prevent accidental hard drive erasure.

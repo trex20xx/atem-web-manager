@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "========================================================================="
-echo " ATEM WEB MANAGER - INITIALIZING (v2.23.0)"
+echo " ATEM WEB MANAGER - INITIALIZING (v2.24.0)"
 echo "========================================================================="
 
 # Hardcoded GitHub Repository Address
@@ -19,6 +19,12 @@ if [ ! -f "$PROJECT_ROOT/package.json" ]; then
             exit 1
         fi
         
+        # Verify Git
+        if ! command -v git &> /dev/null; then
+            echo "[ERROR] Git is not installed or not in PATH."
+            exit 1
+        fi
+
         eval INSTALL_DIR="$INSTALL_DIR" # Resolve tilde (~) to home directory
         mkdir -p "$INSTALL_DIR"
         cd "$INSTALL_DIR" || exit
@@ -29,6 +35,12 @@ if [ ! -f "$PROJECT_ROOT/package.json" ]; then
 fi
 
 cd "$PROJECT_ROOT" || exit
+
+# Verify Node
+if ! command -v node &> /dev/null; then
+    echo "[ERROR] Node.js is not installed or not in PATH."
+    exit 1
+fi
 
 # 2. Check and Install Dependencies
 if [ ! -d "node_modules" ]; then

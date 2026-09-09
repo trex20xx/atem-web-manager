@@ -1,5 +1,5 @@
 # ATEM WEB MANAGER - MASTER AI HANDOVER SPECIFICATION
-**Current Version:** v2.23.0
+**Current Version:** v2.24.0
 **Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Silent Background Daemon with STOP Utility, Auto-Cloning Secure Workspace Wiper.
 
 ---
