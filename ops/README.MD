@@ -19,5 +19,5 @@
 - **Top Bar:** Apple-style tactile slider with embedded SVG sun/moon icons matching settings gear; synchronized collapse/zoom animations
 
 ## QUICK START & UTILITIES (OPERATING FROM `ops/`)
-- **Windows:** Setup: `ops\INIT.BAT` | Push: `ops\PUSH.BAT` | Wipe: `ops\WIPE.BAT`
+- **Windows:** Setup: `ops\INIT.BAT` | Stop: `ops\STOP.BAT` | Push: `ops\PUSH.BAT` | Wipe: `ops\WIPE.BAT`
 - **Mac:** Setup: `./ops/INIT.SH` | Push: `./ops/PUSH.SH` | Wipe: `./ops/WIPE.SH`

@@ -1,5 +1,5 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.19.0)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.20.0)
 // =========================================================================
 // Bidirectional switcher bus & macro execution sync over WebSocket (8080).
 
@@ -9,8 +9,8 @@ const WebSocket = require('ws');
 const ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
 
-console.log(`[ATEM Bridge v2.19.0] Starting bridge service...`);
-console.log(`[ATEM Bridge v2.19.0] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v2.20.0] Starting bridge service...`);
+console.log(`[ATEM Bridge v2.20.0] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 const atem = new Atem();
 let isAtemConnected = false;
@@ -192,9 +192,10 @@ wss.on('connection', (ws) => {
                 if (typeof atem.macroStop === 'function') {
                     atem.macroStop().catch((e) => console.error('[ATEM Bridge] Macro Stop Error:', e.message || e));
                 }
-            } else if (data.action === 'MACRO_CONTINUE') {
-                if (typeof atem.macroContinue === 'function') {
-                    atem.macroContinue().catch((e) => console.error('[ATEM Bridge] Macro Continue Error:', e.message || e));
+            } else if (data.action === 'MACRO_LOOP' && data.loop !== undefined) {
+                console.log(`[ATEM Bridge ➔ Setting Macro Loop] Loop: ${data.loop}`);
+                if (typeof atem.macroSetLoop === 'function') {
+                    atem.macroSetLoop(data.loop).catch((e) => console.error('[ATEM Bridge] Macro Loop Error:', e.message || e));
                 }
             }
         } catch (err) {

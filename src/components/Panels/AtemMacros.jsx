@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.19.0)
+// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.20.0)
 // =========================================================================
-// 100 Macro slots (5 pages x 20), Recall & Run logic, pagination dots.
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
@@ -25,8 +24,6 @@ const AtemMacros = ({ connectedDevice }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedMacroIndex, setSelectedMacroIndex] = useState(null);
     const [recallAndRun, setRecallAndRun] = useState(true);
-    const [mode, setMode] = useState('run'); // 'run' | 'create'
-    const [loopEnabled, setLoopEnabled] = useState(false);
     
     // Live hardware state from bridge
     const [macroPlayer, setMacroPlayer] = useState({ isRunning: false, isWaiting: false, loop: false, macroIndex: -1 });
@@ -107,6 +104,10 @@ const AtemMacros = ({ connectedDevice }) => {
         sendCommand('MACRO_STOP');
     };
 
+    const toggleLoop = () => {
+        sendCommand('MACRO_LOOP', { loop: !macroPlayer.loop });
+    };
+
     const handleMacroClick = (index) => {
         setSelectedMacroIndex(index);
         if (recallAndRun) {
@@ -120,7 +121,6 @@ const AtemMacros = ({ connectedDevice }) => {
         }
     };
 
-    // Calculate current page slice (20 macros per page)
     const startIndex = (currentPage - 1) * MACROS_PER_PAGE;
     const currentMacroIndices = Array.from({ length: MACROS_PER_PAGE }, (_, i) => startIndex + i);
 
@@ -131,40 +131,11 @@ const AtemMacros = ({ connectedDevice }) => {
         return '';
     };
 
-    const getStatusBarText = () => {
-        if (macroPlayer.isRunning) {
-            const runningName = getMacroName(macroPlayer.macroIndex) || `Macro ${macroPlayer.macroIndex + 1}`;
-            return `Running: ${runningName}`;
-        }
-        if (selectedMacroIndex !== null) {
-            const selectedName = getMacroName(selectedMacroIndex) || `Macro ${selectedMacroIndex + 1}`;
-            if (!recallAndRun) {
-                return `${selectedName} selected — Click Play to run`;
-            }
-            return `${selectedName} selected`;
-        }
-        return recallAndRun ? 'Click macro to run' : 'Click macro to select';
-    };
-
     return (
         <div className="atem-macros-panel">
-            {/* 1. Header with Mode Select */}
+            {/* 1. Header */}
             <div className="macro-header-bar">
-                <div className="macro-header-title">Macros</div>
-                <div className="macro-mode-switch">
-                    <button 
-                        className={`macro-mode-btn ${mode === 'create' ? 'active' : ''}`}
-                        onClick={() => setMode('create')}
-                    >
-                        Create
-                    </button>
-                    <button 
-                        className={`macro-mode-btn ${mode === 'run' ? 'active' : ''}`}
-                        onClick={() => setMode('run')}
-                    >
-                        Run
-                    </button>
-                </div>
+                <div className="macro-header-title">MACROS</div>
             </div>
 
             {/* 2. Control Toolbar */}
@@ -175,22 +146,22 @@ const AtemMacros = ({ connectedDevice }) => {
                     title="When enabled, clicking a macro executes it immediately"
                 >
                     <div className={`macro-toggle-circle ${recallAndRun ? 'active' : ''}`} />
-                    <span className="macro-toggle-label">Recall and Run</span>
+                    <span className="macro-toggle-label">RECALL AND RUN</span>
                 </div>
 
                 <div className="macro-actions-group">
-                    {/* Loop Toggle */}
+                    {/* Modern Flat Loop */}
                     <button 
-                        className={`macro-action-btn ${loopEnabled ? 'active' : ''}`}
-                        onClick={() => setLoopEnabled(prev => !prev)}
+                        className={`macro-action-btn ${macroPlayer.loop ? 'active-loop' : ''}`}
+                        onClick={toggleLoop}
                         title="Loop Macro"
                     >
                         <svg viewBox="0 0 24 24">
-                            <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+                            <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
                         </svg>
                     </button>
 
-                    {/* Play / Run Button */}
+                    {/* Modern Flat Play */}
                     <button 
                         className={`macro-action-btn play-btn ${selectedMacroIndex !== null ? 'ready' : 'disabled'}`}
                         onClick={handlePlayClick}
@@ -198,18 +169,18 @@ const AtemMacros = ({ connectedDevice }) => {
                         disabled={selectedMacroIndex === null}
                     >
                         <svg viewBox="0 0 24 24">
-                            <path d="M8 5v14l11-7z"/>
+                            <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18c.62-.39.62-1.29 0-1.69L9.54 5.98C8.87 5.55 8 6.03 8 6.82z"/>
                         </svg>
                     </button>
 
-                    {/* Stop Button */}
+                    {/* Modern Flat Stop */}
                     <button 
                         className={`macro-action-btn stop-btn ${macroPlayer.isRunning ? 'active' : ''}`}
                         onClick={stopMacro}
                         title="Stop Macro"
                     >
                         <svg viewBox="0 0 24 24">
-                            <path d="M6 6h12v12H6z"/>
+                            <path d="M8 6h8c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2H8c-1.1 0-2-.9-2-2V8c0-1.1.9-2 2-2z"/>
                         </svg>
                     </button>
                 </div>
@@ -229,49 +200,47 @@ const AtemMacros = ({ connectedDevice }) => {
                             onClick={() => handleMacroClick(macroIdx)}
                             title={`Macro ${macroIdx + 1}${name ? `: ${name}` : ''}`}
                         >
-                            <span className="macro-slot-text">
-                                {name ? name : ''}
-                            </span>
+                            <div className="macro-slot-content">
+                                <span className="macro-slot-num">{macroIdx + 1}</span>
+                                <span className="macro-slot-text">{name}</span>
+                            </div>
                         </button>
                     );
                 })}
             </div>
 
-            {/* 4. Macro Status Display */}
-            <div className="macro-status-bar">
-                <span className="macro-status-text">{getStatusBarText()}</span>
-            </div>
-
-            {/* 5. Pagination Controls with Indicator Dots */}
+            {/* 4. Centered Pagination Footer */}
             <div className="macro-pagination-footer">
-                <button 
-                    className="macro-page-nav-btn"
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    title="Previous Page"
-                >
-                    &lt;
-                </button>
+                <div className="macro-pagination-wrapper">
+                    <button 
+                        className="macro-page-nav-btn"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        title="Previous Page"
+                    >
+                        <svg viewBox="0 0 24 24"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/></svg>
+                    </button>
 
-                <div className="macro-page-dots-container">
-                    {Array.from({ length: TOTAL_PAGES }, (_, i) => i + 1).map((pageNum) => (
-                        <button
-                            key={`page-dot-${pageNum}`}
-                            className={`macro-page-dot ${currentPage === pageNum ? 'active' : ''}`}
-                            onClick={() => setCurrentPage(pageNum)}
-                            title={`Page ${pageNum} (Macros ${(pageNum - 1) * 20 + 1}–${pageNum * 20})`}
-                        />
-                    ))}
+                    <div className="macro-page-dots-container">
+                        {Array.from({ length: TOTAL_PAGES }, (_, i) => i + 1).map((pageNum) => (
+                            <button
+                                key={`page-dot-${pageNum}`}
+                                className={`macro-page-dot ${currentPage === pageNum ? 'active' : ''}`}
+                                onClick={() => setCurrentPage(pageNum)}
+                                title={`Page ${pageNum} (Macros ${(pageNum - 1) * 20 + 1}–${pageNum * 20})`}
+                            />
+                        ))}
+                    </div>
+
+                    <button 
+                        className="macro-page-nav-btn"
+                        onClick={() => setCurrentPage(p => Math.min(TOTAL_PAGES, p + 1))}
+                        disabled={currentPage === TOTAL_PAGES}
+                        title="Next Page"
+                    >
+                        <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+                    </button>
                 </div>
-
-                <button 
-                    className="macro-page-nav-btn"
-                    onClick={() => setCurrentPage(p => Math.min(TOTAL_PAGES, p + 1))}
-                    disabled={currentPage === TOTAL_PAGES}
-                    title="Next Page"
-                >
-                    &gt;
-                </button>
             </div>
         </div>
     );

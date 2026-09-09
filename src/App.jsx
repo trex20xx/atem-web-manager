@@ -8,9 +8,8 @@ import { useDragDrop } from './hooks/useDragDrop';
 import { useLocalStorage } from './hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v2.19.0)
+// ATEM WEB MANAGER - MASTER LAYOUT (v2.20.0)
 // =========================================================================
-// Centered Zoomed Quadrants, Synchronized Sidebar, High-Contrast Apple Switch.
 
 function App() {
   const [theme, setTheme] = useLocalStorage('atem_theme', 'default');
@@ -42,7 +41,6 @@ function App() {
   const connectedDevice = deviceState.devices.find(d => d.status === 'online');
   const isConnected = !!connectedDevice;
 
-  // Zero-Overlap 16:9 Math Engine
   useEffect(() => {
     const handleResize = () => {
       const topBarHeight = 42;
@@ -72,7 +70,6 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, [isSidebarCollapsed]);
 
-  // Global Keybind for Settings (Cmd/Ctrl + ,)
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === ',') {
@@ -105,7 +102,6 @@ function App() {
     <div className="app-root-container">
       <GlobalTooltip />
 
-      {/* UNIFIED TOP CONTROL BAR */}
       <header className="app-top-bar">
         <div className="top-bar-left">
           <button 
@@ -132,16 +128,14 @@ function App() {
             <span className="app-title">ATEM WEB MANAGER</span>
           )}
 
-          {/* Version Tag with Click-to-Fade Toggle */}
           <span 
             className={`top-bar-version ${showVersion ? 'visible' : 'faded'}`}
             onClick={() => setShowVersion(prev => !prev)}
             title={showVersion ? "Click to hide" : "Click to reveal"}
           >
-            v2.19.0
+            v2.20.0
           </span>
 
-          {/* Apple-Style Monochrome Theme Switch with Solid Black Sun/Moon Icons */}
           <div 
             className={`apple-theme-switch ${theme === 'light' ? 'active' : ''}`}
             onClick={toggleLightMode}
@@ -168,7 +162,6 @@ function App() {
             </div>
           </div>
 
-          {/* Settings Gear Button */}
           <button 
             className="top-bar-btn"
             onClick={() => setIsSettingsOpen(true)}
@@ -181,7 +174,6 @@ function App() {
         </div>
       </header>
 
-      {/* Main Dashboard */}
       <div className={`dashboard ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <Sidebar 
           height={dashboardStyle.height}

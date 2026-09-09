@@ -1,5 +1,20 @@
 # ATEM WEB MANAGER - Complete Version History
 
+## [v2.21.0] - Dedicated Background Daemon Kill Script (STOP.BAT)
+- Created `ops/STOP.BAT` to automatically locate and terminate any hidden Node.js bridge daemon processes running on port 8080.
+- Resolved documentation ambiguities regarding the `-WindowStyle Hidden` execution lifecycle.
+- Confirmed strict validation of 100% full file outputs without partial annotations.
+
+## [v2.20.0] - Macro Panel Typography & Hardware Loop Sync
+- Unified macro panel background, typography, and font weights precisely with the Sidebar device list constraints.
+- Removed "Create" mode section and bottom macro status bar for a clean run-only interface.
+- Uppercased "MACROS" and "RECALL AND RUN" tags.
+- Added discrete, left-aligned, muted italic numbering (1-100) inside macro buttons, allowing names to render in crisp standard typography alongside.
+- Transformed Play, Stop, and Loop buttons into modern flat Material vector shapes wrapped in clean circular containers.
+- Hooked `MACRO_LOOP` WebSocket command directly into physical ATEM (`atem.macroSetLoop`).
+- Re-aligned pagination controls with grouped navigation arrows and wider dot spacing.
+- Bound `.macro-slot-btn` heights to 100% so they automatically flex and fit available quadrant height uniformly.
+
 ## [v2.19.0] - ATEM Macros in Quadrant 2 & Centered Collapsed Layout
 - Implemented full ATEM Macros Panel (`src/components/Panels/AtemMacros.jsx`) in Quadrant 2 supporting 100 macros across 5 pages of 20 buttons.
 - Added flat pagination controls with 5 interactive carousel indicator dots.
