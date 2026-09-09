@@ -1,4 +1,16 @@
+
+---
+
+### File 4: `ops/CHANGELOG.MD`
+
+```markdown
 # ATEM WEB MANAGER - Complete Version History
+
+## [v2.31.0] - Operations Unification, Git Executable Bit Fix & Documentation Consolidation
+- Replaced scattered automation scripts with a unified, interactive operations suite: `ops/OPS.SH` (macOS) and `ops/OPS.BAT` (Windows) handling Init, Stop, Push, Pull, Branch, Merge, and Wipe.
+- Added explicit Git POSIX executable bit configuration (`git update-index --chmod=+x ops/OPS.SH`) to permanently eliminate macOS `chmod +x` permission errors.
+- Consolidated redundant documentation files (`README.MD`, `FILE_TREE.MD`, `HANDOVER.MD`) into a single master document: `ops/HANDOVER.MD`.
+- Removed deprecated `cleanup.bat` and `cleanup.sh` artifacts.
 
 ## [v2.30.0] - macOS Subshell Directory Drift Fix
 - Resolved a critical Bash subshell quirk in `INIT.SH` where `cd bridge && ... &` trapped the directory change in a background process, causing the subsequent `cd ..` to eject the user from the project root.
