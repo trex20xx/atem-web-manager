@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableDelayedExpansion
-title ATEM WEB MANAGER - BOOTSTRAPPER (v2.24.0)
+title ATEM WEB MANAGER - BOOTSTRAPPER (v2.25.0)
 
 :: Hardcoded GitHub Repository Address
 set "REPO_URL=https://github.com/robertmirt/ATEM_WEB_MANAGER.git"
@@ -29,7 +29,7 @@ if not exist "%PROJECT_ROOT%\package.json" (
     
     :: Verify Git before cloning
     call git --version >nul 2>&1
-    if errorlevel 1 (
+    if !ERRORLEVEL! NEQ 0 (
         echo [ERROR] Git is not installed or not in PATH.
         echo Please install Git from https://git-scm.com/
         pause
@@ -46,13 +46,13 @@ if not exist "%PROJECT_ROOT%\package.json" (
 
 echo.
 echo =========================================================================
-echo  ATEM WEB MANAGER - INITIALIZING (v2.24.0)
+echo  ATEM WEB MANAGER - INITIALIZING (v2.25.0)
 echo =========================================================================
 echo.
 
-:: 2. Verify Node.js Environment (Using robust errorlevel check)
+:: 2. Verify Node.js Environment (Using strict delayed expansion check to prevent inherited errors)
 call node -v >nul 2>&1
-if errorlevel 1 (
+if !ERRORLEVEL! NEQ 0 (
     echo [ERROR] Node.js is not installed or not in PATH.
     echo Please install Node.js from https://nodejs.org/
     pause
