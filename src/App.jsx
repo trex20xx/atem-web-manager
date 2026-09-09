@@ -8,7 +8,7 @@ import { useDragDrop } from './hooks/useDragDrop';
 import { useLocalStorage } from './hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v2.08)
+// ATEM WEB MANAGER - MASTER LAYOUT (v2.16.0)
 // =========================================================================
 // Unified Top Navigation Bar, Zero-Overlap 16:9 Math, Apple Theme Switch.
 
@@ -42,7 +42,7 @@ function App() {
   const connectedDevice = deviceState.devices.find(d => d.status === 'online');
   const isConnected = !!connectedDevice;
 
-  // V2.08 Zero-Overlap 16:9 Math Engine (Accounting cleanly for Top Bar)
+  // Zero-Overlap 16:9 Math Engine (Accounting cleanly for Top Bar)
   useEffect(() => {
     const handleResize = () => {
       const topBarHeight = 42;
@@ -105,7 +105,7 @@ function App() {
     <div className="app-root-container">
       <GlobalTooltip />
 
-      {/* V2.08 UNIFIED TOP CONTROL BAR */}
+      {/* UNIFIED TOP CONTROL BAR */}
       <header className="app-top-bar">
         <div className="top-bar-left">
           <button 
@@ -132,24 +132,32 @@ function App() {
             <span className="app-title">ATEM WEB MANAGER</span>
           )}
 
-          {/* Version Tag (Clicking switches the setting toggle off) */}
-          {showVersion && (
-            <span 
-              className="top-bar-version"
-              onClick={() => setShowVersion(false)}
-              title="Click to hide (re-enable in Settings)"
-            >
-              v2.08
-            </span>
-          )}
+          {/* Version Tag with Click-to-Fade Toggle */}
+          <span 
+            className={`top-bar-version ${showVersion ? 'visible' : 'faded'}`}
+            onClick={() => setShowVersion(prev => !prev)}
+            title={showVersion ? "Click to hide" : "Click to reveal"}
+          >
+            v2.16.0
+          </span>
 
-          {/* V2.08 Tactile Apple-Style Monochrome Theme Switch */}
+          {/* Apple-Style Monochrome Theme Switch with Sun/Moon Icons */}
           <div 
             className={`apple-theme-switch ${theme === 'light' ? 'active' : ''}`}
             onClick={toggleLightMode}
-            title="Toggle Light / Dark Mode"
+            title={theme === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
           >
-            <div className="apple-switch-thumb" />
+            <div className="apple-switch-thumb">
+              {theme === 'light' ? (
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.29 1.29c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.29 1.29c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41l-1.29-1.29zm-13.78 1.41l1.29-1.29c.39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0l-1.29 1.29c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0zm12.37-12.37l1.29-1.29c.39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0l-1.29 1.29c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0z"/>
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12.3 2a10 10 0 0 0-.19 2 10 10 0 0 0 10 10c.7 0 1.37-.07 2-.19A10 10 0 0 1 12.3 2z"/>
+                </svg>
+              )}
+            </div>
           </div>
 
           {/* Settings Gear Button */}
@@ -165,8 +173,8 @@ function App() {
         </div>
       </header>
 
-      {/* Main Dashboard (Always sits below top bar with zero overlap) */}
-      <div className="dashboard">
+      {/* Main Dashboard */}
+      <div className={`dashboard ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <Sidebar 
           height={dashboardStyle.height}
           showActionButton={showActionButton}

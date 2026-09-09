@@ -1,6 +1,6 @@
 # ATEM WEB MANAGER - MASTER AI HANDOVER SPECIFICATION
-**Current Version:** v2.15.0
-**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, Full Bidirectional ATEM Bridge via receivedCommands.
+**Current Version:** v2.17.0
+**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, Full Bidirectional ATEM Bridge via receivedCommands, Silent Background Daemon.
 
 ---
 
@@ -10,7 +10,7 @@
 3. **MAINTAIN ALL COMMENTS & COMPLETE HISTORY:** Never trim, truncate, or delete historical changelog entries or architectural comments. Retain all records from v1.72 onwards.
 4. **FULL FILES ONLY IN EVERY CHAT REPLY:** Always provide 100% complete files ready to copy-paste directly in each reply. Never output code snippets, partial diffs, or back-references.
 5. **DOCUMENTATION IN /OPS ONLY:** Maintain all project documentation exclusively within the `ops/` directory.
-6. **AUTOMATIC GIT COMMIT & PUSH:** Always provide the exact `git add`, `git commit`, and `git push` commands with a clear, informative commit descriptor at the end of every code iteration.
+6. **AUTOMATIC GIT COMMIT & PUSH (ALL FILES):** Always provide `git add -A`, `git commit`, and `git push` commands with a clear, informative commit descriptor at the end of every response.
 7. **NO WAITING FOR CONFIRMATION:** Do not hold back Git commands waiting for confirmation; provide them proactively. The user will run them and report if anything needs fixing.
 8. **[LOCKED] ELEMENTS PROTOCOL:**
    - **Corner Radii:** Buttons use `--pill-radius: 24px`. Panels use `--panel-radius: 9px`.

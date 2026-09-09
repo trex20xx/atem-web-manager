@@ -4,7 +4,7 @@ import DeviceList from './DeviceList';
 import BottomActionBtn from './BottomActionBtn';
 
 // =========================================================================
-// ATEM WEB MANAGER - SIDEBAR COMPONENT (v2.08)
+// ATEM WEB MANAGER - SIDEBAR COMPONENT (v2.16.0)
 // =========================================================================
 
 const Sidebar = ({ 
@@ -20,9 +20,7 @@ const Sidebar = ({
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            <div className="search-container">
-                <SearchBar deviceState={deviceState} showActionButton={showActionButton} /> 
-            </div>
+            <SearchBar deviceState={deviceState} showActionButton={showActionButton} /> 
             
             <DeviceList 
                 deviceState={deviceState} 

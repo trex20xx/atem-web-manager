@@ -1,5 +1,18 @@
 # ATEM WEB MANAGER - Complete Version History
 
+## [v2.17.0] - Silent Background Bridge Daemon & Global Git Staging Rule
+- Re-architected `ops/INIT.BAT` to launch `bridge/server.js` completely hidden in the background via PowerShell `-WindowStyle Hidden`, eliminating the second terminal window.
+- Added automatic cleanup of lingering port 8080 processes in `ops/INIT.BAT` prior to launching.
+- Confirmed mathematical preservation of strict 16:9 aspect ratio geometry across all multiview panels.
+- Updated Rule 6 across repository documentation to permanently enforce `git add -A` (all files) staging at the end of every response.
+
+## [v2.16.0] - Compact Apple Switch Icons, Fade-Toggle Version Tag & Alignment Precision
+- Embedded responsive SVG Sun and Moon icons directly inside the sliding Apple-style theme toggle switch.
+- Scaled Apple switch geometry to 36px × 20px to match the proportions of the adjacent settings gear.
+- Added smooth opacity fade transition (0.3s) to the version tag, allowing click-to-hide and click-to-reveal.
+- Fixed search bar width alignment by removing the redundant nested wrapper, achieving exact parity with device pill highlights.
+- Anchored multiview quadrant grid left alignment to match the sidebar's uncollapsed left boundary when the sidebar collapses.
+
 ## [v2.15.0] - Automated Source Packaging Utility & State Review Baseline
 - Provided robust cross-terminal codebase serialization scripts for seamless AI session ingestion.
 - Synchronized repository documentation and handover status to v2.15.0.

@@ -6,7 +6,7 @@
 3. **MAINTAIN ALL COMMENTS & COMPLETE HISTORY:** Retain all historical records and comments from v1.72 onwards without trimming or truncating.
 4. **FULL FILES ONLY IN EVERY CHAT REPLY:** ALWAYS provide 100% complete updated files with each chat reply when updates occur. NEVER snippets, partial diffs, or back-references.
 5. **DOCUMENTATION IN /OPS ONLY:** Maintain all project documentation exclusively within the `ops/` directory.
-6. **AUTOMATIC GIT COMMIT & PUSH:** Always provide the exact `git add`, `git commit`, and `git push` commands with a descriptive message at the end of each iteration.
+6. **AUTOMATIC GIT COMMIT & PUSH (ALL FILES):** Always provide `git add -A`, `git commit`, and `git push` commands with an informative commit descriptor at the end of every response.
 7. **NO WAITING FOR CONFIRMATION:** Do not hold back Git commands waiting for confirmation; output them immediately. The user will test and flag any fixes.
 8. **HANDOVER PROTOCOL:** Maintain and use `ops/HANDOVER.MD` across sessions.
 

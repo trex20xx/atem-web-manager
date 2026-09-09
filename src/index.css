@@ -1,10 +1,10 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.09)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.16.0)
  * =========================================================================
  */
 
- :root{
+:root{
     --bg:#121212;
     --panel:#1f1f1f;
     --panel2:#2b2b2b;
@@ -65,22 +65,26 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .top-bar-btn:hover { background: rgba(150,150,150,0.15); color: var(--text); }
 .top-bar-btn svg { width: 18px; height: 18px; fill: currentColor; }
 
-.top-bar-version { font-size: 12px; font-weight: 500; color: var(--muted); cursor: pointer; user-select: none; transition: color 0.15s, opacity 0.2s ease; }
+.top-bar-version { font-size: 12px; font-weight: 500; color: var(--muted); cursor: pointer; user-select: none; transition: color 0.15s, opacity 0.3s ease; opacity: 1; }
+.top-bar-version.faded { opacity: 0; }
 .top-bar-version:hover { color: var(--text); }
+.top-bar-version.faded:hover { opacity: 0.35; }
 
-/* V2.09 Apple-Style Monochrome Theme Switch with Icons */
-.apple-theme-switch { width: 44px; height: 24px; border-radius: 12px; background: #222; border: 1px solid #444; display: flex; align-items: center; padding: 2px; cursor: pointer; transition: background 0.25s ease, border-color 0.25s ease; position: relative; }
-.apple-switch-thumb { width: 18px; height: 18px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; color: #121212; transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); transform: translateX(0); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+/* Apple-Style Sized Theme Switch with Embedded Sun/Moon Icons */
+.apple-theme-switch { width: 36px; height: 20px; border-radius: 10px; background: #222; border: 1px solid #444; display: flex; align-items: center; padding: 2px; cursor: pointer; transition: background 0.25s ease, border-color 0.25s ease; position: relative; }
+.apple-switch-thumb { width: 14px; height: 14px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; color: #121212; transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); transform: translateX(0); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+.apple-switch-thumb svg { width: 9px; height: 9px; display: block; }
 .apple-theme-switch.active { background: #383838; border-color: #666; }
-.apple-theme-switch.active .apple-switch-thumb { transform: translateX(20px); }
+.apple-theme-switch.active .apple-switch-thumb { transform: translateX(16px); }
 
-.dashboard{ flex: 1; width: 100%; display: flex; justify-content: center; align-items: center; gap: var(--gap); padding: 8px 16px 16px 16px; box-sizing: border-box; overflow: hidden; }
+/* Left-Anchored Dashboard for Flawless Collapsed Alignment */
+.dashboard{ flex: 1; width: 100%; display: flex; justify-content: flex-start; align-items: center; gap: var(--gap); padding: 8px 16px 16px 16px; box-sizing: border-box; overflow: hidden; }
 
-/* V2.09 Smooth Simultaneous Width & Opacity Sidebar Collapse */
+/* Smooth Simultaneous Width & Opacity Sidebar Collapse */
 .sidebar{ width:260px; min-width:260px; background:var(--panel); border-radius:var(--panel-radius); display:flex; flex-direction:column; overflow:hidden; transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease, margin 0.35s ease; opacity: 1; }
 .sidebar.collapsed { width: 0 !important; min-width: 0 !important; opacity: 0 !important; margin: 0 !important; pointer-events: none !important; overflow: hidden !important; }
 
-.search-container{ padding: 8px 8px 4px 8px; } /* V2.09 Aligned with device highlights */
+.search-container{ padding: 8px 8px 4px 8px; width: 100%; }
 .device-list{ flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
 .action-container{ max-height:0; overflow:visible; opacity:0; transform:translateY(10px); transition:max-height .28s ease, opacity .2s ease, transform .28s ease, padding .28s ease; padding:0 12px; display:flex; flex-direction:column; gap:6px; position:relative; }
 .action-container.visible { max-height:60px; opacity:1; transform:translateY(0); padding:12px; }
@@ -163,7 +167,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .edit-save{ background:var(--green); }
 .edit-cancel{ background:#4a4a4a; }
 
-.quadrant-wrapper{ display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:var(--gap); flex: 1; height: 100%; transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
+.quadrant-wrapper{ display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:var(--gap); flex-shrink: 0; transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
 
 .panel { background:var(--panel); display:flex; flex-direction:column; position:relative; clip-path: inset(0 round var(--panel-radius)); -webkit-transform: translateZ(0); transform: translateZ(0); }
 .panel.drag-over-quadrant { background:rgba(150,150,150,0.2); }
@@ -237,7 +241,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .sidebar.variant-classic { background: var(--panel); }
 .sidebar.variant-floating { background: rgba(31, 31, 31, 0.5); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5); }
 
-/* V2.08 ATEM SWITCHER CSS (FLAT BACKGROUND, NO TALLY GLOW) */
+/* ATEM SWITCHER CSS */
 .atem-constellation-panel { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 12px; background: var(--panel); box-sizing: border-box; font-family: var(--le-font-family); color: var(--text); user-select: none; overflow: hidden; }
 .atem-bus-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(150,150,150,0.15); padding-bottom: 4px; flex-shrink: 0; }
 .atem-bus-title-group { display: flex; align-items: center; gap: 6px; }
@@ -257,7 +261,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-switcher-btn:hover { background: rgba(150,150,150,0.2); color: var(--text); }
 .atem-switcher-btn .btn-number { font-size: 11px; font-weight: 800; line-height: 1; font-family: var(--le-font-family); }
 
-/* V2.08 FLAT TALLIES (NO GLOW / NO BOX-SHADOW) */
 .atem-switcher-btn.tally-red { background: #d32f2f !important; border-color: #ff5252 !important; color: #fff !important; box-shadow: none !important; }
 .atem-switcher-btn.tally-green { background: #2e7d32 !important; border-color: #4caf50 !important; color: #fff !important; box-shadow: none !important; }
 
