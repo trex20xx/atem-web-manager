@@ -6,8 +6,9 @@ import Skeleton from '../UI/Skeleton';
 import QuadrantContextMenu from '../UI/QuadrantContextMenu';
 
 // =========================================================================
-// ATEM WEB MANAGER - PANEL COMPONENT (v2.07)
+// ATEM WEB MANAGER - PANEL COMPONENT (v2.08)
 // =========================================================================
+// Automatically suppresses background numbers when active content is mounted.
 
 const Panel = ({ 
     panelId, positionIndex, currentVideoSource, isConnected, connectedDevice, isLoading,
@@ -57,7 +58,9 @@ const Panel = ({
                 onDrop={(e) => handleDrop(e, positionIndex)}
                 onContextMenu={handleContextMenu}
             >
-                <div className="panel-muted-num">{panelId}</div>
+                {/* Auto-hide background number when content is mounted */}
+                {!content && <div className="panel-muted-num">{panelId}</div>}
+                
                 <div className="panel-content">
                     <ErrorBoundary>
                         {content}

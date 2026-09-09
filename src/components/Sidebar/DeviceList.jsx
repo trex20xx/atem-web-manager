@@ -5,7 +5,7 @@ import Skeleton from '../UI/Skeleton';
 import { useDragDrop } from '../../hooks/useDragDrop';
 
 // =========================================================================
-// ATEM WEB MANAGER - DEVICE LIST (v1.78)
+// ATEM WEB MANAGER - DEVICE LIST (v2.08)
 // =========================================================================
 
 const DeviceList = ({ deviceState, enableDragDrop, forceUppercase }) => {
@@ -19,7 +19,6 @@ const DeviceList = ({ deviceState, enableDragDrop, forceUppercase }) => {
     const { handleDeviceDragStart, handleGroupDragOver, handleGroupDragLeave, handleGroupDrop } = useDragDrop(enableDragDrop);
     const [groupEditForm, setGroupEditForm] = useState({ name: '', colorTag: '', description: '' });
 
-    // V1.78 - Removed Divider from Skeleton UI
     if (isLoading) {
         return (
             <div className="device-list" style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -124,19 +123,44 @@ const DeviceList = ({ deviceState, enableDragDrop, forceUppercase }) => {
                         onDrop={(e) => handleGroupDrop(e, origG, handleDrop)}
                     >
                         {editingGroupContext === g && g !== 'UNGROUPED' ? (
-                            <div className="group-header-wrapper">
+                            <div 
+                                className="group-header-wrapper"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleSaveGroupEdit(g);
+                                    }
+                                }}
+                            >
                                 <div className="group-header-accent" style={{ backgroundColor: col }}></div>
                                 <div className="group-editing-inner">
                                     <div className="edit-field-wrapper">
-                                        <input className="edit-field" placeholder="Group name" value={groupEditForm.name} onChange={e => setGroupEditForm({...groupEditForm, name: e.target.value})} autoFocus />
+                                        <input 
+                                            className="edit-field" 
+                                            placeholder="Group name" 
+                                            value={groupEditForm.name} 
+                                            onChange={e => setGroupEditForm({...groupEditForm, name: e.target.value})} 
+                                            autoFocus 
+                                        />
+                                        {groupEditForm.name && (
+                                            <button type="button" className="clear-field-x" onClick={() => setGroupEditForm({...groupEditForm, name: ''})}>&times;</button>
+                                        )}
                                     </div>
                                     <ColorDropdown currentColor={groupEditForm.colorTag} onChange={val => setGroupEditForm({...groupEditForm, colorTag: val})} />
                                     <div className="edit-field-wrapper">
-                                        <input className="edit-field" placeholder="Description" value={groupEditForm.description} onChange={e => setGroupEditForm({...groupEditForm, description: e.target.value})} />
+                                        <input 
+                                            className="edit-field" 
+                                            placeholder="Description" 
+                                            value={groupEditForm.description} 
+                                            onChange={e => setGroupEditForm({...groupEditForm, description: e.target.value})} 
+                                        />
+                                        {groupEditForm.description && (
+                                            <button type="button" className="clear-field-x" onClick={() => setGroupEditForm({...groupEditForm, description: ''})}>&times;</button>
+                                        )}
                                     </div>
                                     <div className="edit-actions">
-                                        <button className="edit-cancel" onClick={() => setEditingGroupContext(null)}>Cancel</button>
-                                        <button className="edit-save" onClick={() => handleSaveGroupEdit(g)}>Save</button>
+                                        <button type="button" className="edit-cancel" onClick={() => setEditingGroupContext(null)}>Cancel</button>
+                                        <button type="button" className="edit-save" onClick={() => handleSaveGroupEdit(g)}>Save</button>
                                     </div>
                                 </div>
                             </div>
@@ -180,6 +204,7 @@ const DeviceList = ({ deviceState, enableDragDrop, forceUppercase }) => {
                                 forceUppercase={forceUppercase}
                                 enableDragDrop={enableDragDrop}
                                 handleDeviceDragStart={handleDeviceDragStart}
+                                availableGroups={groupNames}
                                 onSelect={(id) => {
                                     setEditingId(null); setEditingGroupContext(null);
                                     setSelectedDeviceId(id); setSelectedGroupContext(null);

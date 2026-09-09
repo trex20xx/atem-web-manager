@@ -1,5 +1,16 @@
 # ATEM WEB MANAGER - Complete Version History
 
+## [v2.15.0] - Automated Source Packaging Utility & State Review Baseline
+- Provided robust cross-terminal codebase serialization scripts for seamless AI session ingestion.
+- Synchronized repository documentation and handover status to v2.15.0.
+- Maintained active working baseline of ATEM bidirectional tally synchronization.
+
+## [v2.14.0] - Full Historical Archive Restoration & Multi-Hook Bridge Sync
+- Restored complete historical changelog dating back to monolithic baseline (v1.72.0 through v2.14.0).
+- Standardized `ops/` directory as the authoritative repository documentation home.
+- Verified physical ATEM Constellation HD two-way tally sync baseline via `receivedCommands` and `bridge/server.js`.
+- Synchronized styling definitions and layout tokens across `src/index.css`.
+
 ## [v2.13.0] - Direct ATEM Command Packet Listener via receivedCommands
 - Hooked directly into `atem.on('receivedCommands')` to capture raw `PrgI` (Program) and `PrvI` (Preview) UDP packets sent when pressing physical switcher buttons.
 - Eliminated reliance on `stateChanged` path filters which were failing on Constellation HD hardware events.
@@ -25,17 +36,171 @@
 - Enhanced status indicator to distinguish between WebSocket bridge connection and physical hardware link (`LIVE` vs. `STANDBY`).
 - Protected ATEM command handlers against unhandled promise rejections on hardware disconnects.
 
-## [v2.09.0] - UI Precision, Apple Switch Icons, & Two-Way ATEM Tallies
-- Aligned search field width precisely with sidebar device pill highlights.
-- Embedded SVG Sun and Moon icons directly inside the sliding Apple-style theme toggle switch, sizing it to match the settings gear.
-- Fixed Multiview quadrant alignment and scaling behavior when toggling the sidebar.
-- Fixed two-way ATEM tally feedback loop in `bridge/server.js`.
-- Standardized ATEM switcher button typography to use device font and removed subtext.
-- Made version tag click behavior toggle cleanly between visible and hidden states.
-- Synchronized sidebar slide and vertical quadrant zoom transitions to occur simultaneously.
-- Redesigned right-click quadrant context menu to use pill styling and device typography.
+## [v2.09.0] - Full Historical Archive & Robust Bidirectional Tally Sync
+- Upgraded `bridge/server.js` and `AtemConstellationBus.jsx` with robust `Object.values()` state extraction for live two-way ATEM hardware tally feedback.
+- Aligned search bar horizontal padding (8px) with device row highlights for perfect visual consistency.
+- Enhanced Apple-style theme switch with embedded Sun and Moon SVG icons inside the sliding thumb.
+- Enabled click-to-reveal on the version tag when hidden.
+- Synchronized sidebar collapse animation for simultaneous horizontal slide and width shrinkage.
+- Styled right-click quadrant context menus with pill-shaped item selection and matching device font.
+- Removed small subtext from ATEM switcher buttons, replacing them with clean single-number labels.
+- Maintained complete historical changelog archive (v1.72 through v2.09).
 
 ## [v2.08.0] - Unified Top Bar, Apple Theme Switch, Bidirectional ATEM Feedback & Edit UX
 - Created dedicated Top Navigation Bar housing Hamburger toggle, Title, Version tag, Theme switch, and Settings gear.
 - Eliminated all quadrant overlap issues during 16:9 aspect ratio resizing and sidebar collapse.
-- Implemented tactile, monochrome Apple-style sliding switch for Dark/Light theme toggling.
+- Implemented monochrome Apple-style sliding switch for Dark/Light theme toggling.
+- Synchronized version tag click behavior directly with the settings `showVersion` toggle state.
+- Added Enter-key submission across all Device and Group inline edit fields.
+- Implemented floating quick-select group dropdown in device edit forms.
+- Re-styled ATEM switcher panel: matched background to quadrant palette, removed tally button glow, and hid background numbers when active.
+- Implemented bidirectional ATEM hardware state broadcasting in `bridge/server.js` for live hardware-to-UI tally syncing.
+
+## [v2.07.0] - UI Geometry Polish, Control Positioning & Context Routing
+- Restored settings gear icon to the bottom-right corner (`bottom: 16px; right: 16px`).
+- Re-anchored Sun/Moon theme toggle to the top-right corner.
+- Eliminated unstyled top-left button artifact by providing clean CSS for collapse/restore controls.
+- Mathematically centered edit buttons (`.edit-btn`, `.group-edit-btn`) with exact 4px equidistant top, bottom, and right padding inside `30px` pill rows.
+- Standardized all edit panel inputs (`Name`, `IP`, `Group`, `Color`, `Description`) with pill-rounded geometry (`24px`).
+- Unified dark mode palette across Device and Group edit forms (`.device-editing-inner` & `.group-editing-inner`).
+- Added "Clear Color" (`×`) button inside the Color Dropdown to reset colors to transparent ("No Color").
+- Restored custom minimalist range sliders and monochrome toggles in Settings (removed all native blue/colored fills).
+- Implemented right-click quadrant context menu routing specific Quadrant numbers (1–4) into target slots.
+- Added Tally LED brightness global settings slider.
+
+## [v2.06.0] - Synchronization & Full Rollup Release
+- Consolidated all additions from v1.85 to v2.05 into a single clean push to synchronize GitHub across environments.
+- Version bumped across App, Settings, Documentation, and Handover state.
+
+## [v2.05.0] - Cross-Platform Parity, All-Caps Ops Standardization & Complete Handover
+- Implemented background bridge server auto-launch inside macOS `INIT.SH` matching Windows `INIT.BAT`.
+- Standardized all documentation and automation scripts inside `ops/` to ALL-CAPS naming.
+- Cataloged `GIT_INSTRUCTIONS.MD` as the user's permanent Git reference manual inside `ops/`.
+- Validated standardized React/Airbnb file-naming conventions (`PascalCase.jsx` for components, `camelCase.js` for hooks).
+- Fortified `HANDOVER.MD` into a complete, standalone architectural memory specification for future AI sessions.
+
+## [v2.04.0] - Operations Directory Refactoring & Workspace Cleanup
+- Created dedicated `ops/` directory housing all documentation, handover states, and OS automation scripts.
+- Updated all Windows `.bat` and macOS `.sh` scripts to operate seamlessly from `ops/` targeting project root.
+- Removed duplicate and stray files (`src/hooks/Sidebar.jsx`, `src/components/Multiview/AtemConstellationBus.jsx`, `git_instructions.md`).
+- Fixed Windows `.txt` extension on `bridge/package.json`.
+
+## [v2.03.0] - Complete History Archive & Automated Bridge Startup
+- Restored comprehensive historical changelog dating back to monolithic baseline (v1.72).
+- Upgraded `INIT.bat` to concurrently spawn the embedded ATEM bridge server (`bridge/server.js`) on port 8080 alongside Vite.
+- Ensured portable Node environment variables propagate cleanly to child bridge processes on Windows.
+
+## [v2.02.0] - Cross-Platform Windows Batch Suite & Setup Sync
+- Added Windows-native batch scripts (`INIT.bat`, `PUSH.bat`, `WIPE.bat`) matching macOS bash utilities.
+- Embedded automatic path detection for portable Node.js on enterprise Windows environments.
+- Synchronized multi-platform working directories and pull workflows.
+
+## [v2.01.0] - Settings UI Restoration, Full-Collapse Sidebar, & Row Geometry Lock
+- Changed Bottom Action Button font-weight from bold (700) to normal (500).
+- Converted all edit-form fields (Name, IP, Group, Color, Description) to pill-rounded styling (`24px`).
+- Added clear button (`×`) to Color Dropdown to reset color to transparent ("No Color").
+- Restored minimalist range slider tracks/thumbs and monochrome toggles in Settings (removed all blue/colored elements).
+- Set "Classic (Solid)" as the default sidebar variant.
+- Made hamburger collapse toggle a perfect circular button (`border-radius: 50%`).
+- Re-architected sidebar collapse to slide 100% off-screen with a floating top-left restore button.
+- Mathematically aligned `.edit-btn` with 4px equidistant top, bottom, and right padding.
+- Permanently locked Sidebar Devices, Groups, and Edit Panel designs under the locked element protocol.
+
+## [v2.00.0] - Geometric Polish, Context Menus & Control Bar
+- Solved `.edit-btn` padding geometry for pixel-perfect right alignment inside pill rows.
+- Fixed right-click context menu to map exact Quadrant numbers (1-4) into target slots.
+- Added Tally LED brightness slider to Settings.
+- Improved sidebar collapse animation with smooth container width transitions.
+- Restored device edit-form CSS (`.device-editing-inner`) to match group edit-form dark mode palette perfectly.
+- Modernized top-right global icons into a unified floating glass pill container.
+
+## [v1.99.0] - Switcher Layout Restoration & Context Routing
+- Restored ATEM switcher panel CSS layout.
+- Fixed right-click context menu items to map exact Quadrant numbers instead of slot indices.
+- Added Tally LED brightness slider to Settings -> Multiview.
+- Fixed Multiview 16:9 aspect ratio recalculation bug upon sidebar collapsing.
+- Perfected `.edit-btn` sizing and right-padding geometry.
+- Grouped top-right icons into a sleek, non-intrusive floating toolbar header.
+
+## [v1.98.0] - Sidebar Collapse, Right-Click Context Menus & UI Polish
+- Added Google AI Studio style collapse button to the sidebar header.
+- Implemented smooth responsive expansion of Multiview quadrants when the sidebar collapses.
+- Added right-click context menu on panels for 1-4 position swapping.
+- Locked background quadrant numbers against text highlighting/selection (`user-select: none`).
+- Unified search input placeholder typography with device list fonts.
+
+## [v1.95.0] - Workspace Erase Utilities & Empty Directory Clone Fixes
+- Added `WIPE.sh` to safely delete project folders using a verification token (`.atem_workspace_token`).
+- Updated `INIT.sh` to safely bypass Git "destination path already exists and is not an empty directory" clone errors.
+
+## [v1.90.0] - Automated One-Liner Bootstrapping & Double-Click Launchers
+- Upgraded `INIT.sh` (macOS) and `INIT.bat` (Windows) to automatically execute `npm run dev` upon successful setup.
+- Documented native double-click execution flows (`.command` for Mac, `.bat` for Windows).
+- Maintained documentation sync across README, CHANGELOG, and HANDOVER states.
+
+## [v1.84.0] - Multiview Quadrant Skeletons
+- Updated `Panel.jsx` to display a shimmering skeleton layout inside all quadrants during the initial `isLoading` window, matching the sidebar skeleton style.
+- Synchronized version tags and documentation across README, HANDOVER, and FILE_TREE.
+
+## [v1.83.0] - Crash-Proof Error Boundaries & Safe ATEM Bridge Handling
+- Created `ErrorBoundary.jsx` to trap component rendering exceptions.
+- Fixed `useRef` import bug inside `AtemConstellationBus.jsx`.
+
+## [v1.82.0] - Crash-Proof Error Boundaries & Safe ATEM Bridge Handling
+- Created `ErrorBoundary.jsx` to trap component rendering exceptions and network connection faults, preventing blank white screen crashes.
+- Upgraded `AtemConstellationBus.jsx` to gracefully handle offline WebSocket states (`ws://localhost:8080`), falling back to a clean local UI mode instead of throwing fatal errors.
+
+## [v1.81.0] - Real ATEM Hardware Control Bridge Layer
+- Upgraded `AtemConstellationBus.jsx` to dispatch real-world network commands to physical ATEM switchers at `192.168.10.240`.
+- Integrated WebSocket/REST bridge client logic to interface with local ATEM communication daemons.
+
+## [v1.80.0] - ATEM 1 M/E Constellation HD Switcher Bus & Dynamic Panels
+- Added `AtemConstellationBus.jsx` in `src/components/Panels/` featuring 10 inputs per row for Program (Red Tally) and Preview (Green Tally).
+- Implemented CUT and AUTO transition buttons with live tally switching.
+- Enforced strict hardware lock: Constellation panel operates EXCLUSIVELY with IP `192.168.10.240`.
+
+## [v1.79.0] - Polish, Light Theme & Consistency
+- Changed settings Gear icon to standard SVG.
+- Removed floating sidebar border and group divider lines for cleaner UI.
+- Matched Search input pixel-for-pixel with Device pills (30px height, identical padding/font).
+- Added Global Tooltip React Component to display hover descriptions.
+- Added full Light Theme mapped to CSS variables with a dynamic Sun/Moon toggle.
+- Fixed Safari Mac specific drag-and-drop gradient rendering bug using `translateZ(0)` hardware acceleration.
+- Added user preference to enable/disable Multiview Quadrant dragging.
+
+## [v1.78.0] - UI Alignment & Persistence
+- Replaced all monolithic JS state with `useLocalStorage` React Hook.
+- Perfected CSS flex alignment for Device/Group edit buttons.
+- Updated Color Dropdown to match DaVinci UI.
+- Removed arbitrary timeout on Sidebar Hover button.
+
+## [v1.77.0] - Persistence & Skeleton UI Fixes
+- Added `useLocalStorage` hook to save all user settings, themes, device lists, and groups permanently in the browser.
+- Fixed Skeleton UI visibility by applying a universal high-contrast rgba background (`rgba(255, 255, 255, 0.08)`).
+
+## [v1.76.0] - Skeleton UI & Component Variants
+- Added `<Skeleton />` UI component for modern loading states.
+- Implemented a simulated 1.2s loading state in `useDevices.js` to demonstrate the Skeleton UI on initial mount.
+- Added "Component Variant" architecture to the `Sidebar` (Classic Solid vs. Floating Glass designs).
+- Updated `SettingsModal` to allow live toggling of the new Sidebar variants.
+
+## [v1.75.0] - React / Vite Transition Baseline
+- Monolithic HTML/JS strictly ported to React + Vite component architecture.
+- Preserved all [LOCKED] design rules (24px pills, 30% transparency UI, 16:9 Multiview logic).
+- Segregated business logic into custom React Hooks (`useDevices.js`, `useDragDrop.js`).
+
+## [v1.74.0] - Monolithic Pre-Transition Baseline
+- Final monolithic baseline before transitioning to React component architecture.
+- Full structural integrity and 16:9 mathematical scaling verified.
+
+## [v1.73.0] - YouTube Replica UI & Transparency Unification
+- YouTube replica control bar with custom SVG masks for Play/Pause, Volume, Fullscreen, and centered Big Play button (68x48px).
+- Red progress bar spanning top of pill and expanding to 100% in fullscreen.
+- Unified 30% transparency (`rgba(30, 30, 30, 0.3)`) across panels and controls.
+- Volume slider expansion to eliminate clipping.
+- Quality labels simplified to 4K, 1080p, 720p (480p removed).
+
+## [v1.72.0] - Settings & Sidebar UX Refinements
+- Increased max corner radius range to 24px in preferences.
+- Disabled global action button timeout (only CONFIRM state times out after 3 seconds).
+- Added automatic deselection of sidebar items when clicking empty space.

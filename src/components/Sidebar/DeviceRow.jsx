@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import ColorDropdown from './ColorDropdown';
 
 // =========================================================================
-// ATEM WEB MANAGER - DEVICE ROW (v1.75)
+// ATEM WEB MANAGER - DEVICE ROW (v2.08)
 // =========================================================================
 
 const DeviceRow = ({ 
@@ -16,7 +16,8 @@ const DeviceRow = ({
     onEditCancel, 
     onEditSave,
     enableDragDrop,
-    handleDeviceDragStart
+    handleDeviceDragStart,
+    availableGroups = []
 }) => {
     const [editForm, setEditForm] = useState({
         name: device.name !== device.ip ? device.name : '',
@@ -26,27 +27,106 @@ const DeviceRow = ({
         description: device.description || ''
     });
 
+    const [showGroupMenu, setShowGroupMenu] = useState(false);
+    const groupMenuRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (groupMenuRef.current && !groupMenuRef.current.contains(e.target)) {
+                setShowGroupMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            onEditSave(device.id, editForm);
+        }
+    };
+
     if (isEditing) {
         return (
-            <div className="device-wrapper editing">
+            <div className="device-wrapper editing" onKeyDown={handleKeyDown}>
                 <div className="device-accent" style={{ backgroundColor: editForm.colorTag || 'transparent' }}></div>
                 <div className="device-editing-inner">
                     <div className="edit-field-wrapper">
-                        <input className="edit-field" placeholder="Name" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} autoFocus />
+                        <input 
+                            className="edit-field" 
+                            placeholder="Name" 
+                            value={editForm.name} 
+                            onChange={e => setEditForm({...editForm, name: e.target.value})} 
+                            autoFocus 
+                        />
+                        {editForm.name && (
+                            <button type="button" className="clear-field-x" onClick={() => setEditForm({...editForm, name: ''})}>&times;</button>
+                        )}
                     </div>
+                    
                     <div className="edit-field-wrapper">
-                        <input className="edit-field" placeholder="IP address" value={editForm.ip} onChange={e => setEditForm({...editForm, ip: e.target.value})} />
+                        <input 
+                            className="edit-field" 
+                            placeholder="IP address" 
+                            value={editForm.ip} 
+                            onChange={e => setEditForm({...editForm, ip: e.target.value})} 
+                        />
                     </div>
+                    
+                    <div className="edit-field-wrapper" ref={groupMenuRef}>
+                        <input 
+                            className="edit-field" 
+                            placeholder="Group name" 
+                            value={editForm.group} 
+                            onFocus={() => setShowGroupMenu(true)}
+                            onChange={e => {
+                                setEditForm({...editForm, group: e.target.value});
+                                setShowGroupMenu(true);
+                            }} 
+                        />
+                        {editForm.group && (
+                            <button type="button" className="clear-field-x" onClick={() => setEditForm({...editForm, group: ''})}>&times;</button>
+                        )}
+                        {showGroupMenu && availableGroups.length > 0 && (
+                            <div className="group-select-menu">
+                                {availableGroups.map((gName) => (
+                                    <div 
+                                        key={gName}
+                                        className="group-select-item"
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            setEditForm({...editForm, group: gName === 'UNGROUPED' ? '' : gName});
+                                            setShowGroupMenu(false);
+                                        }}
+                                    >
+                                        {gName}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <ColorDropdown 
+                        currentColor={editForm.colorTag} 
+                        onChange={val => setEditForm({...editForm, colorTag: val})} 
+                    />
+
                     <div className="edit-field-wrapper">
-                        <input className="edit-field" placeholder="Group name" value={editForm.group} onChange={e => setEditForm({...editForm, group: e.target.value})} />
+                        <input 
+                            className="edit-field" 
+                            placeholder="Description" 
+                            value={editForm.description} 
+                            onChange={e => setEditForm({...editForm, description: e.target.value})} 
+                        />
+                        {editForm.description && (
+                            <button type="button" className="clear-field-x" onClick={() => setEditForm({...editForm, description: ''})}>&times;</button>
+                        )}
                     </div>
-                    <ColorDropdown currentColor={editForm.colorTag} onChange={val => setEditForm({...editForm, colorTag: val})} />
-                    <div className="edit-field-wrapper">
-                        <input className="edit-field" placeholder="Description" value={editForm.description} onChange={e => setEditForm({...editForm, description: e.target.value})} />
-                    </div>
+
                     <div className="edit-actions">
-                        <button className="edit-cancel" onClick={onEditCancel}>Cancel</button>
-                        <button className="edit-save" onClick={() => onEditSave(device.id, editForm)}>Save</button>
+                        <button type="button" className="edit-cancel" onClick={onEditCancel}>Cancel</button>
+                        <button type="button" className="edit-save" onClick={() => onEditSave(device.id, editForm)}>Save</button>
                     </div>
                 </div>
             </div>
@@ -63,7 +143,7 @@ const DeviceRow = ({
             onDragStart={(e) => handleDeviceDragStart(e, device.id)}
             onClick={(e) => {
                 if (e.detail === 2) {
-                    onConnect(device.id); // Double click to connect, simple adaptation of time-based original
+                    onConnect(device.id);
                 } else {
                     onSelect(device.id);
                 }

@@ -8,14 +8,15 @@ import { useDragDrop } from './hooks/useDragDrop';
 import { useLocalStorage } from './hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v2.07)
+// ATEM WEB MANAGER - MASTER LAYOUT (v2.08)
 // =========================================================================
+// Unified Top Navigation Bar, Zero-Overlap 16:9 Math, Apple Theme Switch.
 
 function App() {
   const [theme, setTheme] = useLocalStorage('atem_theme', 'default');
   const [panelRadius, setPanelRadius] = useLocalStorage('atem_panelRadius', 9);
   const [tallyOpacity, setTallyOpacity] = useLocalStorage('atem_tallyOpacity', 85);
-  const [titlePosition, setTitlePosition] = useLocalStorage('atem_titlePosition', 'off');
+  const [titlePosition, setTitlePosition] = useLocalStorage('atem_titlePosition', 'left');
   const [showVersion, setShowVersion] = useLocalStorage('atem_showVersion', true);
   const [sidebarVariant, setSidebarVariant] = useLocalStorage('atem_sidebarVariant', 'classic');
   
@@ -28,11 +29,9 @@ function App() {
   const [quadrantOrder, setQuadrantOrder] = useLocalStorage('atem_quadrantOrder', [1, 2, 3, 4]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [versionVisible, setVersionVisible] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   
   const [dashboardStyle, setDashboardStyle] = useState({ width: '100%', height: '100%' });
-  const [headerStyle, setHeaderStyle] = useState({ display: 'none' });
 
   const deviceState = useDevices();
   const { 
@@ -43,13 +42,17 @@ function App() {
   const connectedDevice = deviceState.devices.find(d => d.status === 'online');
   const isConnected = !!connectedDevice;
 
+  // V2.08 Zero-Overlap 16:9 Math Engine (Accounting cleanly for Top Bar)
   useEffect(() => {
     const handleResize = () => {
+      const topBarHeight = 42;
       const sidebarWidth = isSidebarCollapsed ? 0 : 260;
       const gap = isSidebarCollapsed ? 0 : 8;
-      const padding = 32;
-      const availableWidth = Math.max(100, window.innerWidth - sidebarWidth - gap - padding);
-      const availableHeight = Math.max(100, window.innerHeight - padding);
+      const horizontalPadding = 32;
+      const verticalPadding = 24;
+
+      const availableWidth = Math.max(100, window.innerWidth - sidebarWidth - gap - horizontalPadding);
+      const availableHeight = Math.max(100, window.innerHeight - topBarHeight - verticalPadding);
 
       let width = availableWidth;
       let height = width * 9 / 16;
@@ -62,39 +65,14 @@ function App() {
         width: Math.max(100, width),
         height: Math.max(100, height)
       });
-
-      const totalDashboardWidth = sidebarWidth + gap + width;
-      const dashboardLeft = (window.innerWidth - totalDashboardWidth) / 2;
-      const dashboardTop = (window.innerHeight - height) / 2;
-
-      if (titlePosition === 'off') {
-        setHeaderStyle({ display: 'none' });
-        return;
-      }
-
-      const headerTop = Math.max(4, (dashboardTop / 2) - 12);
-      let hStyle = { display: 'block', top: `${headerTop}px`, transform: 'none' };
-
-      if (titlePosition === 'left') {
-        hStyle.left = `${Math.max(16, dashboardLeft)}px`;
-        hStyle.right = 'auto';
-      } else if (titlePosition === 'centered') {
-        hStyle.left = `${dashboardLeft + totalDashboardWidth / 2}px`;
-        hStyle.transform = 'translateX(-50%)';
-        hStyle.right = 'auto';
-      } else if (titlePosition === 'right') {
-        hStyle.left = 'auto';
-        hStyle.right = `${Math.max(16, window.innerWidth - (dashboardLeft + totalDashboardWidth))}px`;
-      }
-
-      setHeaderStyle(hStyle);
     };
 
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [titlePosition, isSidebarCollapsed]);
+  }, [isSidebarCollapsed]);
 
+  // Global Keybind for Settings (Cmd/Ctrl + ,)
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === ',') {
@@ -124,93 +102,113 @@ function App() {
   };
 
   return (
-    <>
+    <div className="app-root-container">
       <GlobalTooltip />
-      <div className="header" style={headerStyle}>ATEM WEB MANAGER</div>
 
-      {/* Restore Button when Sidebar is Collapsed */}
-      {isSidebarCollapsed && (
+      {/* V2.08 UNIFIED TOP CONTROL BAR */}
+      <header className="app-top-bar">
+        <div className="top-bar-left">
           <button 
-              className="sidebar-restore-btn"
-              onClick={() => setIsSidebarCollapsed(false)}
-              title="Expand navigation menu"
+            className="top-bar-btn"
+            onClick={() => setIsSidebarCollapsed(prev => !prev)}
+            title="Toggle Navigation Menu"
           >
-              <svg viewBox="0 0 24 24">
-                  <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
-              </svg>
+            <svg viewBox="0 0 24 24">
+              <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+            </svg>
           </button>
-      )}
 
-      {/* Sun/Moon Theme Toggle (Top-Right) */}
-      <button className="theme-toggle-btn" onClick={toggleLightMode} title="Toggle Light/Dark Theme">
-          {theme === 'light' ? (
-              <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          ) : (
-              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          {titlePosition === 'left' && (
+            <span className="app-title">ATEM WEB MANAGER</span>
           )}
-      </button>
+        </div>
 
-      {/* Settings Gear Button (Bottom-Right Corner) */}
-      <button className="gear-btn" onClick={() => setIsSettingsOpen(true)} title="Preferences (Cmd/Ctrl + ,)">
-        <svg viewBox="0 0 24 24">
-            <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.05-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22l-1.92 3.32c-.12.22-.07.49.12.61l2.03 1.58c-.04.3-.06.61-.06.94s.02.64.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.49-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
-        </svg>
-      </button>
+        {titlePosition === 'centered' && (
+          <span className="app-title centered">ATEM WEB MANAGER</span>
+        )}
 
-      {showVersion && (
+        <div className="top-bar-right">
+          {titlePosition === 'right' && (
+            <span className="app-title">ATEM WEB MANAGER</span>
+          )}
+
+          {/* Version Tag (Clicking switches the setting toggle off) */}
+          {showVersion && (
+            <span 
+              className="top-bar-version"
+              onClick={() => setShowVersion(false)}
+              title="Click to hide (re-enable in Settings)"
+            >
+              v2.08
+            </span>
+          )}
+
+          {/* V2.08 Tactile Apple-Style Monochrome Theme Switch */}
           <div 
-            className="version-tag" 
-            onClick={() => setVersionVisible(!versionVisible)}
-            style={{ opacity: versionVisible ? 1 : 0 }}
+            className={`apple-theme-switch ${theme === 'light' ? 'active' : ''}`}
+            onClick={toggleLightMode}
+            title="Toggle Light / Dark Mode"
           >
-              v2.07
+            <div className="apple-switch-thumb" />
           </div>
-      )}
 
-      <SettingsModal 
-          isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)}
-          theme={theme} setTheme={setTheme}
-          panelRadius={panelRadius} setPanelRadius={setPanelRadius}
-          tallyOpacity={tallyOpacity} setTallyOpacity={setTallyOpacity}
-          titlePosition={titlePosition} setTitlePosition={setTitlePosition}
-          showVersion={showVersion} setShowVersion={setShowVersion}
-          enableDragDrop={enableDragDrop} setEnableDragDrop={setEnableDragDrop}
-          enableQuadrantDrag={enableQuadrantDrag} setEnableQuadrantDrag={setEnableQuadrantDrag}
-          showActionButton={showActionButton} setShowActionButton={setShowActionButton}
-          forceUppercase={forceUppercase} setForceUppercase={setForceUppercase}
-          currentVideoSource={currentVideoSource} setCurrentVideoSource={setCurrentVideoSource}
-          quadrantOrder={quadrantOrder} setQuadrantOrder={setQuadrantOrder}
-          sidebarVariant={sidebarVariant} setSidebarVariant={setSidebarVariant}
-      /> 
+          {/* Settings Gear Button */}
+          <button 
+            className="top-bar-btn"
+            onClick={() => setIsSettingsOpen(true)}
+            title="Settings (Cmd/Ctrl + ,)"
+          >
+            <svg viewBox="0 0 24 24">
+              <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.05-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22l-1.92 3.32c-.12.22-.07.49.12.61l2.03 1.58c-.04.3-.06.61-.06.94s.02.64.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.49-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6S13.98,15.6,12,15.6z"/>
+            </svg>
+          </button>
+        </div>
+      </header>
 
+      {/* Main Dashboard (Always sits below top bar with zero overlap) */}
       <div className="dashboard">
         <Sidebar 
-            height={dashboardStyle.height}
-            showActionButton={showActionButton}
-            enableDragDrop={enableDragDrop}
-            forceUppercase={forceUppercase}
-            deviceState={deviceState}
-            variant={sidebarVariant}
-            isCollapsed={isSidebarCollapsed}
-            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          height={dashboardStyle.height}
+          showActionButton={showActionButton}
+          enableDragDrop={enableDragDrop}
+          forceUppercase={forceUppercase}
+          deviceState={deviceState}
+          variant={sidebarVariant}
+          isCollapsed={isSidebarCollapsed}
         />
         <main className="quadrant-wrapper" style={{ width: `${dashboardStyle.width}px`, height: `${dashboardStyle.height}px` }}>
           <QuadrantGrid 
-              quadrantOrder={quadrantOrder}
-              currentVideoSource={currentVideoSource}
-              isConnected={isConnected}
-              connectedDevice={connectedDevice}
-              isLoading={deviceState.isLoading}
-              enableQuadrantDrag={enableQuadrantDrag}
-              handleQuadrantDragStart={handleQuadrantDragStart}
-              handleQuadrantDragOver={handleQuadrantDragOver}
-              handleQuadrantDragLeave={handleQuadrantDragLeave}
-              handleQuadrantDrop={handleQuadrantDrop}
-              setQuadrantOrder={setQuadrantOrder}
+            quadrantOrder={quadrantOrder}
+            currentVideoSource={currentVideoSource}
+            isConnected={isConnected}
+            connectedDevice={connectedDevice}
+            isLoading={deviceState.isLoading}
+            enableQuadrantDrag={enableQuadrantDrag}
+            handleQuadrantDragStart={handleQuadrantDragStart}
+            handleQuadrantDragOver={handleQuadrantDragOver}
+            handleQuadrantDragLeave={handleQuadrantDragLeave}
+            handleQuadrantDrop={handleQuadrantDrop}
+            setQuadrantOrder={setQuadrantOrder}
           />
         </main>
       </div>
-    </>
+
+      <SettingsModal 
+        isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)}
+        theme={theme} setTheme={setTheme}
+        panelRadius={panelRadius} setPanelRadius={setPanelRadius}
+        tallyOpacity={tallyOpacity} setTallyOpacity={setTallyOpacity}
+        titlePosition={titlePosition} setTitlePosition={setTitlePosition}
+        showVersion={showVersion} setShowVersion={setShowVersion}
+        enableDragDrop={enableDragDrop} setEnableDragDrop={setEnableDragDrop}
+        enableQuadrantDrag={enableQuadrantDrag} setEnableQuadrantDrag={setEnableQuadrantDrag}
+        showActionButton={showActionButton} setShowActionButton={setShowActionButton}
+        forceUppercase={forceUppercase} setForceUppercase={setForceUppercase}
+        currentVideoSource={currentVideoSource} setCurrentVideoSource={setCurrentVideoSource}
+        quadrantOrder={quadrantOrder} setQuadrantOrder={setQuadrantOrder}
+        sidebarVariant={sidebarVariant} setSidebarVariant={setSidebarVariant}
+      /> 
+    </div>
   );
 }
 

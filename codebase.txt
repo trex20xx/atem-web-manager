@@ -1,0 +1,2589 @@
+﻿=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\App.jsx ===
+import React, { useEffect, useState } from 'react';
+import Sidebar from './components/Sidebar/Sidebar';
+import QuadrantGrid from './components/Multiview/QuadrantGrid';
+import SettingsModal from './components/Settings/SettingsModal';
+import GlobalTooltip from './components/UI/GlobalTooltip';
+import { useDevices } from './hooks/useDevices';
+import { useDragDrop } from './hooks/useDragDrop';
+import { useLocalStorage } from './hooks/useLocalStorage';
+
+// =========================================================================
+// ATEM WEB MANAGER - MASTER LAYOUT (v2.08)
+// =========================================================================
+// Unified Top Navigation Bar, Zero-Overlap 16:9 Math, Apple Theme Switch.
+
+function App() {
+  const [theme, setTheme] = useLocalStorage('atem_theme', 'default');
+  const [panelRadius, setPanelRadius] = useLocalStorage('atem_panelRadius', 9);
+  const [tallyOpacity, setTallyOpacity] = useLocalStorage('atem_tallyOpacity', 85);
+  const [titlePosition, setTitlePosition] = useLocalStorage('atem_titlePosition', 'left');
+  const [showVersion, setShowVersion] = useLocalStorage('atem_showVersion', true);
+  const [sidebarVariant, setSidebarVariant] = useLocalStorage('atem_sidebarVariant', 'classic');
+  
+  const [enableDragDrop, setEnableDragDrop] = useLocalStorage('atem_enableDragDrop', true);
+  const [enableQuadrantDrag, setEnableQuadrantDrag] = useLocalStorage('atem_enableQuadrantDrag', true);
+  const [showActionButton, setShowActionButton] = useLocalStorage('atem_showActionButton', true);
+  const [forceUppercase, setForceUppercase] = useLocalStorage('atem_forceUppercase', true);
+  
+  const [currentVideoSource, setCurrentVideoSource] = useLocalStorage('atem_currentVideoSource', 'https://stream.mux.com/BV3YZtogl89mg9VcNBhhnHm02Y34zI1nlMuMQfAbl3dM/highest.mp4');
+  const [quadrantOrder, setQuadrantOrder] = useLocalStorage('atem_quadrantOrder', [1, 2, 3, 4]);
+
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  
+  const [dashboardStyle, setDashboardStyle] = useState({ width: '100%', height: '100%' });
+
+  const deviceState = useDevices();
+  const { 
+      handleQuadrantDragStart, handleQuadrantDragOver, 
+      handleQuadrantDragLeave, handleQuadrantDrop 
+  } = useDragDrop(enableQuadrantDrag);
+
+  const connectedDevice = deviceState.devices.find(d => d.status === 'online');
+  const isConnected = !!connectedDevice;
+
+  // V2.08 Zero-Overlap 16:9 Math Engine (Accounting cleanly for Top Bar)
+  useEffect(() => {
+    const handleResize = () => {
+      const topBarHeight = 42;
+      const sidebarWidth = isSidebarCollapsed ? 0 : 260;
+      const gap = isSidebarCollapsed ? 0 : 8;
+      const horizontalPadding = 32;
+      const verticalPadding = 24;
+
+      const availableWidth = Math.max(100, window.innerWidth - sidebarWidth - gap - horizontalPadding);
+      const availableHeight = Math.max(100, window.innerHeight - topBarHeight - verticalPadding);
+
+      let width = availableWidth;
+      let height = width * 9 / 16;
+      if (height > availableHeight) {
+        height = availableHeight;
+        width = height * 16 / 9;
+      }
+
+      setDashboardStyle({
+        width: Math.max(100, width),
+        height: Math.max(100, height)
+      });
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isSidebarCollapsed]);
+
+  // Global Keybind for Settings (Cmd/Ctrl + ,)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault();
+        setIsSettingsOpen((prev) => !prev);
+      }
+      if (e.key === 'Escape') {
+        setIsSettingsOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (theme === 'default') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--panel-radius', `${panelRadius}px`);
+    document.documentElement.style.setProperty('--tally-opacity', tallyOpacity / 100);
+  }, [panelRadius, tallyOpacity]);
+
+  const toggleLightMode = () => {
+      setTheme(prev => prev === 'light' ? 'default' : 'light');
+  };
+
+  return (
+    <div className="app-root-container">
+      <GlobalTooltip />
+
+      {/* V2.08 UNIFIED TOP CONTROL BAR */}
+      <header className="app-top-bar">
+        <div className="top-bar-left">
+          <button 
+            className="top-bar-btn"
+            onClick={() => setIsSidebarCollapsed(prev => !prev)}
+            title="Toggle Navigation Menu"
+          >
+            <svg viewBox="0 0 24 24">
+              <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+            </svg>
+          </button>
+
+          {titlePosition === 'left' && (
+            <span className="app-title">ATEM WEB MANAGER</span>
+          )}
+        </div>
+
+        {titlePosition === 'centered' && (
+          <span className="app-title centered">ATEM WEB MANAGER</span>
+        )}
+
+        <div className="top-bar-right">
+          {titlePosition === 'right' && (
+            <span className="app-title">ATEM WEB MANAGER</span>
+          )}
+
+          {/* Version Tag (Clicking switches the setting toggle off) */}
+          {showVersion && (
+            <span 
+              className="top-bar-version"
+              onClick={() => setShowVersion(false)}
+              title="Click to hide (re-enable in Settings)"
+            >
+              v2.08
+            </span>
+          )}
+
+          {/* V2.08 Tactile Apple-Style Monochrome Theme Switch */}
+          <div 
+            className={`apple-theme-switch ${theme === 'light' ? 'active' : ''}`}
+            onClick={toggleLightMode}
+            title="Toggle Light / Dark Mode"
+          >
+            <div className="apple-switch-thumb" />
+          </div>
+
+          {/* Settings Gear Button */}
+          <button 
+            className="top-bar-btn"
+            onClick={() => setIsSettingsOpen(true)}
+            title="Settings (Cmd/Ctrl + ,)"
+          >
+            <svg viewBox="0 0 24 24">
+              <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.05-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22l-1.92 3.32c-.12.22-.07.49.12.61l2.03 1.58c-.04.3-.06.61-.06.94s.02.64.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.49-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6S13.98,15.6,12,15.6z"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      {/* Main Dashboard (Always sits below top bar with zero overlap) */}
+      <div className="dashboard">
+        <Sidebar 
+          height={dashboardStyle.height}
+          showActionButton={showActionButton}
+          enableDragDrop={enableDragDrop}
+          forceUppercase={forceUppercase}
+          deviceState={deviceState}
+          variant={sidebarVariant}
+          isCollapsed={isSidebarCollapsed}
+        />
+        <main className="quadrant-wrapper" style={{ width: `${dashboardStyle.width}px`, height: `${dashboardStyle.height}px` }}>
+          <QuadrantGrid 
+            quadrantOrder={quadrantOrder}
+            currentVideoSource={currentVideoSource}
+            isConnected={isConnected}
+            connectedDevice={connectedDevice}
+            isLoading={deviceState.isLoading}
+            enableQuadrantDrag={enableQuadrantDrag}
+            handleQuadrantDragStart={handleQuadrantDragStart}
+            handleQuadrantDragOver={handleQuadrantDragOver}
+            handleQuadrantDragLeave={handleQuadrantDragLeave}
+            handleQuadrantDrop={handleQuadrantDrop}
+            setQuadrantOrder={setQuadrantOrder}
+          />
+        </main>
+      </div>
+
+      <SettingsModal 
+        isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)}
+        theme={theme} setTheme={setTheme}
+        panelRadius={panelRadius} setPanelRadius={setPanelRadius}
+        tallyOpacity={tallyOpacity} setTallyOpacity={setTallyOpacity}
+        titlePosition={titlePosition} setTitlePosition={setTitlePosition}
+        showVersion={showVersion} setShowVersion={setShowVersion}
+        enableDragDrop={enableDragDrop} setEnableDragDrop={setEnableDragDrop}
+        enableQuadrantDrag={enableQuadrantDrag} setEnableQuadrantDrag={setEnableQuadrantDrag}
+        showActionButton={showActionButton} setShowActionButton={setShowActionButton}
+        forceUppercase={forceUppercase} setForceUppercase={setForceUppercase}
+        currentVideoSource={currentVideoSource} setCurrentVideoSource={setCurrentVideoSource}
+        quadrantOrder={quadrantOrder} setQuadrantOrder={setQuadrantOrder}
+        sidebarVariant={sidebarVariant} setSidebarVariant={setSidebarVariant}
+      /> 
+    </div>
+  );
+}
+
+export default App;
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\index.css ===
+/*
+ * =========================================================================
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.09)
+ * =========================================================================
+ */
+
+ :root{
+    --bg:#121212;
+    --panel:#1f1f1f;
+    --panel2:#2b2b2b;
+    --group-divider-color: transparent;
+    --text:#e1e1e1;
+    --muted:#858585;
+    --gap:8px;
+    
+    --panel-radius: 9px;
+    --pill-radius: 24px;
+    --ui-radius: 4px;
+    
+    --device-font-size:13px;
+    --device-font-weight:400;
+    --green:#34a853;
+    --red:#ea4335;
+    --tally-opacity: 0.85;
+
+    --atem-bg: #222222;
+    --atem-sidebar: #1e1e1e;
+    --atem-content: #282828;
+    --atem-border: #111111;
+    --atem-text: #cccccc;
+    --atem-hl: #3d3d3d;
+    
+    --le-font-family:'Segoe UI',Roboto,sans-serif;
+    --le-font-size:var(--device-font-size);
+    --device-row-height:30px;
+    --header-color:#ffffff;
+}
+
+[data-theme="light"]{ 
+    --bg:#f5f5f7; --panel:#ffffff; --panel2:#e5e5ea; --text:#1d1d1f; --muted:#86868b; 
+    --header-color:#1d1d1f; --atem-bg: #ffffff; --atem-sidebar: #f5f5f7; --atem-content: #ffffff; 
+    --atem-border: #d1d1d6; --atem-text: #1d1d1f; --atem-hl: #e5e5ea; 
+}
+
+[data-theme="monokai"]{ --bg:#272822; --panel:#2f3129; --panel2:#3e3d32; --text:#f8f8f2; --muted:#93876f; --green:#a6e22e; --red:#f92672; --header-color:#f8f8f2; }
+[data-theme="dracula"]{ --bg:#282a36; --panel:#2f3242; --panel2:#343746; --text:#f8f8f2; --muted:#6272a4; --green:#50fa7b; --red:#ff5555; --header-color:#f8f8f2; }
+[data-theme="onedark"]{ --bg:#282c34; --panel:#2c313a; --panel2:#21252b; --text:#abb2bf; --muted:#5c6370; --green:#98c379; --red:#e06c75; --header-color:#ffffff; }
+[data-theme="solarized-dark"]{ --bg:#002b36; --panel:#073642; --panel2:#0a4552; --text:#93a1a1; --muted:#586e75; --green:#859900; --red:#dc322f; --header-color:#eee8d5; }
+[data-theme="github-dark"]{ --bg:#0d1117; --panel:#161b22; --panel2:#21262d; --text:#c9d1d9; --muted:#8b949e; --green:#3fb950; --red:#f85149; --header-color:#f0f6fc; }
+
+*{ margin:0; padding:0; box-sizing:border-box; user-select:none; }
+html, body{ width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:'Segoe UI',Roboto,sans-serif; transition: background 0.3s ease, color 0.3s ease; }
+button, input, select { outline: none !important; }
+button:focus, input:focus, select:focus { outline: none !important; box-shadow: none !important; }
+
+.app-root-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+.app-top-bar { height: 42px; min-height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: transparent; z-index: 1000; position: relative; }
+.top-bar-left { display: flex; align-items: center; gap: 12px; }
+.top-bar-right { display: flex; align-items: center; gap: 12px; }
+.app-title { font-size: 14px; font-weight: 700; color: var(--header-color); letter-spacing: 0.5px; }
+.app-title.centered { position: absolute; left: 50%; transform: translateX(-50%); }
+
+.top-bar-btn { background: transparent; border: none; color: var(--muted); cursor: pointer; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.15s, color 0.15s; }
+.top-bar-btn:hover { background: rgba(150,150,150,0.15); color: var(--text); }
+.top-bar-btn svg { width: 18px; height: 18px; fill: currentColor; }
+
+.top-bar-version { font-size: 12px; font-weight: 500; color: var(--muted); cursor: pointer; user-select: none; transition: color 0.15s, opacity 0.2s ease; }
+.top-bar-version:hover { color: var(--text); }
+
+/* V2.09 Apple-Style Monochrome Theme Switch with Icons */
+.apple-theme-switch { width: 44px; height: 24px; border-radius: 12px; background: #222; border: 1px solid #444; display: flex; align-items: center; padding: 2px; cursor: pointer; transition: background 0.25s ease, border-color 0.25s ease; position: relative; }
+.apple-switch-thumb { width: 18px; height: 18px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; color: #121212; transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); transform: translateX(0); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+.apple-theme-switch.active { background: #383838; border-color: #666; }
+.apple-theme-switch.active .apple-switch-thumb { transform: translateX(20px); }
+
+.dashboard{ flex: 1; width: 100%; display: flex; justify-content: center; align-items: center; gap: var(--gap); padding: 8px 16px 16px 16px; box-sizing: border-box; overflow: hidden; }
+
+/* V2.09 Smooth Simultaneous Width & Opacity Sidebar Collapse */
+.sidebar{ width:260px; min-width:260px; background:var(--panel); border-radius:var(--panel-radius); display:flex; flex-direction:column; overflow:hidden; transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease, margin 0.35s ease; opacity: 1; }
+.sidebar.collapsed { width: 0 !important; min-width: 0 !important; opacity: 0 !important; margin: 0 !important; pointer-events: none !important; overflow: hidden !important; }
+
+.search-container{ padding: 8px 8px 4px 8px; } /* V2.09 Aligned with device highlights */
+.device-list{ flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+.action-container{ max-height:0; overflow:visible; opacity:0; transform:translateY(10px); transition:max-height .28s ease, opacity .2s ease, transform .28s ease, padding .28s ease; padding:0 12px; display:flex; flex-direction:column; gap:6px; position:relative; }
+.action-container.visible { max-height:60px; opacity:1; transform:translateY(0); padding:12px; }
+
+.search{ width:100%; height:var(--device-row-height); border:none; border-radius:var(--pill-radius); padding:0 12px; background:var(--panel2); color:var(--text); font-family:var(--le-font-family); font-size:var(--le-font-size); user-select:text; }
+.search::placeholder{ color:var(--muted); font-family:var(--le-font-family); font-size:var(--le-font-size); }
+.search.invalid{ box-shadow:0 0 0 1px var(--red); }
+
+.action-btn { width: 100%; height: var(--device-row-height); background: transparent; border: none; cursor: pointer; border-radius: var(--pill-radius); font-family: var(--le-font-family); font-size: var(--le-font-size); font-weight: 500; transition: background-color .15s ease; color: var(--muted); }
+.action-btn:hover:not(.action-select-none) { background: rgba(150,150,150,0.1); }
+.action-select-none { color: var(--muted); cursor: not-allowed; }
+.action-add, .action-group-mode { color: var(--green); }
+.action-delete { color: var(--red); }
+
+.group-section { display:flex; flex-direction:column; border-top:1px solid var(--group-divider-color); position:relative; }
+.group-section:first-child { border-top:none; }
+.group-dropzone { min-height:12px; }
+
+.group-header-wrapper { position:relative; width:100%; padding:4px 8px 0; margin-top:4px; }
+.group-header-accent { position:absolute; left:0; top:4px; bottom:0; width:3px; border-radius:0 !important; }
+
+/* [LOCKED] EXACT 4px RIGHT PADDING */
+.group-header-inner, .device-inner { display:flex; align-items:center; gap:8px; min-height:var(--device-row-height); padding:0 4px 0 12px; border-radius:var(--pill-radius); transition:background-color 0.15s, color 0.15s; }
+.group-header-inner span { font-size:14px; font-weight:600; color:var(--muted); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 4px 0; }
+.group-header-wrapper:hover .group-header-inner { background:var(--panel2); }
+.group-header-wrapper:hover .group-header-inner span { color:var(--text); }
+.group-header-wrapper.selected-group .group-header-inner { background:var(--panel2); }
+.group-header-wrapper.selected-group .group-header-inner span { color:var(--text); }
+
+/* [LOCKED] 22px CIRCLE IN 30px ROW -> 4px EQUIDISTANT CLEARANCE */
+.group-edit-btn, .edit-btn { background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:12px; width:22px; height:22px; margin:0; flex-shrink: 0; display:flex; align-items:center; justify-content:center; border-radius:50%; opacity:0; transform:scaleX(-1); transition:background 0.15s, color 0.15s; }
+.group-header-wrapper:hover .group-edit-btn, .device-wrapper:hover .edit-btn { opacity:1; }
+.group-edit-btn:hover, .edit-btn:hover { background:rgba(150,150,150,0.15); color:var(--text); }
+
+/* [LOCKED] UNIFIED EDIT FORMS */
+.group-editing-inner, .device-editing-inner { background:var(--panel2); border-radius:var(--ui-radius); padding:10px 14px; display:flex; flex-direction:column; gap:8px; margin-top:2px; }
+
+.device-wrapper { position:relative; width:100%; padding:1px 8px; cursor:pointer; }
+.device-wrapper.editing { cursor:default; margin:2px 0; }
+.device-accent { position:absolute; left:0; top:1px; bottom:1px; width:3px; border-radius:0 !important; }
+
+.device-wrapper:not(.editing):hover .device-inner { background:var(--panel2); }
+.device-wrapper.selected .device-inner { background:var(--panel2); }
+.device-inner.connected-row .device-name { color:var(--text); font-weight: 600; }
+
+.status{ width:7px; height:7px; min-width:7px; border-radius:50%; flex-shrink: 0; }
+.online{ background:var(--green); opacity: var(--tally-opacity); transition: opacity 0.2s; }
+.offline{ background:var(--red); opacity: var(--tally-opacity); transition: opacity 0.2s; }
+
+.device-text{ flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; padding:4px 0; }
+.device-name{ font-family:var(--le-font-family); font-size:var(--le-font-size); color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition: color 0.15s ease; opacity: 0.8; }
+.device-wrapper:hover .device-name { opacity: 1; }
+.device-wrapper.selected .device-name { opacity: 1; }
+
+/* [LOCKED] PILL EDIT FIELDS */
+.edit-field-wrapper { position:relative; width:100%; }
+.edit-field { width:100%; height:30px; border:none; border-radius:var(--pill-radius); padding:0 28px 0 12px; background:var(--bg); color:var(--text); font-size:13px; user-select:text; }
+.edit-field.invalid{ box-shadow:0 0 0 1px var(--red); }
+.clear-field-x { position:absolute; right:8px; top:50%; transform:translateY(-50%); background:transparent; border:none; color:var(--muted); cursor:pointer; width:18px; height:18px; display:flex; align-items:center; justify-content:center; border-radius:50%; }
+.clear-field-x:hover { background:rgba(150,150,150,0.15); color:var(--text); }
+
+/* GROUP QUICK-SELECT DROPDOWN */
+.group-select-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--panel); border: 1px solid var(--atem-border); border-radius: 8px; z-index: 200; max-height: 120px; overflow-y: auto; box-shadow: 0 6px 20px rgba(0,0,0,0.6); padding: 4px; }
+.group-select-item { padding: 6px 10px; font-size: 12px; font-family: var(--le-font-family); color: var(--text); border-radius: 4px; cursor: pointer; transition: background 0.1s; }
+.group-select-item:hover { background: var(--panel2); color: #fff; }
+
+/* [LOCKED] COLOR DROPDOWN */
+.color-dropdown-box { position:relative; width:100%; }
+.color-dropdown-toggle { display:flex; align-items:center; gap:8px; height:30px; background:var(--bg); border:1px solid var(--atem-border); border-radius:var(--pill-radius); padding:0 10px 0 12px; cursor:pointer; font-size:13px; color:var(--text); }
+.color-dropdown-list { display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg); border:1px solid var(--atem-border); border-radius:var(--ui-radius); z-index:150; max-height:130px; overflow-y:auto; padding:4px; box-shadow:0 4px 12px rgba(0,0,0,0.5); margin-top:2px; }
+.color-dropdown-list.show { display:block; }
+.color-dropdown-option { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:2px; cursor:pointer; font-size:12px; color:var(--text); }
+.color-dropdown-option:hover { background:var(--panel2); }
+.color-swatch-box { width:12px; height:12px; border-radius:2px; flex-shrink:0; }
+.clear-color-x { margin-left: auto; background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 14px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+.clear-color-x:hover { background: rgba(150,150,150,0.2); color: var(--text); }
+
+.edit-actions{ display:flex; gap:6px; justify-content:flex-end; margin-top:2px; }
+.edit-actions button{ height:26px; padding:0 10px; border:none; border-radius:var(--pill-radius); cursor:pointer; font-size:12px; font-weight:700; color:white; }
+.edit-save{ background:var(--green); }
+.edit-cancel{ background:#4a4a4a; }
+
+.quadrant-wrapper{ display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:var(--gap); flex: 1; height: 100%; transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
+
+.panel { background:var(--panel); display:flex; flex-direction:column; position:relative; clip-path: inset(0 round var(--panel-radius)); -webkit-transform: translateZ(0); transform: translateZ(0); }
+.panel.drag-over-quadrant { background:rgba(150,150,150,0.2); }
+.panel-content, .stream-container, .video-js, .vjs-tech, iframe { border-radius: 0 !important; }
+
+.panel-muted-num { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:120px; font-weight:800; color:rgba(150,150,150,0.05); pointer-events:none; z-index:1; user-select:none; -webkit-user-select:none; }
+.panel-content { flex:1; width:100%; height:100%; display:flex; align-items:center; justify-content:center; position:relative; z-index:2; overflow:hidden; }
+
+/* Right-Click Context Menu */
+.quadrant-context-menu { position: fixed; background: var(--panel); border: 1px solid var(--atem-border); border-radius: var(--ui-radius); box-shadow: 0 8px 24px rgba(0,0,0,0.6); z-index: 99999; padding: 4px; min-width: 160px; }
+.quadrant-context-header { font-size: 10px; font-weight: 700; color: var(--muted); padding: 4px 8px; border-bottom: 1px solid var(--atem-border); margin-bottom: 2px; }
+.quadrant-context-item { padding: 6px 10px; font-size: 12px; color: var(--text); border-radius: 2px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+.quadrant-context-item:hover { background: var(--panel2); color: #fff; }
+
+.version-tag { position:fixed; bottom:16px; left:16px; font-size:13px; color:var(--muted); z-index:1000; font-weight: 500; cursor: pointer; pointer-events: auto; user-select: none; transition: opacity 0.2s ease; }
+.global-tooltip { position: fixed; display: none; background: var(--panel2); color: var(--text); padding: 6px 10px; border-radius: var(--ui-radius); z-index: 99999; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,0.6); max-width: 220px; white-space: pre-wrap; font-family: var(--le-font-family); font-size: var(--le-font-size); }
+.header{ position:fixed; z-index:1000; font-family:var(--le-font-family); font-size:16px; font-weight:700; color:var(--header-color); }
+
+/* SETTINGS MODAL */
+.settings-overlay{ position:fixed; inset:0; display:none; justify-content:center; align-items:center; background:transparent; z-index:9999; padding:16px; pointer-events:none; }
+.settings-overlay.show{ display:flex; }
+.settings-modal{ width:760px; max-width:100%; height:620px; max-height:90vh; background:var(--atem-bg); border-radius:6px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 16px 64px rgba(0,0,0,0.6); pointer-events:auto; border:1px solid var(--atem-border); font-family: 'Segoe UI', Roboto, sans-serif; color: var(--atem-text); position:relative; }
+.davinci-header-bar { display:flex; justify-content:center; align-items:center; padding:10px 16px; border-bottom:1px solid var(--atem-border); background:var(--atem-bg); position:relative; cursor:default; }
+.settings-title{ font-size:14px; font-weight:600; color:var(--atem-text); pointer-events:none; }
+.modal-close-x { position:absolute; left:12px; background:transparent; border:none; color:var(--muted); font-size:18px; cursor:pointer; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:4px; }
+.modal-close-x:hover { color:var(--atem-text); background:rgba(150,150,150,0.1); }
+.davinci-body-layout { display:flex; flex:1; overflow:hidden; }
+.davinci-sidebar-tabs { width:180px; background:var(--atem-sidebar); border-right:1px solid var(--atem-border); display:flex; flex-direction:column; padding:16px 0; }
+.davinci-tab { background:transparent; border:none; color:var(--muted); text-align:right; padding:8px 24px; font-size:13px; font-weight:600; cursor:pointer; transition: color 0.15s; }
+.davinci-tab:hover { color:var(--atem-text); }
+.davinci-tab.active { color:var(--atem-text); background:var(--atem-hl); }
+.davinci-content-pane { flex:1; padding:24px 32px; overflow-y:auto; display:none; background:var(--atem-content); }
+.davinci-content-pane.active { display:block; }
+.setting-group{ display:flex; flex-direction:row; align-items:center; gap:16px; margin-bottom:16px; justify-content: flex-end; }
+.setting-group label{ font-size:13px; font-weight:500; color:var(--muted); text-align:right; flex:1; }
+.setting-group-control { flex: 1.5; display:flex; align-items:center; }
+.setting-group select, .setting-group input[type="text"] { width:100%; max-width: 240px; height:28px; padding:0 8px; font-size:13px; background:var(--atem-sidebar); border:1px solid var(--atem-border); color:var(--atem-text); border-radius:3px; outline:none; }
+.setting-group select:focus, .setting-group input[type="text"]:focus { border-color: var(--muted); }
+
+/* MINIMALIST RANGE SLIDERS */
+input[type="range"] { -webkit-appearance: none !important; appearance: none !important; width: 100% !important; max-width: 240px; height: 20px !important; background: transparent !important; outline: none !important; margin: 0 !important; accent-color: transparent !important; }
+input[type="range"]::-webkit-slider-runnable-track { width: 100% !important; height: 3px !important; background: rgba(255, 255, 255, 0.25) !important; border-radius: 2px !important; cursor: pointer; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none !important; appearance: none !important; width: 14px !important; height: 14px !important; border-radius: 50% !important; background: #ffffff !important; cursor: pointer; margin-top: -5.5px !important; border: none !important; box-shadow: 0 1px 4px rgba(0,0,0,0.5) !important; transition: transform 0.1s !important; }
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15) !important; }
+input[type="range"]::-moz-range-track { width: 100% !important; height: 3px !important; background: rgba(255, 255, 255, 0.25) !important; border-radius: 2px !important; cursor: pointer; }
+input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !important; border-radius: 50% !important; background: #ffffff !important; cursor: pointer; border: none !important; box-shadow: 0 1px 4px rgba(0,0,0,0.5) !important; }
+
+/* MONOCHROME TOGGLE SWITCH */
+.toggle-switch { -webkit-appearance: none !important; appearance: none !important; position: relative; width: 34px !important; height: 18px !important; background: #222 !important; border: 1px solid #444 !important; outline: none !important; border-radius: 9px !important; transition: 0.2s !important; cursor: pointer; margin: 0 !important; flex-shrink: 0; }
+.toggle-switch::after { content: '' !important; position: absolute !important; top: 1px !important; left: 1px !important; width: 14px !important; height: 14px !important; background: #666 !important; border-radius: 50% !important; transition: 0.2s !important; }
+.toggle-switch:checked { background: #383838 !important; border-color: #666 !important; }
+.toggle-switch:checked::after { transform: translateX(16px) !important; background: #ffffff !important; }
+
+.quadrant-grid-wrapper { display:flex; flex-direction:column; gap:12px; width:100%; max-width: 320px; }
+.quad-row { display:flex; gap:12px; }
+.quad-box { flex:1; aspect-ratio: 16/9; background:var(--atem-sidebar); border:1px solid var(--atem-border); border-radius:4px; display:flex; flex-direction:column; padding:8px; }
+.quad-box span { font-size:11px; color:var(--muted); margin-bottom:4px; }
+.quad-box select { width:100%; height:24px; background:var(--atem-content); border:1px solid var(--atem-border); color:var(--atem-text); border-radius:2px; font-size:12px; }
+.settings-footer { border-top:1px solid var(--atem-border); padding:12px 24px; display:flex; justify-content:flex-end; background:var(--atem-bg); }
+.atem-btn { background: var(--atem-hl); border: 1px solid var(--atem-border); color: var(--atem-text); padding: 6px 20px; border-radius: 4px; font-size: 13px; cursor: pointer; transition: background 0.1s; }
+.atem-btn:hover { filter: brightness(1.2); }
+
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:rgba(150,150,150,0); border-radius:4px; transition:background 0.2s; }
+.device-list:hover::-webkit-scrollbar-thumb { background:rgba(150,150,150,0.25); }
+
+@keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+.skeleton-box { background: rgba(150, 150, 150, 0.15); border-radius: var(--ui-radius); animation: pulse 1.5s ease-in-out infinite; }
+
+.sidebar.variant-classic { background: var(--panel); }
+.sidebar.variant-floating { background: rgba(31, 31, 31, 0.5); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5); }
+
+/* V2.08 ATEM SWITCHER CSS (FLAT BACKGROUND, NO TALLY GLOW) */
+.atem-constellation-panel { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 12px; background: var(--panel); box-sizing: border-box; font-family: var(--le-font-family); color: var(--text); user-select: none; overflow: hidden; }
+.atem-bus-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(150,150,150,0.15); padding-bottom: 4px; flex-shrink: 0; }
+.atem-bus-title-group { display: flex; align-items: center; gap: 6px; }
+.atem-bus-title { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; color: var(--text); opacity: 0.8; }
+.atem-bus-badge { background: rgba(150,150,150,0.1); border: 1px solid rgba(150,150,150,0.2); font-size: 8px; padding: 1px 4px; border-radius: 3px; color: var(--muted); font-weight: 600; }
+.atem-bus-status { display: flex; align-items: center; gap: 4px; }
+.atem-bus-online-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+.atem-bus-online-dot.offline { background: var(--red); }
+.atem-bus-ip { font-size: 10px; color: var(--muted); font-family: monospace; }
+.atem-bus-matrix { display: flex; flex-direction: column; gap: 6px; margin: 4px 0; flex: 1; justify-content: center; }
+.atem-bus-row-group { display: flex; align-items: center; gap: 8px; }
+.atem-bus-row-label { width: 28px; font-size: 10px; font-weight: 800; text-align: right; letter-spacing: 0.5px; }
+.pgm-label { color: var(--red); }
+.pvw-label { color: var(--green); }
+.atem-bus-buttons-grid { flex: 1; display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+.atem-switcher-btn { height: 32px; background: var(--panel2); border: 1px solid var(--atem-border); border-radius: 3px; color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.12s ease; padding: 1px 0; }
+.atem-switcher-btn:hover { background: rgba(150,150,150,0.2); color: var(--text); }
+.atem-switcher-btn .btn-number { font-size: 11px; font-weight: 800; line-height: 1; font-family: var(--le-font-family); }
+
+/* V2.08 FLAT TALLIES (NO GLOW / NO BOX-SHADOW) */
+.atem-switcher-btn.tally-red { background: #d32f2f !important; border-color: #ff5252 !important; color: #fff !important; box-shadow: none !important; }
+.atem-switcher-btn.tally-green { background: #2e7d32 !important; border-color: #4caf50 !important; color: #fff !important; box-shadow: none !important; }
+
+.atem-bus-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(150,150,150,0.15); padding-top: 4px; flex-shrink: 0; }
+.atem-bus-me-label { font-size: 9px; color: var(--muted); font-weight: 700; letter-spacing: 0.5px; }
+.atem-transition-actions { display: flex; gap: 6px; }
+.atem-trans-btn { height: 26px; padding: 0 14px; background: var(--panel2); border: 1px solid var(--atem-border); border-radius: 3px; color: var(--text); font-size: 10px; font-weight: 800; cursor: pointer; transition: background 0.12s ease; }
+.atem-trans-btn:hover { background: rgba(150,150,150,0.2); }
+.cut-btn:active { background: #ff9800; color: #000; }
+.auto-btn.trans-active { background: #ff9800 !important; color: #000 !important; }
+
+.atem-bus-locked-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; padding: 24px; text-align: center; }
+.atem-bus-lock-badge { background: rgba(234, 67, 53, 0.15); border: 1px solid rgba(234, 67, 53, 0.4); color: var(--red); font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 4px; letter-spacing: 0.8px; }
+.atem-bus-lock-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+.atem-bus-lock-desc strong { color: var(--text); font-family: monospace; }
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\main.jsx ===
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App.jsx';
+import './index.css';
+
+// =========================================================================
+// ATEM WEB MANAGER - REACT BOOTSTRAP (v1.75)
+// =========================================================================
+// Initializes the React tree and mounts it to the DOM.
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Multiview\Panel.jsx ===
+import React, { useState } from 'react';
+import Player from '../VideoPlayer/Player';
+import AtemConstellationBus from '../Panels/AtemConstellationBus';
+import ErrorBoundary from '../UI/ErrorBoundary';
+import Skeleton from '../UI/Skeleton';
+import QuadrantContextMenu from '../UI/QuadrantContextMenu';
+
+// =========================================================================
+// ATEM WEB MANAGER - PANEL COMPONENT (v2.08)
+// =========================================================================
+// Automatically suppresses background numbers when active content is mounted.
+
+const Panel = ({ 
+    panelId, positionIndex, currentVideoSource, isConnected, connectedDevice, isLoading,
+    enableQuadrantDrag, handleDragStart, handleDragOver, handleDragLeave, handleDrop, onReorderQuadrant 
+}) => {
+    const [contextMenu, setContextMenu] = useState(null);
+
+    const handleContextMenu = (e) => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY });
+    };
+
+    const renderPanelContent = () => {
+        if (isLoading) {
+            return (
+                <div style={{ width: '100%', height: '100%', padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '16px' }}>
+                    <Skeleton height="40%" width="100%" borderRadius="8px" />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Skeleton height="32px" width="30%" borderRadius="16px" />
+                        <Skeleton height="32px" width="20%" borderRadius="16px" />
+                    </div>
+                </div>
+            );
+        }
+
+        if (panelId === 1 && isConnected) {
+            return <Player currentVideoSource={currentVideoSource} />;
+        }
+
+        if (panelId === 3 && isConnected && connectedDevice?.ip === '192.168.10.240') {
+            return <AtemConstellationBus connectedDevice={connectedDevice} />;
+        }
+
+        return null;
+    };
+
+    const content = renderPanelContent();
+
+    return (
+        <>
+            <div 
+                className="panel"
+                draggable={enableQuadrantDrag && !isLoading}
+                onDragStart={(e) => handleDragStart(e, positionIndex)}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, positionIndex)}
+                onContextMenu={handleContextMenu}
+            >
+                {/* Auto-hide background number when content is mounted */}
+                {!content && <div className="panel-muted-num">{panelId}</div>}
+                
+                <div className="panel-content">
+                    <ErrorBoundary>
+                        {content}
+                    </ErrorBoundary>
+                </div>
+            </div>
+
+            {contextMenu && (
+                <QuadrantContextMenu 
+                    x={contextMenu.x}
+                    y={contextMenu.y}
+                    currentQuad={panelId}
+                    onClose={() => setContextMenu(null)}
+                    onSelectQuadrant={(quadId) => {
+                        if (onReorderQuadrant) {
+                            onReorderQuadrant(positionIndex, quadId);
+                        }
+                    }}
+                />
+            )}
+        </>
+    );
+};
+
+export default Panel;
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Multiview\QuadrantGrid.jsx ===
+import React from 'react';
+import Panel from './Panel';
+
+// =========================================================================
+// ATEM WEB MANAGER - QUADRANT GRID (v2.07)
+// =========================================================================
+
+const QuadrantGrid = ({ 
+    quadrantOrder, currentVideoSource, isConnected, connectedDevice, isLoading, enableQuadrantDrag,
+    handleQuadrantDragStart, handleQuadrantDragOver, handleQuadrantDragLeave, handleQuadrantDrop, setQuadrantOrder
+}) => {
+    const handleSwapCallback = (sourceIndex, targetIndex) => {
+        const newOrder = [...quadrantOrder];
+        const temp = newOrder[targetIndex];
+        newOrder[targetIndex] = newOrder[sourceIndex];
+        newOrder[sourceIndex] = temp;
+        setQuadrantOrder(newOrder);
+    };
+
+    const handleReorderQuadrant = (slotIndex, quadId) => {
+        const newOrder = [...quadrantOrder];
+        const currentQuadInSlot = newOrder[slotIndex];
+        
+        if (currentQuadInSlot === quadId) return;
+
+        const indexOfSourceQuad = newOrder.indexOf(quadId);
+        newOrder[slotIndex] = quadId;
+        newOrder[indexOfSourceQuad] = currentQuadInSlot;
+        
+        setQuadrantOrder(newOrder);
+    };
+
+    return (
+        <>
+            {[0, 1, 2, 3].map((posIndex) => (
+                <Panel 
+                    key={`quadrant-pos-${posIndex}`}
+                    panelId={quadrantOrder[posIndex]}
+                    positionIndex={posIndex}
+                    currentVideoSource={currentVideoSource}
+                    isConnected={isConnected}
+                    connectedDevice={connectedDevice}
+                    isLoading={isLoading}
+                    enableQuadrantDrag={enableQuadrantDrag}
+                    handleDragStart={handleQuadrantDragStart}
+                    handleDragOver={handleQuadrantDragOver}
+                    handleDragLeave={handleQuadrantDragLeave}
+                    handleDrop={(e, targetIndex) => handleQuadrantDrop(e, targetIndex, handleSwapCallback)}
+                    onReorderQuadrant={handleReorderQuadrant}
+                />
+            ))}
+        </>
+    );
+};
+
+export default QuadrantGrid;
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Panels\AtemConstellationBus.jsx ===
+import React, { useState, useEffect, useRef } from 'react';
+
+// =========================================================================
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.13.0)
+// =========================================================================
+
+const LOCKED_ATEM_IP = '192.168.10.240';
+const BRIDGE_PORT = 8080;
+
+const AtemConstellationBus = ({ connectedDevice }) => {
+    if (!connectedDevice || connectedDevice.ip !== LOCKED_ATEM_IP) {
+        return (
+            <div className="atem-bus-locked-container">
+                <div className="atem-bus-lock-badge">HARDWARE LOCK ENFORCED</div>
+                <div className="atem-bus-lock-desc">
+                    ATEM 1 M/E Constellation HD bus is restricted exclusively to <strong>{LOCKED_ATEM_IP}</strong>.
+                </div>
+            </div>
+        );
+    }
+
+    const [pgmInput, setPgmInput] = useState(1);
+    const [pvwInput, setPvwInput] = useState(2);
+    const [inTransition, setInTransition] = useState(false);
+    const [bridgeStatus, setBridgeStatus] = useState('connecting'); // 'linked' | 'standby' | 'offline' | 'connecting'
+    const wsRef = useRef(null);
+    const reconnectTimerRef = useRef(null);
+
+    const initWebSocket = () => {
+        const wsUrl = `ws://localhost:${BRIDGE_PORT}`;
+        try {
+            wsRef.current = new WebSocket(wsUrl);
+
+            wsRef.current.onopen = () => {
+                console.log('[AtemBus UI] WebSocket link opened with bridge server.');
+                setBridgeStatus('standby');
+                // Request live state synchronization immediately upon handshake
+                wsRef.current.send(JSON.stringify({ action: 'CONNECT', ip: LOCKED_ATEM_IP }));
+            };
+
+            wsRef.current.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('[AtemBus UI] Inbound switcher payload:', data);
+                    if (data.hardwareConnected !== undefined) {
+                        setBridgeStatus(data.hardwareConnected ? 'linked' : 'standby');
+                    }
+                    if (data.pgm !== undefined) {
+                        setPgmInput(Number(data.pgm));
+                    }
+                    if (data.pvw !== undefined) {
+                        setPvwInput(Number(data.pvw));
+                    }
+                    if (data.inTransition !== undefined) {
+                        setInTransition(Boolean(data.inTransition));
+                    }
+                } catch (err) {
+                    console.error("[AtemBus UI] Data Parse Error:", err);
+                }
+            };
+
+            wsRef.current.onerror = () => {
+                setBridgeStatus('offline');
+            };
+
+            wsRef.current.onclose = () => {
+                console.warn('[AtemBus UI] WebSocket link closed. Scheduling reconnect...');
+                setBridgeStatus('offline');
+                if (!reconnectTimerRef.current) {
+                    reconnectTimerRef.current = setTimeout(() => {
+                        reconnectTimerRef.current = null;
+                        initWebSocket();
+                    }, 2500);
+                }
+            };
+        } catch (e) {
+            setBridgeStatus('offline');
+            if (!reconnectTimerRef.current) {
+                reconnectTimerRef.current = setTimeout(() => {
+                    reconnectTimerRef.current = null;
+                    initWebSocket();
+                }, 2500);
+            }
+        }
+    };
+
+    useEffect(() => {
+        initWebSocket();
+
+        return () => {
+            if (reconnectTimerRef.current) {
+                clearTimeout(reconnectTimerRef.current);
+            }
+            if (wsRef.current) {
+                try { 
+                    wsRef.current.close(); 
+                } catch(err) {}
+            }
+        };
+    }, []);
+
+    const sendAtemCommand = (commandType, payload = {}) => {
+        console.log(`[AtemBus UI] Outbound command dispatch: ${commandType}`, payload);
+
+        // Optimistic local UI feedback for immediate responsiveness
+        if (commandType === 'SET_PGM') setPgmInput(payload.input);
+        if (commandType === 'SET_PVW') setPvwInput(payload.input);
+        if (commandType === 'CUT') {
+            const temp = pgmInput;
+            setPgmInput(pvwInput);
+            setPvwInput(temp);
+        }
+        if (commandType === 'AUTO') {
+            setInTransition(true);
+            setTimeout(() => {
+                const temp = pgmInput;
+                setPgmInput(pvwInput);
+                setPvwInput(temp);
+                setInTransition(false);
+            }, 350);
+        }
+
+        // Two-way dispatch to Node.js Hardware Bridge
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            try {
+                wsRef.current.send(JSON.stringify({ 
+                    action: commandType, 
+                    ip: LOCKED_ATEM_IP, 
+                    ...payload 
+                }));
+            } catch (err) {
+                console.warn("[AtemBus UI] WebSocket command dispatch failed.");
+            }
+        }
+    };
+
+    const inputs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+    const getStatusLabel = () => {
+        if (bridgeStatus === 'linked') return `${LOCKED_ATEM_IP} (LIVE)`;
+        if (bridgeStatus === 'standby') return `${LOCKED_ATEM_IP} (STANDBY / HARDWARE OFFLINE)`;
+        return `${LOCKED_ATEM_IP} (BRIDGE OFFLINE)`;
+    };
+
+    const getBadgeLabel = () => {
+        if (bridgeStatus === 'linked') return 'HARDWARE LINKED';
+        if (bridgeStatus === 'standby') return 'BRIDGE CONNECTED (OFFLINE ATEM)';
+        return 'SIMULATION MODE';
+    };
+
+    return (
+        <div className="atem-constellation-panel">
+            <div className="atem-bus-header">
+                <div className="atem-bus-title-group">
+                    <span className="atem-bus-title">ATEM 1 M/E CONSTELLATION HD</span>
+                    <span className="atem-bus-badge">
+                        {getBadgeLabel()}
+                    </span>
+                </div>
+                <div className="atem-bus-status">
+                    <span className={`atem-bus-online-dot ${bridgeStatus === 'linked' ? '' : 'offline'}`}></span>
+                    <span className="atem-bus-ip">
+                        {getStatusLabel()}
+                    </span>
+                </div>
+            </div>
+
+            <div className="atem-bus-matrix">
+                {/* 1. PROGRAM BUS */}
+                <div className="atem-bus-row-group">
+                    <div className="atem-bus-row-label pgm-label">PGM</div>
+                    <div className="atem-bus-buttons-grid">
+                        {inputs.map((num) => {
+                            const isActive = pgmInput === num;
+                            return (
+                                <button
+                                    key={`pgm-${num}`}
+                                    className={`atem-switcher-btn pgm-btn ${isActive ? 'tally-red' : ''}`}
+                                    onClick={() => sendAtemCommand('SET_PGM', { input: num })}
+                                    title={`Program Input ${num}`}
+                                >
+                                    <span className="btn-number">{num}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* 2. PREVIEW BUS */}
+                <div className="atem-bus-row-group">
+                    <div className="atem-bus-row-label pvw-label">PVW</div>
+                    <div className="atem-bus-buttons-grid">
+                        {inputs.map((num) => {
+                            const isActive = pvwInput === num;
+                            return (
+                                <button
+                                    key={`pvw-${num}`}
+                                    className={`atem-switcher-btn pvw-btn ${isActive ? 'tally-green' : ''}`}
+                                    onClick={() => sendAtemCommand('SET_PVW', { input: num })}
+                                    title={`Preview Input ${num}`}
+                                >
+                                    <span className="btn-number">{num}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+
+            <div className="atem-bus-footer">
+                <div className="atem-bus-me-label">
+                    {bridgeStatus === 'linked' ? 'M/E 1 TRANSITION (HARDWARE ACTIVE)' : 'M/E 1 TRANSITION (LOCAL UI SIMULATION)'}
+                </div>
+                <div className="atem-transition-actions">
+                    <button className="atem-trans-btn cut-btn" onClick={() => sendAtemCommand('CUT')}>
+                        CUT
+                    </button>
+                    <button className={`atem-trans-btn auto-btn ${inTransition ? 'trans-active' : ''}`} onClick={() => sendAtemCommand('AUTO')}>
+                        AUTO
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default AtemConstellationBus;
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Settings\SettingsModal.jsx ===
+import React, { useState, useEffect, useRef } from 'react';
+
+// =========================================================================
+// ATEM WEB MANAGER - SETTINGS MODAL (v2.07)
+// =========================================================================
+
+const SettingsModal = ({ 
+    isOpen, onClose, theme, setTheme, panelRadius, setPanelRadius, tallyOpacity, setTallyOpacity,
+    titlePosition, setTitlePosition, showVersion, setShowVersion,
+    enableDragDrop, setEnableDragDrop, enableQuadrantDrag, setEnableQuadrantDrag,
+    showActionButton, setShowActionButton, forceUppercase, setForceUppercase, 
+    currentVideoSource, setCurrentVideoSource, quadrantOrder, setQuadrantOrder, 
+    sidebarVariant, setSidebarVariant
+}) => {
+    const modalRef = useRef(null);
+    const [activeTab, setActiveTab] = useState('general');
+    const [isDragging, setIsDragging] = useState(false);
+    const [pos, setPos] = useState({ x: 0, y: 0 });
+    const dragOffset = useRef({ x: 0, y: 0 });
+
+    const handleMouseDown = (e) => {
+        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) return;
+        setIsDragging(true);
+        const rect = modalRef.current.getBoundingClientRect();
+        dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        document.body.style.userSelect = 'none';
+    };
+
+    useEffect(() => {
+        const handleMouseMove = (e) => {
+            if (!isDragging) return;
+            setPos({ x: e.clientX - dragOffset.current.x, y: e.clientY - dragOffset.current.y });
+        };
+        const handleMouseUp = () => {
+            setIsDragging(false);
+            document.body.style.userSelect = '';
+        };
+        if (isDragging) {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        }
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isDragging]);
+
+    useEffect(() => {
+        if (isOpen) setPos({ x: 0, y: 0 });
+    }, [isOpen]);
+
+    if (!isOpen) return null;
+
+    const handleQuadrantChange = (index, value) => {
+        const newVal = Number(value);
+        const newOrder = [...quadrantOrder];
+        const existingIndex = newOrder.indexOf(newVal);
+        
+        if (existingIndex !== -1 && existingIndex !== index) {
+            newOrder[existingIndex] = newOrder[index];
+        }
+        newOrder[index] = newVal;
+        setQuadrantOrder(newOrder);
+    };
+
+    return (
+        <div className="settings-overlay show">
+            <div 
+                className="settings-modal" 
+                ref={modalRef}
+                style={pos.x !== 0 ? { position: 'absolute', left: pos.x, top: pos.y, margin: 0 } : {}}
+            >
+                <div className="davinci-header-bar" onMouseDown={handleMouseDown}>
+                    <button className="modal-close-x" onClick={onClose}>&times;</button>
+                    <div className="settings-title">Settings</div>
+                    <div style={{ width: '24px' }}></div>
+                </div>
+                
+                <div className="davinci-body-layout">
+                    <div className="davinci-sidebar-tabs">
+                        <button className={`davinci-tab ${activeTab === 'general' ? 'active' : ''}`} onClick={() => setActiveTab('general')}>General</button>
+                        <button className={`davinci-tab ${activeTab === 'multiview' ? 'active' : ''}`} onClick={() => setActiveTab('multiview')}>Multiview</button>
+                    </div>
+                    
+                    <div className="davinci-content-pane active">
+                        {activeTab === 'general' && (
+                            <>
+                                <div className="setting-group">
+                                    <label>Stream / Video URL:</label>
+                                    <div className="setting-group-control">
+                                        <input type="text" value={currentVideoSource} onChange={e => setCurrentVideoSource(e.target.value)} />
+                                    </div>
+                                </div>
+                                <div className="setting-group">
+                                    <label>Title Position:</label>
+                                    <div className="setting-group-control">
+                                        <select value={titlePosition} onChange={e => setTitlePosition(e.target.value)}>
+                                            <option value="left">Left</option>
+                                            <option value="centered">Center</option>
+                                            <option value="right">Right</option>
+                                            <option value="off">Off</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="setting-group">
+                                    <label>Color Theme:</label>
+                                    <div className="setting-group-control">
+                                        <select value={theme} onChange={e => setTheme(e.target.value)}>
+                                            <option value="default">Dark (Default)</option>
+                                            <option value="light">Light UI</option>
+                                            <option value="monokai">Monokai</option>
+                                            <option value="dracula">Dracula</option>
+                                            <option value="onedark">One Dark Pro</option>
+                                            <option value="solarized-dark">Solarized Dark</option>
+                                            <option value="github-dark">GitHub Dark</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="setting-group">
+                                    <label>Corner Radius ({panelRadius}px):</label>
+                                    <div className="setting-group-control">
+                                        <input type="range" min="0" max="24" step="1" value={panelRadius} onChange={e => setPanelRadius(e.target.value)} />
+                                    </div>
+                                </div>
+                                <div className="setting-group">
+                                    <label>Tally Brightness ({tallyOpacity}%):</label>
+                                    <div className="setting-group-control">
+                                        <input type="range" min="10" max="100" step="5" value={tallyOpacity} onChange={e => setTallyOpacity(e.target.value)} />
+                                    </div>
+                                </div>
+                                <div style={{ margin: '24px 0', borderTop: '1px solid var(--atem-border)' }}></div>
+                                
+                                <div className="setting-group">
+                                    <label>Sidebar Design:</label>
+                                    <div className="setting-group-control">
+                                        <select value={sidebarVariant} onChange={e => setSidebarVariant(e.target.value)}>
+                                            <option value="classic">Classic (Solid)</option>
+                                            <option value="floating">Floating (Glass)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="setting-group">
+                                    <label>Enable Drag & Drop:</label>
+                                    <div className="setting-group-control">
+                                        <input type="checkbox" className="toggle-switch" checked={enableDragDrop} onChange={e => setEnableDragDrop(e.target.checked)} />
+                                    </div>
+                                </div>
+                                <div className="setting-group">
+                                    <label>Show Action Button:</label>
+                                    <div className="setting-group-control">
+                                        <input type="checkbox" className="toggle-switch" checked={showActionButton} onChange={e => setShowActionButton(e.target.checked)} />
+                                    </div>
+                                </div>
+                                <div className="setting-group">
+                                    <label>Show Version Number:</label>
+                                    <div className="setting-group-control">
+                                        <input type="checkbox" className="toggle-switch" checked={showVersion} onChange={e => setShowVersion(e.target.checked)} />
+                                    </div>
+                                </div>
+                                <div className="setting-group">
+                                    <label>Force Uppercase:</label>
+                                    <div className="setting-group-control">
+                                        <input type="checkbox" className="toggle-switch" checked={forceUppercase} onChange={e => setForceUppercase(e.target.checked)} />
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {activeTab === 'multiview' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div className="setting-group" style={{ justifyContent: 'flex-start', margin: 0 }}>
+                                    <label style={{ flex: 'none', textAlign: 'left', marginRight: '16px' }}>Enable Quadrant Dragging:</label>
+                                    <div className="setting-group-control" style={{ flex: 'none' }}>
+                                        <input type="checkbox" className="toggle-switch" checked={enableQuadrantDrag} onChange={e => setEnableQuadrantDrag(e.target.checked)} />
+                                    </div>
+                                </div>
+                                <div style={{ borderTop: '1px solid var(--atem-border)' }}></div>
+                                <div style={{ color: 'var(--atem-text)', fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>Quadrant Order</div>
+                                <div className="quadrant-grid-wrapper">
+                                    <div className="quad-row">
+                                        <div className="quad-box">
+                                            <span>Top Left</span>
+                                            <select value={quadrantOrder[0]} onChange={e => handleQuadrantChange(0, e.target.value)}>
+                                                {[1,2,3,4].map(v => <option key={v} value={v}>{v}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="quad-box">
+                                            <span>Top Right</span>
+                                            <select value={quadrantOrder[1]} onChange={e => handleQuadrantChange(1, e.target.value)}>
+                                                {[1,2,3,4].map(v => <option key={v} value={v}>{v}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="quad-row">
+                                        <div className="quad-box">
+                                            <span>Bottom Left</span>
+                                            <select value={quadrantOrder[2]} onChange={e => handleQuadrantChange(2, e.target.value)}>
+                                                {[1,2,3,4].map(v => <option key={v} value={v}>{v}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="quad-box">
+                                            <span>Bottom Right</span>
+                                            <select value={quadrantOrder[3]} onChange={e => handleQuadrantChange(3, e.target.value)}>
+                                                {[1,2,3,4].map(v => <option key={v} value={v}>{v}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+                <div className="settings-footer">
+                    <button className="atem-btn" onClick={onClose}>Done</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default SettingsModal;
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Sidebar\BottomActionBtn.jsx ===
+import React from 'react';
+
+// =========================================================================
+// ATEM WEB MANAGER - BOTTOM ACTION BTN (v1.75)
+// =========================================================================
+
+const BottomActionBtn = ({ deviceState, showActionButton, isVisible }) => {
+    const { actionState, setActionState, selectedDeviceId, selectedGroupContext, pendingAddIp, pendingGroupName, addDevice, deleteDevice, setGroupSettings, setDevices } = deviceState;
+
+    if (!showActionButton) return null;
+
+    const getBtnProps = () => {
+        switch (actionState) {
+            case 'group-delete': return { className: 'action-delete', text: 'DELETE' };
+            case 'group-delete-confirm': return { className: 'action-delete confirm', text: 'CONFIRM' };
+            case 'group-add': return { className: 'action-group-mode', text: 'ADD' };
+            case 'group-add-confirm': return { className: 'action-group-mode confirm', text: 'CONFIRM' };
+            case 'delete': return { className: 'action-delete', text: 'DELETE' };
+            case 'delete-confirm': return { className: 'action-delete confirm', text: 'CONFIRM' };
+            case 'add': return { className: 'action-add', text: 'ADD' };
+            case 'add-confirm': return { className: 'action-add confirm', text: 'CONFIRM' };
+            default: return { className: 'action-select-none', text: 'SELECT ITEM', disabled: true };
+        }
+    };
+
+    const handleClick = () => {
+        if (actionState === 'select-none') return;
+        
+        if (actionState === 'group-delete') { setActionState('group-delete-confirm'); return; }
+        if (actionState === 'group-delete-confirm') {
+            if (selectedGroupContext && selectedGroupContext !== 'UNGROUPED') {
+                setDevices(prev => prev.map(d => (d.group || 'UNGROUPED').toUpperCase() === selectedGroupContext ? { ...d, group: 'UNGROUPED' } : d));
+                setGroupSettings(prev => { const next = { ...prev }; delete next[selectedGroupContext]; return next; });
+            }
+            deviceState.setSearchFilter('');
+            deviceState.setSelectedGroupContext(null);
+            setActionState('select-none');
+            return;
+        }
+
+        if (actionState === 'group-add') { setActionState('group-add-confirm'); return; }
+        if (actionState === 'group-add-confirm') {
+            if (pendingGroupName) {
+                const exactG = pendingGroupName.trim();
+                const cleanG = exactG.toUpperCase();
+                if (!deviceState.groupExists(cleanG)) {
+                    setGroupSettings(prev => ({ ...prev, [cleanG]: { colorTag: '', originalName: exactG, description: '' } }));
+                }
+            }
+            deviceState.setPendingGroupName(null);
+            deviceState.setSearchFilter('');
+            setActionState('select-none');
+            return;
+        }
+
+        if (actionState === 'delete') { setActionState('delete-confirm'); return; }
+        if (actionState === 'delete-confirm') {
+            deleteDevice(selectedDeviceId);
+            deviceState.setSelectedDeviceId(null);
+            if (!selectedGroupContext) deviceState.setSearchFilter('');
+            setActionState('select-none');
+            return;
+        }
+
+        if (actionState === 'add') { setActionState('add-confirm'); return; }
+        if (actionState === 'add-confirm') {
+            if (pendingAddIp && deviceState.validIP(pendingAddIp) && !deviceState.ipTaken(pendingAddIp)) {
+                addDevice(pendingAddIp);
+            }
+            deviceState.setPendingAddIp(null);
+            deviceState.setSearchFilter('');
+            setActionState('select-none');
+            return;
+        }
+    };
+
+    const props = getBtnProps();
+
+    return (
+        <div className={`action-container ${isVisible ? 'visible' : ''}`}>
+            <button 
+                id="actionButton"
+                className={`action-btn ${props.className}`} 
+                onClick={handleClick}
+                disabled={props.disabled}
+            >
+                {props.text}
+            </button>
+        </div>
+    );
+};
+
+export default BottomActionBtn;
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Sidebar\ColorDropdown.jsx ===
+import React, { useState, useRef, useEffect } from 'react';
+import { mutedColors } from '../../hooks/useDevices';
+
+// =========================================================================
+// ATEM WEB MANAGER - COLOR DROPDOWN (v2.07)
+// =========================================================================
+
+const ColorDropdown = ({ currentColor, onChange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const wrapperRef = useRef(null);
+
+    const matched = mutedColors.find(m => m.hex === currentColor);
+    const label = matched && matched.hex ? matched.name : 'No Color';
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div className="color-dropdown-box" ref={wrapperRef}>
+            <div className="color-dropdown-toggle" onClick={() => setIsOpen(!isOpen)}>
+                <div 
+                    className="color-swatch-box current-color-swatch" 
+                    style={{ background: currentColor || 'transparent', border: !currentColor ? '1px dashed var(--muted)' : 'none' }}
+                ></div>
+                <span className="color-label">{label}</span>
+                {currentColor && (
+                    <button
+                        type="button"
+                        className="clear-color-x"
+                        onClick={(e) => { e.stopPropagation(); onChange(''); }}
+                        title="Clear color"
+                    >
+                        &times;
+                    </button>
+                )}
+            </div>
+            {isOpen && (
+                <div className="color-dropdown-list show">
+                    {mutedColors.map((c, i) => (
+                        <div 
+                            key={i} 
+                            className="color-dropdown-option" 
+                            onClick={() => { onChange(c.hex); setIsOpen(false); }}
+                        >
+                            <div 
+                                className="color-swatch-box" 
+                                style={{ background: c.hex || 'transparent', border: !c.hex ? '1px dashed var(--muted)' : 'none' }}
+                            ></div>
+                            <span>{c.hex ? c.name : 'No Color (Default)'}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default ColorDropdown;
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Sidebar\DeviceList.jsx ===
+import React, { useState } from 'react';
+import DeviceRow from './DeviceRow';
+import ColorDropdown from './ColorDropdown';
+import Skeleton from '../UI/Skeleton';
+import { useDragDrop } from '../../hooks/useDragDrop';
+
+// =========================================================================
+// ATEM WEB MANAGER - DEVICE LIST (v2.08)
+// =========================================================================
+
+const DeviceList = ({ deviceState, enableDragDrop, forceUppercase }) => {
+    const { 
+        isLoading, devices, setDevices, searchFilter, groupSettings, setGroupSettings, 
+        selectedDeviceId, setSelectedDeviceId, selectedGroupContext, setSelectedGroupContext,
+        editingId, setEditingId, editingGroupContext, setEditingGroupContext,
+        setActionState, connectDevice, validIP, ipTaken, groupExists
+    } = deviceState;
+
+    const { handleDeviceDragStart, handleGroupDragOver, handleGroupDragLeave, handleGroupDrop } = useDragDrop(enableDragDrop);
+    const [groupEditForm, setGroupEditForm] = useState({ name: '', colorTag: '', description: '' });
+
+    if (isLoading) {
+        return (
+            <div className="device-list" style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <Skeleton height="20px" width="40%" style={{ marginBottom: '8px' }} borderRadius="4px" />
+                <Skeleton height="30px" />
+                <Skeleton height="30px" />
+                <Skeleton height="30px" />
+                <Skeleton height="30px" />
+                <div style={{ margin: '12px 0' }}></div>
+                <Skeleton height="20px" width="30%" style={{ marginBottom: '8px' }} borderRadius="4px" />
+                <Skeleton height="30px" />
+                <Skeleton height="30px" />
+            </div>
+        );
+    }
+
+    const groups = { UNGROUPED: [] };
+    Object.keys(groupSettings).forEach(g => { groups[g.toUpperCase()] = []; });
+
+    const visible = searchFilter ? devices.filter(d => (d.name && d.name.toLowerCase().includes(searchFilter)) || (d.ip && d.ip.toLowerCase().includes(searchFilter)) || (d.group && d.group.toLowerCase().includes(searchFilter))) : devices;
+    
+    visible.forEach(d => { 
+        const gName = (d.group || 'UNGROUPED').toUpperCase();
+        if (!groups[gName]) groups[gName] = [];
+        groups[gName].push(d); 
+    });
+
+    const groupNames = Object.keys(groups).sort((a,b) => a === 'UNGROUPED' ? 1 : b === 'UNGROUPED' ? -1 : a.localeCompare(b));
+
+    const handleSaveDeviceEdit = (id, form) => {
+        if (!validIP(form.ip) || ipTaken(form.ip, id)) {
+            alert("Invalid or taken IP.");
+            return;
+        }
+        if (form.name) {
+            const dup = devices.find(d => d.id !== id && d.name.toLowerCase() === form.name.toLowerCase() && !d.name.includes('(Placeholder)'));
+            if (dup) { alert("An entry with this name already exists."); return; }
+        }
+
+        let finalGroup = (!form.group || form.group.toUpperCase() === 'UNGROUPED') ? 'UNGROUPED' : form.group;
+        const upperFinal = finalGroup.toUpperCase();
+        
+        const existing = devices.find(d => (d.group || 'UNGROUPED').toUpperCase() === upperFinal);
+        if (existing && existing.group && existing.group.toUpperCase() !== 'UNGROUPED') finalGroup = existing.group;
+        else if (groupSettings[upperFinal] && groupSettings[upperFinal].originalName) finalGroup = groupSettings[upperFinal].originalName;
+
+        setDevices(prev => prev.map(d => d.id === id ? { ...d, ip: form.ip, name: form.name || form.ip, group: finalGroup, colorTag: form.colorTag, description: form.description } : d));
+        
+        if (finalGroup !== 'UNGROUPED' && !groupSettings[upperFinal]) {
+            setGroupSettings(prev => ({ ...prev, [upperFinal]: { colorTag: '', originalName: finalGroup, description: '' } }));
+        }
+        setEditingId(null);
+    };
+
+    const handleSaveGroupEdit = (oldG) => {
+        const newN = groupEditForm.name.trim();
+        const upperNew = newN.toUpperCase();
+
+        if (newN && upperNew !== oldG && groupExists(newN)) {
+            alert("A group with this name already exists.");
+            return;
+        }
+
+        setDevices(prev => prev.map(d => (d.group || 'UNGROUPED').toUpperCase() === oldG ? { ...d, group: newN || 'UNGROUPED' } : d));
+        
+        if (newN) {
+            setGroupSettings(prev => {
+                const next = { ...prev, [upperNew]: { colorTag: groupEditForm.colorTag, originalName: newN, description: groupEditForm.description } };
+                if (upperNew !== oldG) delete next[oldG];
+                return next;
+            });
+        }
+        setEditingGroupContext(null);
+    };
+
+    const handleDrop = (deviceId, targetGroup) => {
+        setDevices(prev => prev.map(d => d.id === deviceId ? { ...d, group: targetGroup } : d));
+    };
+
+    return (
+        <div className="device-list" onClick={(e) => {
+            if (!e.target.closest('.device-wrapper') && !e.target.closest('.group-header-wrapper')) {
+                setSelectedDeviceId(null);
+                setSelectedGroupContext(null);
+                setActionState('select-none');
+            }
+        }}>
+            {groupNames.map((g, index) => {
+                if (searchFilter && groups[g].length === 0 && !g.toLowerCase().includes(searchFilter)) return null;
+
+                const sample = groups[g][0];
+                let origG = sample && sample.group ? sample.group : (groupSettings[g] && groupSettings[g].originalName ? groupSettings[g].originalName : g);
+                let col = (groupSettings[g] && groupSettings[g].colorTag) ? groupSettings[g].colorTag : '';
+                let desc = (groupSettings[g] && groupSettings[g].description) ? groupSettings[g].description : '';
+
+                return (
+                    <div 
+                        key={g} 
+                        className="group-section"
+                        onDragOver={handleGroupDragOver}
+                        onDragLeave={handleGroupDragLeave}
+                        onDrop={(e) => handleGroupDrop(e, origG, handleDrop)}
+                    >
+                        {editingGroupContext === g && g !== 'UNGROUPED' ? (
+                            <div 
+                                className="group-header-wrapper"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleSaveGroupEdit(g);
+                                    }
+                                }}
+                            >
+                                <div className="group-header-accent" style={{ backgroundColor: col }}></div>
+                                <div className="group-editing-inner">
+                                    <div className="edit-field-wrapper">
+                                        <input 
+                                            className="edit-field" 
+                                            placeholder="Group name" 
+                                            value={groupEditForm.name} 
+                                            onChange={e => setGroupEditForm({...groupEditForm, name: e.target.value})} 
+                                            autoFocus 
+                                        />
+                                        {groupEditForm.name && (
+                                            <button type="button" className="clear-field-x" onClick={() => setGroupEditForm({...groupEditForm, name: ''})}>&times;</button>
+                                        )}
+                                    </div>
+                                    <ColorDropdown currentColor={groupEditForm.colorTag} onChange={val => setGroupEditForm({...groupEditForm, colorTag: val})} />
+                                    <div className="edit-field-wrapper">
+                                        <input 
+                                            className="edit-field" 
+                                            placeholder="Description" 
+                                            value={groupEditForm.description} 
+                                            onChange={e => setGroupEditForm({...groupEditForm, description: e.target.value})} 
+                                        />
+                                        {groupEditForm.description && (
+                                            <button type="button" className="clear-field-x" onClick={() => setGroupEditForm({...groupEditForm, description: ''})}>&times;</button>
+                                        )}
+                                    </div>
+                                    <div className="edit-actions">
+                                        <button type="button" className="edit-cancel" onClick={() => setEditingGroupContext(null)}>Cancel</button>
+                                        <button type="button" className="edit-save" onClick={() => handleSaveGroupEdit(g)}>Save</button>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div 
+                                className={`group-header-wrapper ${g === selectedGroupContext ? 'selected-group' : ''}`}
+                                onClick={() => {
+                                    setSelectedGroupContext(g);
+                                    setSelectedDeviceId(null);
+                                    setEditingId(null);
+                                    setEditingGroupContext(null);
+                                    if (g === 'UNGROUPED') setActionState('select-none');
+                                    else setActionState('group-delete');
+                                }}
+                                data-description={desc}
+                            >
+                                <div className="group-header-accent" style={{ backgroundColor: col }}></div>
+                                <div className="group-header-inner">
+                                    <span>{forceUppercase ? origG.toUpperCase() : origG}</span>
+                                    {g !== 'UNGROUPED' && (
+                                        <button 
+                                            className="group-edit-btn"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setGroupEditForm({ name: origG, colorTag: col, description: desc });
+                                                setEditingId(null);
+                                                setEditingGroupContext(g);
+                                            }}
+                                        >âœŽ</button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {groups[g].map(d => (
+                            <DeviceRow 
+                                key={d.id}
+                                device={d}
+                                isSelected={selectedDeviceId === d.id}
+                                isEditing={editingId === d.id}
+                                forceUppercase={forceUppercase}
+                                enableDragDrop={enableDragDrop}
+                                handleDeviceDragStart={handleDeviceDragStart}
+                                availableGroups={groupNames}
+                                onSelect={(id) => {
+                                    setEditingId(null); setEditingGroupContext(null);
+                                    setSelectedDeviceId(id); setSelectedGroupContext(null);
+                                    setActionState('delete');
+                                }}
+                                onConnect={connectDevice}
+                                onEditStart={(id) => {
+                                    setSelectedDeviceId(null); setSelectedGroupContext(null); setEditingGroupContext(null);
+                                    setActionState('select-none'); setEditingId(id);
+                                }}
+                                onEditCancel={() => setEditingId(null)}
+                                onEditSave={handleSaveDeviceEdit}
+                            />
+                        ))}
+
+                        {index === groupNames.length - 1 && (
+                            <div 
+                                className="group-dropzone"
+                                onDragOver={handleGroupDragOver}
+                                onDragLeave={handleGroupDragLeave}
+                                onDrop={(e) => handleGroupDrop(e, 'UNGROUPED', handleDrop)}
+                            ></div>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
+export default DeviceList;
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Sidebar\DeviceRow.jsx ===
+import React, { useState, useRef, useEffect } from 'react';
+import ColorDropdown from './ColorDropdown';
+
+// =========================================================================
+// ATEM WEB MANAGER - DEVICE ROW (v2.08)
+// =========================================================================
+
+const DeviceRow = ({ 
+    device, 
+    isSelected, 
+    isEditing, 
+    forceUppercase, 
+    onSelect, 
+    onConnect, 
+    onEditStart, 
+    onEditCancel, 
+    onEditSave,
+    enableDragDrop,
+    handleDeviceDragStart,
+    availableGroups = []
+}) => {
+    const [editForm, setEditForm] = useState({
+        name: device.name !== device.ip ? device.name : '',
+        ip: device.ip,
+        group: (!device.group || device.group.toUpperCase() === 'UNGROUPED') ? '' : device.group,
+        colorTag: device.colorTag || '',
+        description: device.description || ''
+    });
+
+    const [showGroupMenu, setShowGroupMenu] = useState(false);
+    const groupMenuRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (groupMenuRef.current && !groupMenuRef.current.contains(e.target)) {
+                setShowGroupMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            onEditSave(device.id, editForm);
+        }
+    };
+
+    if (isEditing) {
+        return (
+            <div className="device-wrapper editing" onKeyDown={handleKeyDown}>
+                <div className="device-accent" style={{ backgroundColor: editForm.colorTag || 'transparent' }}></div>
+                <div className="device-editing-inner">
+                    <div className="edit-field-wrapper">
+                        <input 
+                            className="edit-field" 
+                            placeholder="Name" 
+                            value={editForm.name} 
+                            onChange={e => setEditForm({...editForm, name: e.target.value})} 
+                            autoFocus 
+                        />
+                        {editForm.name && (
+                            <button type="button" className="clear-field-x" onClick={() => setEditForm({...editForm, name: ''})}>&times;</button>
+                        )}
+                    </div>
+                    
+                    <div className="edit-field-wrapper">
+                        <input 
+                            className="edit-field" 
+                            placeholder="IP address" 
+                            value={editForm.ip} 
+                            onChange={e => setEditForm({...editForm, ip: e.target.value})} 
+                        />
+                    </div>
+                    
+                    <div className="edit-field-wrapper" ref={groupMenuRef}>
+                        <input 
+                            className="edit-field" 
+                            placeholder="Group name" 
+                            value={editForm.group} 
+                            onFocus={() => setShowGroupMenu(true)}
+                            onChange={e => {
+                                setEditForm({...editForm, group: e.target.value});
+                                setShowGroupMenu(true);
+                            }} 
+                        />
+                        {editForm.group && (
+                            <button type="button" className="clear-field-x" onClick={() => setEditForm({...editForm, group: ''})}>&times;</button>
+                        )}
+                        {showGroupMenu && availableGroups.length > 0 && (
+                            <div className="group-select-menu">
+                                {availableGroups.map((gName) => (
+                                    <div 
+                                        key={gName}
+                                        className="group-select-item"
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            setEditForm({...editForm, group: gName === 'UNGROUPED' ? '' : gName});
+                                            setShowGroupMenu(false);
+                                        }}
+                                    >
+                                        {gName}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <ColorDropdown 
+                        currentColor={editForm.colorTag} 
+                        onChange={val => setEditForm({...editForm, colorTag: val})} 
+                    />
+
+                    <div className="edit-field-wrapper">
+                        <input 
+                            className="edit-field" 
+                            placeholder="Description" 
+                            value={editForm.description} 
+                            onChange={e => setEditForm({...editForm, description: e.target.value})} 
+                        />
+                        {editForm.description && (
+                            <button type="button" className="clear-field-x" onClick={() => setEditForm({...editForm, description: ''})}>&times;</button>
+                        )}
+                    </div>
+
+                    <div className="edit-actions">
+                        <button type="button" className="edit-cancel" onClick={onEditCancel}>Cancel</button>
+                        <button type="button" className="edit-save" onClick={() => onEditSave(device.id, editForm)}>Save</button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    let dispName = (!device.name || device.name === device.ip) ? device.ip : device.name;
+    if (forceUppercase) dispName = dispName.toUpperCase();
+
+    return (
+        <div 
+            className={`device-wrapper ${isSelected ? 'selected' : ''}`}
+            draggable={enableDragDrop}
+            onDragStart={(e) => handleDeviceDragStart(e, device.id)}
+            onClick={(e) => {
+                if (e.detail === 2) {
+                    onConnect(device.id);
+                } else {
+                    onSelect(device.id);
+                }
+            }}
+            data-description={device.description}
+        >
+            <div className="device-accent" style={{ backgroundColor: device.colorTag || 'transparent' }}></div>
+            <div className={`device-inner ${device.status === 'online' ? 'connected-row' : ''}`}>
+                <div className={`status ${device.status}`}></div>
+                <div className="device-text">
+                    <div className="device-name">{dispName}</div>
+                </div>
+                <button 
+                    className="edit-btn" 
+                    title="Edit"
+                    onClick={(e) => { e.stopPropagation(); onEditStart(device.id); }}
+                >âœŽ</button>
+            </div>
+        </div>
+    );
+};
+
+export default DeviceRow;
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Sidebar\SearchBar.jsx ===
+import React, { useState, useEffect } from 'react';
+
+// =========================================================================
+// ATEM WEB MANAGER - SEARCH BAR (v1.75)
+// =========================================================================
+
+const SearchBar = ({ deviceState, showActionButton }) => {
+    const { searchFilter, setSearchFilter, devices, validIP, ipTaken, groupExists, setActionState, setPendingAddIp, setPendingGroupName, setSelectedDeviceId, setSelectedGroupContext, setEditingId, setEditingGroupContext, addDevice } = deviceState;
+    const [inputValue, setInputValue] = useState('');
+    const [isInvalid, setIsInvalid] = useState(false);
+
+    // Sync input with search filter if cleared externally
+    useEffect(() => {
+        if (searchFilter === '') {
+            setInputValue('');
+            setIsInvalid(false);
+        }
+    }, [searchFilter]);
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && showActionButton) {
+            const query = inputValue.trim();
+            if (validIP(query) && !ipTaken(query)) {
+                addDevice(query);
+                setInputValue('');
+                setSearchFilter('');
+                setIsInvalid(false);
+                setActionState('select-none');
+            }
+        }
+    };
+
+    const handleInput = (e) => {
+        const query = e.target.value.trim();
+        setInputValue(query);
+        setSearchFilter(query.toLowerCase());
+        setEditingId(null);
+        setEditingGroupContext(null);
+        setIsInvalid(false);
+        setSelectedGroupContext(null);
+
+        if (query === '') {
+            setPendingAddIp(null);
+            setPendingGroupName(null);
+            setSelectedDeviceId(null);
+            setActionState('select-none');
+            return;
+        }
+
+        const exactMatch = devices.find(d => d.ip.toLowerCase() === query.toLowerCase() || (d.name && d.name.toLowerCase() === query.toLowerCase()));
+        if (exactMatch) {
+            setPendingAddIp(null);
+            setPendingGroupName(null);
+            setSelectedDeviceId(exactMatch.id);
+            setActionState(showActionButton ? 'delete' : 'select-none');
+            return;
+        }
+
+        setSelectedDeviceId(null);
+        if (/^[0-9.]+$/.test(query)) {
+            if (query.split('.').length === 4 && validIP(query)) {
+                if (ipTaken(query)) {
+                    setIsInvalid(true);
+                    setPendingAddIp(null);
+                    setActionState('select-none');
+                    return;
+                }
+                setPendingAddIp(query);
+                setActionState(showActionButton ? 'add' : 'select-none');
+                return;
+            }
+            setIsInvalid(!/^(\d{1,3}\.?){1,4}$/.test(query) || !query.split('.').every(s => s === '' || Number(s) <= 255));
+            setPendingAddIp(null);
+            setActionState('select-none');
+            return;
+        }
+
+        if (groupExists(query)) {
+            setPendingGroupName(query);
+            setPendingAddIp(null);
+            setSelectedGroupContext(query.toUpperCase());
+            if (query.toUpperCase() === 'UNGROUPED') setActionState('select-none');
+            else setActionState(showActionButton ? 'group-delete' : 'select-none');
+        } else {
+            setPendingGroupName(query);
+            setPendingAddIp(null);
+            setActionState(showActionButton ? 'group-add' : 'select-none');
+        }
+    };
+
+    return (
+        <div className="search-container">
+            <input 
+                className={`search ${isInvalid ? 'invalid' : ''}`} 
+                type="text" 
+                placeholder={/^[0-9.]+$/.test(inputValue) || inputValue === '' ? "Search..." : "Add or type group name..."} 
+                autoComplete="off" 
+                spellCheck="false"
+                value={inputValue}
+                onChange={handleInput}
+                onKeyDown={handleKeyDown}
+            />
+        </div>
+    );
+};
+
+export default SearchBar;
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Sidebar\Sidebar.jsx ===
+import React, { useState } from 'react';
+import SearchBar from './SearchBar';
+import DeviceList from './DeviceList';
+import BottomActionBtn from './BottomActionBtn';
+
+// =========================================================================
+// ATEM WEB MANAGER - SIDEBAR COMPONENT (v2.08)
+// =========================================================================
+
+const Sidebar = ({ 
+    height, showActionButton, enableDragDrop, forceUppercase, 
+    deviceState, variant = 'classic', isCollapsed
+}) => {
+    const [isHovered, setIsHovered] = useState(false);
+
+    return (
+        <aside 
+            className={`sidebar variant-${variant} ${isCollapsed ? 'collapsed' : ''}`} 
+            style={{ height: `${height}px` }}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+        >
+            <div className="search-container">
+                <SearchBar deviceState={deviceState} showActionButton={showActionButton} /> 
+            </div>
+            
+            <DeviceList 
+                deviceState={deviceState} 
+                enableDragDrop={enableDragDrop} 
+                forceUppercase={forceUppercase} 
+            /> 
+            
+            <BottomActionBtn 
+                deviceState={deviceState} 
+                showActionButton={showActionButton} 
+                isVisible={isHovered || deviceState.actionState !== 'select-none'} 
+            /> 
+        </aside>
+    );
+};
+
+export default Sidebar;
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\UI\ErrorBoundary.jsx ===
+import React from 'react';
+
+// =========================================================================
+// ATEM WEB MANAGER - ERROR BOUNDARY (v1.82)
+// =========================================================================
+// Traps runtime exceptions or socket failures to prevent blank white screens.
+
+class ErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+
+    static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+    }
+
+    componentDidCatch(error, errorInfo) {
+        console.error("ATEM Panel Error Caught:", error, errorInfo);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="atem-bus-locked-container">
+                    <div className="atem-bus-lock-badge">PANEL EXCEPTION TRAPPED</div>
+                    <div className="atem-bus-lock-desc">
+                        An error occurred while loading this panel component. Check your bridge daemon or console logs.
+                    </div>
+                    <button 
+                        className="atem-trans-btn" 
+                        style={{ marginTop: '12px' }} 
+                        onClick={() => this.setState({ hasError: false })}
+                    >
+                        RELOAD PANEL
+                    </button>
+                </div>
+            );
+        }
+
+        return this.props.children;
+    }
+}
+
+export default ErrorBoundary;
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\UI\GlobalTooltip.jsx ===
+import React, { useEffect, useRef } from 'react';
+
+// =========================================================================
+// ATEM WEB MANAGER - GLOBAL TOOLTIP (v1.79)
+// =========================================================================
+
+export default function GlobalTooltip() {
+    const tooltipRef = useRef(null);
+
+    useEffect(() => {
+        const onMouseOver = (e) => {
+            const el = e.target.closest('[data-description]');
+            if (el && el.dataset.description && tooltipRef.current) {
+                tooltipRef.current.textContent = el.dataset.description;
+                tooltipRef.current.style.display = 'block';
+            }
+        };
+        const onMouseMove = (e) => {
+            if (tooltipRef.current && tooltipRef.current.style.display === 'block') {
+                tooltipRef.current.style.left = (e.clientX + 12) + 'px';
+                tooltipRef.current.style.top = (e.clientY + 12) + 'px';
+            }
+        };
+        const onMouseOut = (e) => {
+            if (e.target.closest('[data-description]') && tooltipRef.current) {
+                tooltipRef.current.style.display = 'none';
+            }
+        };
+
+        document.addEventListener('mouseover', onMouseOver);
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseout', onMouseOut);
+
+        return () => {
+            document.removeEventListener('mouseover', onMouseOver);
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseout', onMouseOut);
+        };
+    }, []);
+
+    return <div ref={tooltipRef} className="global-tooltip" />;
+}
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\UI\QuadrantContextMenu.jsx ===
+import React, { useEffect, useRef } from 'react';
+
+// =========================================================================
+// ATEM WEB MANAGER - QUADRANT CONTEXT MENU (v2.07)
+// =========================================================================
+
+export default function QuadrantContextMenu({ x, y, currentQuad, onClose, onSelectQuadrant }) {
+    const menuRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (menuRef.current && !menuRef.current.contains(e.target)) {
+                onClose();
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [onClose]);
+
+    return (
+        <div 
+            ref={menuRef} 
+            className="quadrant-context-menu" 
+            style={{ top: y, left: x }}
+        >
+            <div className="quadrant-context-header">ASSIGN QUADRANT</div>
+            {[1, 2, 3, 4].map((quad) => (
+                <div 
+                    key={`ctx-quad-${quad}`} 
+                    className="quadrant-context-item"
+                    onClick={() => { onSelectQuadrant(quad); onClose(); }}
+                >
+                    <span>Quadrant {quad}</span>
+                    {currentQuad === quad && <span style={{ color: 'var(--green)', fontWeight: 'bold' }}>âœ“</span>}
+                </div>
+            ))}
+        </div>
+    );
+}
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\UI\Skeleton.jsx ===
+import React from 'react';
+
+// =========================================================================
+// ATEM WEB MANAGER - SKELETON UI (v1.76)
+// =========================================================================
+
+const Skeleton = ({ width = '100%', height = '30px', borderRadius = 'var(--pill-radius)', style }) => {
+    return (
+        <div 
+            className="skeleton-box" 
+            style={{ width, height, borderRadius, ...style }}
+        />
+    );
+};
+
+export default Skeleton;
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\VideoPlayer\OverlayDrawer.jsx ===
+import React from 'react';
+
+// =========================================================================
+// ATEM WEB MANAGER - OVERLAY DRAWER (v1.75)
+// =========================================================================
+
+const OverlayDrawer = ({ show, overlayImg, onImageUpload, onClearImage, wipeState, setWipeState, onSnapshot }) => {
+    if (!show) return null;
+
+    const stopProp = e => e.stopPropagation();
+    const lockDrag = e => { const p = e.target.closest('.panel'); if (p) p.draggable = false; };
+    const unlockDrag = e => { const p = e.target.closest('.panel'); if (p) p.draggable = true; };
+
+    return (
+        <div 
+            className="stream-tools-panel show"
+            onMouseDown={stopProp} onTouchStart={stopProp}
+            onMouseEnter={lockDrag} onMouseLeave={unlockDrag}
+        >
+            <div className="stream-tools-row">
+                <label className="tool-text-btn">
+                    <span>{overlayImg ? overlayImg.name : 'Choose File...'}</span>
+                    <input type="file" accept="image/*" onChange={onImageUpload} />
+                </label>
+            </div>
+            <div className="stream-tools-row">
+                <button className="tool-text-btn" onClick={onClearImage}>Clear Image</button>
+            </div>
+            <div className="stream-tools-row">
+                <label>Opacity: <span>{wipeState.opacity}%</span></label>
+                <input type="range" min="0" max="100" value={wipeState.opacity} onMouseDown={stopProp} onChange={e => setWipeState({...wipeState, opacity: e.target.value})} />
+            </div>
+            <div className="stream-tools-row">
+                <label>Horizontal Split Wipe: <span>{wipeState.clipH == 0 ? 'Off' : `${wipeState.clipH}%`}</span></label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input type="range" min="0" max="100" value={wipeState.clipH} style={{ flex: 1 }} onMouseDown={stopProp} onChange={e => setWipeState({...wipeState, clipH: e.target.value})} />
+                    <label style={{ cursor: 'pointer', color: '#bbb' }} title="Reverse Direction">
+                        <input type="checkbox" className="toggle-switch" checked={wipeState.revH} onChange={e => setWipeState({...wipeState, revH: e.target.checked})} />
+                    </label>
+                </div>
+            </div>
+            <div className="stream-tools-row">
+                <label>Vertical Split Wipe: <span>{wipeState.clipV == 0 ? 'Off' : `${wipeState.clipV}%`}</span></label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input type="range" min="0" max="100" value={wipeState.clipV} style={{ flex: 1 }} onMouseDown={stopProp} onChange={e => setWipeState({...wipeState, clipV: e.target.value})} />
+                    <label style={{ cursor: 'pointer', color: '#bbb' }} title="Reverse Direction">
+                        <input type="checkbox" className="toggle-switch" checked={wipeState.revV} onChange={e => setWipeState({...wipeState, revV: e.target.checked})} />
+                    </label>
+                </div>
+            </div>
+            <div className="stream-tools-row" style={{ marginTop: '4px' }}>
+                <button className="tool-text-btn" onClick={onSnapshot} style={{ fontWeight: 600 }}>Take Snapshot</button>
+            </div>
+        </div>
+    );
+};
+
+export default OverlayDrawer;
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\VideoPlayer\Player.jsx ===
+import React, { useEffect, useRef, useState } from 'react';
+import videojs from 'video.js';
+import 'video.js/dist/video-js.css';
+import 'videojs-youtube';
+import OverlayDrawer from './OverlayDrawer';
+import QualityMenu from './QualityMenu';
+import { takeSnapshot } from './SnapshotEngine';
+
+// =========================================================================
+// ATEM WEB MANAGER - PLAYER COMPONENT (v1.75)
+// =========================================================================
+
+// Global memory for video state retention during quadrant swapping
+let globalVideoState = { time: 0, paused: true };
+
+// Register Custom Video.js Buttons Once
+if (typeof videojs !== 'undefined' && !videojs.getComponent('QualityBtn')) {
+    const Button = videojs.getComponent('Button');
+
+    class QualityBtn extends Button {
+        createEl() {
+            const el = super.createEl('button', { className: 'vjs-quality-btn vjs-control vjs-button', title: 'Video Quality' });
+            el.innerHTML = `<span class="vjs-icon-placeholder" style="display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg></span>`;
+            return el;
+        }
+        handleClick(e) {
+            if(e) e.stopPropagation();
+            this.player().el().dispatchEvent(new CustomEvent('toggle-quality-panel', { bubbles: true }));
+        }
+    }
+    videojs.registerComponent('QualityBtn', QualityBtn);
+
+    class OverlayBtn extends Button {
+        createEl() {
+            const el = super.createEl('button', { className: 'vjs-overlay-btn vjs-control vjs-button', title: 'Overlay Tools' });
+            el.innerHTML = `<span class="vjs-icon-placeholder" style="display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5.04-6.71l-2.75 3.54-1.96-2.36L6.5 17h11l-3.54-4.71z"/></svg></span>`;
+            return el;
+        }
+        handleClick(e) {
+            if(e) e.stopPropagation();
+            this.player().el().dispatchEvent(new CustomEvent('toggle-overlay-panel', { bubbles: true }));
+        }
+    }
+    videojs.registerComponent('OverlayBtn', OverlayBtn);
+}
+
+const Player = ({ currentVideoSource }) => {
+    const videoRef = useRef(null);
+    const playerRef = useRef(null);
+    const wrapperRef = useRef(null);
+    const imgRef = useRef(null);
+    
+    // Panel Toggles
+    const [showOverlay, setShowOverlay] = useState(false);
+    const [showQuality, setShowQuality] = useState(false);
+    
+    // Wipe State
+    const [wipeState, setWipeState] = useState({ clipH: 0, clipV: 0, revH: false, revV: false, opacity: 40 });
+    const [overlayImg, setOverlayImg] = useState(null);
+    const [overlaySrc, setOverlaySrc] = useState('');
+
+    useEffect(() => {
+        if (!videoRef.current) return;
+
+        const isYT = currentVideoSource.includes('youtube') || currentVideoSource.includes('youtu.be') || currentVideoSource.length === 11;
+        const ytId = isYT ? (currentVideoSource.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/) || [])[1] : null;
+        const srcObj = isYT && ytId ? { type: 'video/youtube', src: `https://www.youtube.com/watch?v=${ytId}` } : { type: 'video/mp4', src: currentVideoSource };
+
+        const player = videojs(videoRef.current, {
+            techOrder: ['youtube', 'html5'],
+            sources: [srcObj],
+            controls: true,
+            preload: 'auto',
+            youtube: { ytControls: 0, customVars: { rel: 0, modestbranding: 1, playsinline: 1 } },
+            controlBar: {
+                children: [
+                    'playToggle',
+                    'volumePanel',
+                    'currentTimeDisplay',
+                    'timeDivider',
+                    'durationDisplay',
+                    'progressControl',
+                    'customControlSpacer',
+                    'fullscreenToggle'
+                ],
+                volumePanel: { inline: true, volumeControl: { vertical: false } }
+            }
+        });
+        
+        playerRef.current = player;
+
+        player.ready(() => {
+            if (globalVideoState.time > 0) player.currentTime(globalVideoState.time);
+            if (!globalVideoState.paused) player.play().catch(()=>{});
+
+            const cb = player.controlBar;
+            if (cb) {
+                const disableDrag = function() { const p = this.closest('.panel'); if(p) p.draggable = false; };
+                const enableDrag = function() { const p = this.closest('.panel'); if(p) p.draggable = true; };
+                const stopProp = e => e.stopPropagation();
+
+                cb.el().onmouseenter = disableDrag;
+                cb.el().onmouseleave = enableDrag;
+                cb.el().onmousedown = stopProp;
+                cb.el().ontouchstart = stopProp;
+
+                const fsBtn = cb.getChild('FullscreenToggle');
+                const fsIndex = fsBtn ? cb.children().indexOf(fsBtn) : cb.children().length;
+                if (!cb.getChild('QualityBtn')) cb.addChild('QualityBtn', {}, fsIndex);
+                if (!cb.getChild('OverlayBtn')) cb.addChild('OverlayBtn', {}, fsIndex + 1);
+            }
+        });
+
+        // Event listeners bridging Video.js UI to React State
+        const handleQualityToggle = () => { setShowQuality(p => !p); setShowOverlay(false); };
+        const handleOverlayToggle = () => { setShowOverlay(p => !p); setShowQuality(false); };
+        
+        const el = player.el();
+        el.addEventListener('toggle-quality-panel', handleQualityToggle);
+        el.addEventListener('toggle-overlay-panel', handleOverlayToggle);
+
+        return () => {
+            if (player && !player.isDisposed()) {
+                globalVideoState.time = player.currentTime() || 0;
+                globalVideoState.paused = player.paused();
+                player.dispose();
+            }
+        };
+    }, [currentVideoSource]);
+
+    // Handle Click Outside to close panels
+    useEffect(() => {
+        const clickOutside = (e) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+                if (!e.target.closest('.vjs-quality-btn') && !e.target.closest('.vjs-overlay-btn')) {
+                    setShowOverlay(false);
+                    setShowQuality(false);
+                }
+            }
+        };
+        document.addEventListener('click', clickOutside);
+        return () => document.removeEventListener('click', clickOutside);
+    }, []);
+
+    const handleResolutionSelect = (res) => {
+        if (playerRef.current) {
+            const ct = playerRef.current.currentTime();
+            const isPaused = playerRef.current.paused();
+            let newSrc = currentVideoSource.replace(/highest\.mp4|high\.mp4|medium\.mp4|low\.mp4/g, `${res}.mp4`);
+            
+            playerRef.current.src(newSrc);
+            playerRef.current.ready(() => {
+                playerRef.current.currentTime(ct);
+                if (!isPaused) playerRef.current.play().catch(()=>{});
+            });
+        }
+        setShowQuality(false);
+    };
+
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setOverlayImg(file);
+            const reader = new FileReader();
+            reader.onload = (evt) => setOverlaySrc(evt.target.result);
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleClearImage = () => {
+        setOverlayImg(null);
+        setOverlaySrc('');
+        setWipeState({ ...wipeState, clipH: 0, clipV: 0 });
+    };
+
+    const handleSnapshot = () => {
+        const videoTech = wrapperRef.current?.querySelector('video.vjs-tech');
+        takeSnapshot(videoTech, imgRef.current, wipeState);
+    };
+
+    const t = wipeState.revV ? 0 : wipeState.clipV;
+    const b = wipeState.revV ? wipeState.clipV : 0;
+    const l = wipeState.revH ? 0 : wipeState.clipH;
+    const r = wipeState.revH ? wipeState.clipH : 0;
+    const clipStyle = { clipPath: `inset(${t}% ${r}% ${b}% ${l}%)` };
+
+    return (
+        <div className="stream-container" ref={wrapperRef}>
+            <div data-vjs-player>
+                <video ref={videoRef} className="video-js vjs-big-play-centered stream-video" crossOrigin="anonymous" playsInline></video>
+            </div>
+            
+            <div className="stream-wipe-layer" style={clipStyle}>
+                <div className="stream-overlay-layer">
+                    <img 
+                        ref={imgRef}
+                        src={overlaySrc} 
+                        className="custom-overlay-img" 
+                        crossOrigin="anonymous" 
+                        style={{ display: overlaySrc ? 'block' : 'none', opacity: wipeState.opacity / 100 }} 
+                        alt="overlay" 
+                    />
+                </div>
+            </div>
+
+            <OverlayDrawer 
+                show={showOverlay}
+                overlayImg={overlayImg}
+                onImageUpload={handleImageUpload}
+                onClearImage={handleClearImage}
+                wipeState={wipeState}
+                setWipeState={setWipeState}
+                onSnapshot={handleSnapshot}
+            />
+
+            <QualityMenu 
+                show={showQuality} 
+                onResolutionSelect={handleResolutionSelect} 
+            />
+        </div>
+    );
+};
+
+export default Player;
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\VideoPlayer\QualityMenu.jsx ===
+import React from 'react';
+
+// =========================================================================
+// ATEM WEB MANAGER - QUALITY MENU (v1.75)
+// =========================================================================
+
+const QualityMenu = ({ show, onResolutionSelect }) => {
+    if (!show) return null;
+
+    return (
+        <div 
+            className="stream-tools-panel quality-panel show"
+            onMouseDown={e => e.stopPropagation()}
+            onTouchStart={e => e.stopPropagation()}
+            onMouseEnter={e => { const p = e.target.closest('.panel'); if (p) p.draggable = false; }}
+            onMouseLeave={e => { const p = e.target.closest('.panel'); if (p) p.draggable = true; }}
+        >
+            <div className="stream-tools-row"><button className="tool-text-btn res-btn" onClick={(e) => { e.stopPropagation(); onResolutionSelect('highest'); }}>4K</button></div>
+            <div className="stream-tools-row"><button className="tool-text-btn res-btn" onClick={(e) => { e.stopPropagation(); onResolutionSelect('high'); }}>1080p</button></div>
+            <div className="stream-tools-row"><button className="tool-text-btn res-btn" onClick={(e) => { e.stopPropagation(); onResolutionSelect('medium'); }}>720p</button></div>
+        </div>
+    );
+};
+
+export default QualityMenu;
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\VideoPlayer\SnapshotEngine.js ===
+// =========================================================================
+// ATEM WEB MANAGER - SNAPSHOT ENGINE (v1.75)
+// =========================================================================
+
+export const takeSnapshot = (videoEl, customOverlayImg, wipeState) => {
+    const { clipV, clipH, revV, revH, opacity } = wipeState;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1920; 
+    canvas.height = 1080;
+    const ctx = canvas.getContext('2d');
+    
+    // Draw Video Frame
+    if (videoEl && videoEl.readyState >= 2) {
+        try {
+            ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+        } catch (e) {
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+    } else {
+        ctx.fillStyle = '#111';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    
+    // Calculate Wipe Math for Overlay
+    let tCrop = revV ? 0 : (clipV / 100) * canvas.height;
+    let bCrop = revV ? (clipV / 100) * canvas.height : 0;
+    let lCrop = revH ? 0 : (clipH / 100) * canvas.width;
+    let rCrop = revH ? (clipH / 100) * canvas.width : 0;
+    
+    let drawX = lCrop;
+    let drawY = tCrop;
+    let drawW = canvas.width - lCrop - rCrop;
+    let drawH = canvas.height - tCrop - bCrop;
+    
+    if (drawW > 0 && drawH > 0 && customOverlayImg && customOverlayImg.src) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(drawX, drawY, drawW, drawH);
+        ctx.clip();
+        
+        ctx.globalAlpha = parseFloat(opacity) / 100;
+        ctx.drawImage(customOverlayImg, 0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 1.0;
+        ctx.restore();
+    }
+    
+    const link = document.createElement('a');
+    link.download = 'atem-snapshot-' + Date.now() + '.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+};
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\hooks\useDevices.js ===
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { useLocalStorage } from './useLocalStorage';
+
+// =========================================================================
+// ATEM WEB MANAGER - USE DEVICES HOOK (v1.77)
+// =========================================================================
+
+export const mutedColors = [
+    { name: 'Default Grey', hex: '' }, { name: 'Muted Red', hex: '#8a4b48' },
+    { name: 'Pastel Orange', hex: '#a66332' }, { name: 'Gold Yellow', hex: '#8a701a' },
+    { name: 'Pastel Green', hex: '#487540' }, { name: 'Muted Teal', hex: '#316361' },
+    { name: 'Pastel Blue', hex: '#3b5f94' }, { name: 'Muted Purple', hex: '#6355b8' },
+    { name: 'Pastel Pink', hex: '#8c4468' }, { name: 'Muted Brown', hex: '#6e5138' },
+    { name: 'Slate Gray', hex: '#485459' }, { name: 'Warm Gray', hex: '#595252' }
+];
+
+const initialDevices = Array.from({ length: 16 }, (_, i) => ({
+    id: i + 1, ip: `192.168.1.${10 + i}`, name: `192.168.1.${10 + i}`,
+    group: 'UNGROUPED', status: 'offline', description: '', colorTag: ''
+}));
+
+export function useDevices() {
+    const [isLoading, setIsLoading] = useState(true);
+
+    // V1.77 - Persistent Data via Local Storage
+    const [devices, setDevices] = useLocalStorage('atem_devices', initialDevices);
+    const [groupSettings, setGroupSettings] = useLocalStorage('atem_groupSettings', {});
+    const [nextId, setNextId] = useLocalStorage('atem_nextId', 17);
+    
+    // UI State (Does NOT need to be saved across refreshes)
+    const [selectedDeviceId, setSelectedDeviceId] = useState(null);
+    const [selectedGroupContext, setSelectedGroupContext] = useState(null);
+    const [editingId, setEditingId] = useState(null);
+    const [editingGroupContext, setEditingGroupContext] = useState(null);
+    
+    const [searchFilter, setSearchFilter] = useState('');
+    const [pendingAddIp, setPendingAddIp] = useState(null);
+    const [pendingGroupName, setPendingGroupName] = useState(null);
+    
+    const [actionState, _setActionState] = useState('select-none');
+    const actionTimerRef = useRef(null);
+
+    // Simulate Network Fetch for Skeletons
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsLoading(false);
+        }, 1200);
+        return () => clearTimeout(timer);
+    }, []);
+
+    const validIP = useCallback((ip) => /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/.test(ip), []);
+    const ipTaken = useCallback((ip, excludeId) => devices.some(d => d.ip === ip && d.id !== excludeId), [devices]);
+    const groupExists = useCallback((name) => {
+        const clean = name.trim().toUpperCase();
+        return groupSettings[clean] !== undefined || devices.some(d => (d.group || 'UNGROUPED').toUpperCase() === clean && d.ip !== '0.0.0.0');
+    }, [groupSettings, devices]);
+
+    const setActionState = useCallback((state) => {
+        if (actionTimerRef.current) clearTimeout(actionTimerRef.current);
+        _setActionState(state);
+        
+        if (state.endsWith('-confirm')) {
+            actionTimerRef.current = setTimeout(() => {
+                _setActionState(state.replace('-confirm', ''));
+            }, 3000);
+        }
+    }, []);
+
+    const addDevice = (ip) => {
+        setDevices(prev => [...prev, { id: nextId, ip, name: ip, group: 'UNGROUPED', status: 'offline', dateAdded: Date.now(), colorTag: '', description: '' }]);
+        setNextId(prev => prev + 1);
+    };
+
+    const deleteDevice = (id) => setDevices(prev => prev.filter(d => d.id !== id));
+
+    const connectDevice = (id) => {
+        setDevices(prev => prev.map(d => {
+            if (d.id === id) return { ...d, status: d.status === 'online' ? 'offline' : 'online', lastConnected: Date.now() };
+            return { ...d, status: 'offline' };
+        }));
+    };
+
+    return {
+        isLoading,
+        devices, setDevices, groupSettings, setGroupSettings,
+        selectedDeviceId, setSelectedDeviceId, selectedGroupContext, setSelectedGroupContext,
+        editingId, setEditingId, editingGroupContext, setEditingGroupContext,
+        searchFilter, setSearchFilter, pendingAddIp, setPendingAddIp, pendingGroupName, setPendingGroupName,
+        actionState, setActionState, validIP, ipTaken, groupExists,
+        addDevice, deleteDevice, connectDevice
+    };
+}
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\hooks\useDragDrop.js ===
+import { useCallback } from 'react';
+
+// =========================================================================
+// ATEM WEB MANAGER - USE DRAG DROP HOOK (v1.75)
+// =========================================================================
+// Manages the HTML5 drag-and-drop physics for both Device re-grouping 
+// and Quadrant swapping.
+
+export function useDragDrop(enableDragDrop) {
+    
+    // --- DEVICE TO GROUP DRAG LOGIC ---
+    const handleDeviceDragStart = useCallback((e, deviceId) => {
+        if (!enableDragDrop) {
+            e.preventDefault();
+            return;
+        }
+        e.dataTransfer.setData('text/plain', deviceId);
+        e.dataTransfer.effectAllowed = 'move';
+    }, [enableDragDrop]);
+
+    const handleGroupDragOver = useCallback((e) => {
+        if (!enableDragDrop) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        e.currentTarget.classList.add('drag-over-group');
+    }, [enableDragDrop]);
+
+    const handleGroupDragLeave = useCallback((e) => {
+        e.currentTarget.classList.remove('drag-over-group');
+    }, []);
+
+    const handleGroupDrop = useCallback((e, targetGroup, onDropCallback) => {
+        if (!enableDragDrop) return;
+        e.preventDefault();
+        e.currentTarget.classList.remove('drag-over-group');
+        
+        const draggedId = Number(e.dataTransfer.getData('text/plain'));
+        if (draggedId && onDropCallback) {
+            onDropCallback(draggedId, targetGroup);
+        }
+    }, [enableDragDrop]);
+
+    // --- QUADRANT SWAP DRAG LOGIC ---
+    const handleQuadrantDragStart = useCallback((e, positionIndex) => {
+        e.dataTransfer.setData('quadrant/pos', positionIndex);
+        e.dataTransfer.effectAllowed = 'move';
+    }, []);
+
+    const handleQuadrantDragOver = useCallback((e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        e.currentTarget.classList.add('drag-over-quadrant');
+    }, []);
+
+    const handleQuadrantDragLeave = useCallback((e) => {
+        e.currentTarget.classList.remove('drag-over-quadrant');
+    }, []);
+
+    const handleQuadrantDrop = useCallback((e, targetIndex, onSwapCallback) => {
+        e.preventDefault();
+        e.currentTarget.classList.remove('drag-over-quadrant');
+        
+        const sourceIndex = e.dataTransfer.getData('quadrant/pos');
+        if (sourceIndex !== '' && sourceIndex !== null) {
+            const parsedSource = Number(sourceIndex);
+            if (parsedSource !== targetIndex && onSwapCallback) {
+                onSwapCallback(parsedSource, targetIndex);
+            }
+        }
+    }, []);
+
+    return {
+        handleDeviceDragStart,
+        handleGroupDragOver,
+        handleGroupDragLeave,
+        handleGroupDrop,
+        handleQuadrantDragStart,
+        handleQuadrantDragOver,
+        handleQuadrantDragLeave,
+        handleQuadrantDrop
+    };
+}
+
+
+=== FILE: C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\hooks\useLocalStorage.js ===
+import { useState, useEffect } from 'react';
+
+// =========================================================================
+// ATEM WEB MANAGER - USE LOCAL STORAGE HOOK (v1.77)
+// =========================================================================
+// Acts as a local database. Reads from window.localStorage on mount,
+// and automatically syncs state changes back to the browser's memory.
+
+export function useLocalStorage(key, initialValue) {
+    const [value, setValue] = useState(() => {
+        if (typeof window === "undefined") return initialValue;
+        try {
+            const item = window.localStorage.getItem(key);
+            return item ? JSON.parse(item) : initialValue;
+        } catch (error) {
+            console.warn(`Error reading localStorage key "${key}":`, error);
+            return initialValue;
+        }
+    });
+
+    useEffect(() => {
+        try {
+            window.localStorage.setItem(key, JSON.stringify(value));
+        } catch (error) {
+            console.warn(`Error setting localStorage key "${key}":`, error);
+        }
+    }, [key, value]);
+
+    return [value, setValue];
+}
+
+

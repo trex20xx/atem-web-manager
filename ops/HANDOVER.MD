@@ -1,5 +1,5 @@
 # ATEM WEB MANAGER - MASTER AI HANDOVER SPECIFICATION
-**Current Version:** v2.13.0
+**Current Version:** v2.15.0
 **Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, Full Bidirectional ATEM Bridge via receivedCommands.
 
 ---
