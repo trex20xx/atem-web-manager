@@ -1,10 +1,14 @@
-
----
-
-### File 5: `ops/CHANGELOG.MD`
-
-```markdown
 # ATEM WEB MANAGER - Complete Version History
+
+## [v2.34.0] - Root Entry Structure Restoration (index.html & vite.config.js)
+- Restored root `index.html` structure with `<div id="root">` DOM anchor and `/src/main.jsx` module script tag, resolving empty HTML shell delivery.
+- Re-established root `vite.config.js` with React plugin definition and port 3000 host exposure.
+- Synchronized application version tag to v2.34.0 across all views.
+
+## [v2.33.0] - Private Repository Bootstrap & Git Credential Parity
+- Corrected GitHub repository endpoint mapping across all deployment CLI utilities to `trex20xx/atem-web-manager.git`.
+- Resolved 404 access restrictions by routing zero-backup bootstrapping through authenticated Git protocol rather than unauthenticated raw curl endpoints.
+- Restored explicit title formatting across all changelog artifact outputs.
 
 ## [v2.32.0] - Automated Bridge Termination on Exit & Zero-Backup One-Liner Bootstrap
 - Integrated bash signal traps (`trap cleanup_bridge EXIT INT TERM`) into `ops/OPS.SH` and post-exit listeners into `ops/OPS.BAT` to automatically terminate the background bridge daemon (port 8080) when the Vite UI server stops.
