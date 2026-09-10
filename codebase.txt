@@ -67,18 +67,21 @@ export default defineConfig({
  
 === FILE: bridge/server.js === 
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.62)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.66)
 // =========================================================================
-// Bidirectional switcher bus, macro execution, aux router, DSK & FTB sync over WebSocket.
+// Bidirectional switcher bus, macro execution & aux router sync with auto-watchdog.
 
 const { Atem } = require('atem-connection');
 const WebSocket = require('ws');
+const http = require('http');
 
 const ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
+const VITE_PORT = 3000;
+const startTime = Date.now();
 
-console.log(`[ATEM Bridge v2.62] Starting bridge service...`);
-console.log(`[ATEM Bridge v2.62] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v2.66] Starting bridge service...`);
+console.log(`[ATEM Bridge v2.66] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 const atem = new Atem();
 let isAtemConnected = false;
@@ -87,16 +90,8 @@ let isAtemConnected = false;
 let currentPgm = 1;
 let currentPvw = 2;
 let currentInTransition = false;
+let currentTransitionRate = 30;
 let currentAux = [1, 2, 3, 4, 5, 6];
-
-let transitionRate = 30;
-let transitionStyle = 0; // 0=MIX, 1=DIP, 2=WIPE, 3=DVE, 4=STING
-let transitionSelection = 1; // Bitmask (1=BKGD, 2=KEY1, 4=KEY2, 8=KEY3, 16=KEY4)
-let previewTransition = false;
-let uskOnAir = [false, false, false, false];
-
-let ftb = { inTransition: false, isFullyBlack: false, rate: 30 };
-let dsk = { onAir: false, inTransition: false, autoOnAir: false, tie: false, rate: 30 };
 
 function broadcastState(targetWs = null) {
     try {
@@ -116,21 +111,9 @@ function broadcastState(targetWs = null) {
                     currentInTransition = me.inTransition;
                 }
 
-                if (me.transitionProperties) {
-                    transitionRate = me.transitionProperties.rate !== undefined ? me.transitionProperties.rate : transitionRate;
-                    transitionStyle = me.transitionProperties.style !== undefined ? me.transitionProperties.style : transitionStyle;
-                    transitionSelection = me.transitionProperties.selection !== undefined ? me.transitionProperties.selection : transitionSelection;
+                if (me.transitionProperties && typeof me.transitionProperties.rate === 'number') {
+                    currentTransitionRate = me.transitionProperties.rate;
                 }
-                
-                if (me.transitionPreview !== undefined) {
-                    previewTransition = me.transitionPreview;
-                }
-
-                if (me.upstreamKeyers) {
-                    uskOnAir = [0, 1, 2, 3].map(i => me.upstreamKeyers[i] ? me.upstreamKeyers[i].onAir : false);
-                }
-
-                if (me.fadeToBlack) ftb = me.fadeToBlack;
             }
         }
 
@@ -141,20 +124,6 @@ function broadcastState(targetWs = null) {
                 const val = auxObj[idx];
                 return typeof val === 'number' ? val : (currentAux[idx] || 1);
             });
-        }
-
-        // Extract DSK
-        if (atem && atem.state && atem.state.video && atem.state.video.downstreamKeyers) {
-            const d = atem.state.video.downstreamKeyers[0];
-            if (d) {
-                dsk.onAir = d.onAir;
-                dsk.inTransition = d.inTransition;
-                dsk.autoOnAir = d.autoOnAir;
-                if (d.properties) {
-                    dsk.tie = d.properties.tie;
-                    dsk.rate = d.properties.rate;
-                }
-            }
         }
 
         // Extract Macros
@@ -171,14 +140,8 @@ function broadcastState(targetWs = null) {
             pgm: currentPgm,
             pvw: currentPvw,
             inTransition: currentInTransition,
+            transitionRate: currentTransitionRate,
             auxSources: currentAux,
-            transitionRate,
-            transitionStyle,
-            transitionSelection,
-            previewTransition,
-            uskOnAir,
-            ftb,
-            dsk,
             macroPlayer,
             macroProperties
         });
@@ -224,16 +187,19 @@ function handleHardwareCommand(cmd) {
             currentInTransition = !!props.inTransition;
             changed = true;
         }
+    } else if (raw === 'TMxr' || raw.includes('TransitionMix') || raw.includes('TransitionProperties')) {
+        if (props.rate !== undefined) {
+            currentTransitionRate = props.rate;
+            changed = true;
+        }
     } else if (raw === 'AuxS' || raw.includes('AuxSource')) {
         const auxId = props.id !== undefined ? props.id : props.auxiliaryId;
         const src = props.source !== undefined ? props.source : props.input;
         if (typeof auxId === 'number' && typeof src === 'number' && auxId >= 0 && auxId < 6) {
             currentAux[auxId] = src;
             changed = true;
-            console.log(`[ATEM Bridge â¬… Physical Switcher Event] Aux ${auxId + 1} routed to Source ${src}`);
+            console.log(`[ATEM Bridge â¬… Physical Switcher Event] Output ${auxId + 1} routed to Source ${src}`);
         }
-    } else if (raw.includes('FadeToBlack') || raw.includes('Ftb') || raw.includes('Downstream') || raw.includes('Dsk') || raw.includes('TransitionRate') || raw.includes('TransitionStyle') || raw.includes('TransitionSelection') || raw.includes('PreviewTransition') || raw.includes('Upstream')) {
-        changed = true;
     } else if (raw === 'MRPr' || raw.includes('Macro')) {
         changed = true;
     }
@@ -309,38 +275,37 @@ wss.on('connection', (ws) => {
                 atem.cut(0).catch((e) => console.error('[ATEM Bridge] CUT Error:', e.message || e));
             } else if (data.action === 'AUTO') {
                 atem.autoTransition(0).catch((e) => console.error('[ATEM Bridge] AUTO Error:', e.message || e));
+            } else if (data.action === 'SET_TRANSITION_RATE' && data.rate !== undefined) {
+                const rateNum = parseInt(data.rate, 10) || 30;
+                currentTransitionRate = rateNum;
+                atem.setTransitionRate(rateNum, 0).catch((e) => console.error('[ATEM Bridge] Rate Error:', e.message || e));
+                broadcastState();
             } else if (data.action === 'SET_AUX' && data.aux !== undefined && data.source !== undefined) {
                 const auxIdx = parseInt(data.aux, 10);
                 const src = parseInt(data.source, 10);
+                console.log(`[ATEM Bridge âž” Routing Aux Output] Output ${auxIdx + 1} (Bus index ${auxIdx}) to Source ${src}`);
+                
+                // Direct call to Sofie atem-connection: setAuxSource(source, bus = 0)
                 if (typeof atem.setAuxSource === 'function') {
-                    atem.setAuxSource(src, auxIdx).catch(e => console.error('[ATEM Bridge] Aux Error:', e.message || e));
+                    atem.setAuxSource(src, auxIdx)
+                        .then(() => {
+                            console.log(`[ATEM Bridge] Aux ${auxIdx + 1} successfully routed to Source ${src}`);
+                            currentAux[auxIdx] = src;
+                            broadcastState();
+                        })
+                        .catch((errPrimary) => {
+                            console.warn(`[ATEM Bridge] Primary setAuxSource(${src}, ${auxIdx}) failed (${errPrimary.message}). Attempting (bus, source) permutation...`);
+                            atem.setAuxSource(auxIdx, src)
+                                .then(() => {
+                                    console.log(`[ATEM Bridge] Aux ${auxIdx + 1} successfully routed via inverted parameters`);
+                                    currentAux[auxIdx] = src;
+                                    broadcastState();
+                                })
+                                .catch((errSecondary) => {
+                                    console.error(`[ATEM Bridge] Both aux routing signatures failed:`, errSecondary.message || errSecondary);
+                                });
+                        });
                 }
-            } else if (data.action === 'SET_TRANSITION_RATE') {
-                atem.setTransitionRate(parseInt(data.rate, 10) || 30, 0).catch(()=>{});
-            } else if (data.action === 'SET_TRANS_STYLE' && data.style !== undefined) {
-                atem.setTransitionStyle({ style: parseInt(data.style, 10) }, 0).catch(()=>{});
-            } else if (data.action === 'TOGGLE_TRANS_SELECTION' && data.bit !== undefined) {
-                const bit = parseInt(data.bit, 10);
-                let newSelection = transitionSelection ^ bit;
-                if (newSelection === 0) newSelection = bit; // ATEM usually requires at least one bit set
-                atem.setTransitionSelection(newSelection, 0).catch(()=>{});
-            } else if (data.action === 'TOGGLE_PREV_TRANS') {
-                atem.setPreviewTransition(!previewTransition, 0).catch(()=>{});
-            } else if (data.action === 'TOGGLE_USK_ONAIR' && data.usk !== undefined) {
-                const idx = parseInt(data.usk, 10);
-                atem.setUpstreamKeyerOnAir(!uskOnAir[idx], 0, idx).catch(()=>{});
-            } else if (data.action === 'SET_FTB_RATE') {
-                atem.setFadeToBlackRate(parseInt(data.rate, 10) || 30, 0).catch(()=>{});
-            } else if (data.action === 'EXECUTE_FTB') {
-                atem.fadeToBlack(0).catch(()=>{});
-            } else if (data.action === 'SET_DSK_RATE') {
-                atem.setDownstreamKeyRate(parseInt(data.rate, 10) || 30, 0).catch(()=>{});
-            } else if (data.action === 'TOGGLE_DSK_TIE') {
-                atem.setDownstreamKeyTie(data.tie, 0).catch(()=>{});
-            } else if (data.action === 'TOGGLE_DSK_ONAIR') {
-                atem.setDownstreamKeyOnAir(data.onAir, 0).catch(()=>{});
-            } else if (data.action === 'EXECUTE_DSK_AUTO') {
-                atem.autoDownstreamKey(0).catch(()=>{});
             } else if (data.action === 'MACRO_RUN' && data.index !== undefined) {
                 if (typeof atem.macroRun === 'function') atem.macroRun(parseInt(data.index, 10)).catch(()=>{});
             } else if (data.action === 'MACRO_STOP') {
@@ -357,6 +322,18 @@ wss.on('connection', (ws) => {
         console.log('[ATEM Bridge] React Frontend UI disconnected.');
     });
 });
+
+// Automated Watchdog: Terminates bridge daemon if Vite frontend on Port 3000 stops
+setInterval(() => {
+    const req = http.get(`http://localhost:${VITE_PORT}`, () => {});
+    req.on('error', (err) => {
+        if (err.code === 'ECONNREFUSED' && Date.now() - startTime > 10000) {
+            console.log('[ATEM Bridge Watchdog] Vite server closed on port 3000. Terminating bridge daemon...');
+            process.exit(0);
+        }
+    });
+    req.setTimeout(1500, () => req.destroy());
+}, 3000);
  
 === FILE: src/App.jsx === 
 import React, { useEffect, useState } from 'react';
@@ -636,7 +613,7 @@ export default App;
 === FILE: src/index.css === 
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.62)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.67)
  * =========================================================================
  */
 
@@ -702,17 +679,48 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 
 .app-top-bar { height: 42px; min-height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: transparent; z-index: 1000; position: relative; }
 .top-bar-left { display: flex; align-items: center; gap: 12px; }
-.top-bar-right { display: flex; align-items: center; gap: 12px; height: 100%; }
+.top-bar-right { display: flex; align-items: center; gap: 10px; height: 100%; }
 .app-title { font-size: 14px; font-weight: 700; color: var(--header-color); letter-spacing: 0.5px; }
 .app-title.centered { position: absolute; left: 50%; transform: translateX(-50%); }
 
-.top-bar-btn { background: transparent; border: none; color: var(--muted); cursor: pointer; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.15s, color 0.15s; padding: 0; }
+/* Perfect circle overlay for all top bar action buttons */
+.top-bar-btn { 
+    background: transparent; 
+    border: none; 
+    color: var(--muted); 
+    cursor: pointer; 
+    width: 30px; 
+    height: 30px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    border-radius: 50% !important; 
+    transition: background 0.15s, color 0.15s; 
+    padding: 0; 
+}
 .top-bar-btn:hover { background: rgba(150,150,150,0.15); color: var(--text); }
 .top-bar-btn svg { width: 18px; height: 18px; fill: currentColor; display: block; }
 
-.top-bar-version { font-size: 12px; font-weight: 500; color: var(--muted); cursor: pointer; user-select: none; transition: color 0.15s, opacity 0.3s ease; opacity: 1; }
+/* Version indicator with pill overlay on hover only */
+.top-bar-version { 
+    font-size: 12px; 
+    font-weight: 500; 
+    color: var(--muted); 
+    cursor: pointer; 
+    user-select: none; 
+    transition: color 0.15s, opacity 0.3s ease, background 0.15s ease; 
+    opacity: 1; 
+    padding: 3px 8px;
+    border-radius: var(--pill-radius);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
 .top-bar-version.faded { opacity: 0; }
-.top-bar-version:hover { color: var(--text); }
+.top-bar-version:hover { 
+    color: var(--text); 
+    background: rgba(150, 150, 150, 0.15);
+}
 .top-bar-version.faded:hover { opacity: 0.35; }
 
 .apple-theme-switch { width: 36px; height: 20px; border-radius: 10px; background: #222; border: 1px solid #444; display: flex; align-items: center; padding: 2px; cursor: pointer; transition: background 0.25s ease, border-color 0.25s ease; position: relative; box-sizing: border-box; }
@@ -721,7 +729,6 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .apple-theme-switch.active { background: #383838; border-color: #666; }
 .apple-theme-switch.active .apple-switch-thumb { transform: translateX(16px); }
 
-/* Pure CSS layout, no height transitions to prevent jitter */
 .dashboard{ flex: 1; width: 100%; display: flex; justify-content: flex-start; align-items: center; gap: var(--gap); padding: 8px 16px 16px 16px; box-sizing: border-box; overflow: hidden; position: relative; }
 .dashboard.sidebar-collapsed { justify-content: center; }
 
@@ -832,7 +839,6 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 
 .quadrant-wrapper{ 
     display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:var(--gap); flex-shrink: 0; 
-    transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), height 0.35s cubic-bezier(0.4, 0, 0.2, 1); 
 }
 
 .panel { background:var(--panel); display:flex; flex-direction:column; position:relative; clip-path: inset(0 round var(--panel-radius)); -webkit-transform: translateZ(0); transform: translateZ(0); }
@@ -940,20 +946,77 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 /* =========================================================================
    ATEM SWITCHER BUS CSS (QUADRANT 3)
    ========================================================================= */
-.atem-constellation-panel { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 8px 12px; background: var(--panel); box-sizing: border-box; font-family: var(--le-font-family); color: var(--text); user-select: none; overflow: hidden; }
+.atem-constellation-panel { 
+    width: 100%; 
+    height: 100%; 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: space-between; 
+    padding: 8px 12px; 
+    background: var(--panel); 
+    box-sizing: border-box; 
+    font-family: var(--le-font-family); 
+    color: var(--text); 
+    user-select: none; 
+    overflow: hidden; 
+}
 
-/* Unified Header Bar */
-.atem-bus-header { display: flex; justify-content: space-between; align-items: center; border-bottom: none; padding: 0 4px 2px 4px; min-height: 28px; height: 28px; flex-shrink: 0; }
+/* Header Bar */
+.atem-bus-header { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    border-bottom: none; 
+    padding: 0 4px 2px 4px; 
+    min-height: 28px; 
+    height: 28px; 
+    flex-shrink: 0; 
+}
 .atem-bus-title { font-family: var(--le-font-family); font-size: 14px; font-weight: 700; color: var(--text); opacity: 0.8; letter-spacing: 0.5px; }
-.atem-bus-ip { font-size: 11px; color: var(--muted); font-family: var(--le-font-family); font-weight: 500; }
-.atem-bus-online-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; flex-shrink: 0; margin-right: 6px; }
+
+/* Status Indicator with Green Online Ball */
+.atem-bus-status { display: flex; align-items: center; gap: 6px; }
+.atem-bus-online-dot { 
+    width: 8px; 
+    height: 8px; 
+    min-width: 8px;
+    border-radius: 50%; 
+    background: var(--green); 
+    display: inline-block; 
+    flex-shrink: 0; 
+}
 .atem-bus-online-dot.offline { background: var(--red); }
+.atem-bus-ip { font-size: 11px; color: var(--muted); font-family: var(--le-font-family); font-weight: 500; }
 
-/* Layout Architecture */
-.atem-bus-content-layout { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; margin-top: 4px; overflow-y: auto; }
+/* Content Layout */
+.atem-bus-content-layout { 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: space-between;
+    flex: 1; 
+    min-height: 0; 
+    margin-top: 4px; 
+    overflow: hidden; 
+}
 
-/* Global Switcher Button Dimensions */
-.atem-btn-standard { width: 44px; height: 32px; background: var(--panel2); border: 1px solid var(--atem-border); border-radius: var(--ui-radius); color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.12s ease; padding: 0; flex-shrink: 0; box-sizing: border-box; }
+/* Global Switcher Button Dimensions (70px x 36px) */
+.atem-btn-standard { 
+    width: 70px; 
+    height: 36px; 
+    background: var(--panel2); 
+    border: 1px solid var(--atem-border); 
+    border-radius: var(--ui-radius); 
+    color: var(--muted); 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center; 
+    cursor: pointer; 
+    transition: background 0.12s ease; 
+    padding: 0; 
+    flex-shrink: 0; 
+    box-sizing: border-box; 
+}
 .atem-btn-standard:hover { background: rgba(150,150,150,0.2); color: var(--text); }
 .atem-btn-standard .btn-number { font-size: var(--le-font-size); font-weight: var(--device-font-weight); line-height: 1; font-family: var(--le-font-family); white-space: nowrap; }
 
@@ -961,50 +1024,107 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-btn-standard.tally-red { background: #d32f2f !important; border-color: #ff5252 !important; color: #fff !important; box-shadow: none !important; }
 .atem-btn-standard.tally-green { background: #2e7d32 !important; border-color: #4caf50 !important; color: #fff !important; box-shadow: none !important; }
 .atem-btn-standard.tally-orange { background: var(--orange) !important; border-color: var(--orange-hl) !important; color: #fff !important; box-shadow: none !important; }
-.atem-btn-standard.tally-yellow { background: var(--yellow-hl) !important; border-color: #f39c12 !important; color: #000 !important; box-shadow: none !important; }
-.dummy-btn { cursor: default; }
-.dummy-btn:hover { background: var(--panel2); color: var(--muted); }
 
-/* Unified PGM/PVW Box Border */
-.pgm-pvw-box { padding-bottom: 12px; }
+/* Centered Unified PGM/PVW Box Border (Tight Fit) */
+.pgm-pvw-box { 
+    width: fit-content;
+    margin: 0 auto;
+    padding: 10px 14px; 
+    border: 1px solid rgba(255, 255, 255, 0.05); 
+    border-radius: var(--panel-radius); 
+    background: rgba(0, 0, 0, 0.15); 
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px; 
+    box-sizing: border-box;
+}
 
-/* Bus Rows & Titles */
-.bus-title-label { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 4px; padding-left: 2px; }
-.atem-bus-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+.bus-block { display: flex; flex-direction: column; gap: 4px; }
+.bus-title-label { 
+    font-size: 11px; 
+    font-weight: 700; 
+    color: var(--muted); 
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: left;
+    padding: 0;
+    margin: 0 0 4px 0;
+}
 .router-label { color: var(--orange-hl); font-weight: 700; }
 .aux-source-btn .btn-number { font-size: 11px; }
 
-/* Lower Controls Stacked Row */
-.atem-lower-controls-row { display: flex; justify-content: flex-start; gap: 12px; margin-top: auto; padding-bottom: 8px; flex-shrink: 0; }
-.atem-section-box { background: rgba(0, 0, 0, 0.15); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: var(--ui-radius); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
-.atem-section-title { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 2px; text-transform: uppercase; }
+/* Central 10-Column Bus Grid (Fixed 70px per button) */
+.atem-bus-grid { 
+    display: grid; 
+    grid-template-columns: repeat(10, 70px); 
+    gap: 4px; 
+    justify-content: flex-start; 
+}
 
-.trans-nxt-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
-.trans-nxt-grid .btn-number { font-size: 10px; font-weight: 700; }
-.transparent-btn { background: transparent !important; border-color: transparent !important; pointer-events: none; }
+/* Bottom Row Container (Unified 10-Column Grid) */
+.atem-outs-wrapper {
+    display: flex;
+    justify-content: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 8px;
+    margin-top: auto;
+    flex-shrink: 0;
+    width: 100%;
+}
 
-.trans-style-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-bottom: 4px; }
-.trans-style-grid .btn-number { font-size: 10px; font-weight: 700; }
-.trans-action-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; align-items: center; }
-.trans-action-grid .btn-number { font-size: 10px; font-weight: 800; }
-.wide-btn { grid-column: span 2; width: 100%; }
+.atem-bottom-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 70px);
+    gap: 4px;
+    justify-content: center;
+}
 
-.dsk-grid { display: grid; grid-template-columns: 44px 44px; gap: 4px; justify-content: center; }
-.ftb-grid { display: grid; grid-template-columns: 44px; gap: 4px; justify-content: center; }
-.ftb-btn .btn-number { font-size: 12px; font-weight: 800; }
-
-/* Drag Rate Input Box Matching Button Size */
-.rate-box { background: #000; border: 1px solid rgba(255,255,255,0.05); border-radius: var(--ui-radius); display: flex; flex-direction: column; align-items: center; justify-content: center; width: 44px; height: 32px; padding: 0; cursor: ns-resize; box-sizing: border-box; }
-.rate-box span { font-size: 8px; color: var(--muted); line-height: 1; margin-bottom: 1px; }
-.drag-rate-input { width: 100%; background: transparent; border: none; color: var(--orange-hl); text-align: center; font-size: 11px; font-weight: 800; outline: none; -moz-appearance: textfield; padding: 0; cursor: ns-resize; }
-.drag-rate-input::-webkit-outer-spin-button, .drag-rate-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.atem-btn-spacer {
+    width: 70px;
+    height: 36px;
+    visibility: hidden;
+}
 
 .cut-btn:active { background: var(--panel) !important; color: var(--text) !important; }
 .auto-btn.trans-active { background: var(--orange-hl) !important; color: #000000 !important; border-color: var(--orange-hl) !important; }
 
-/* Bottom Router Outs */
-.atem-outs-bar { display: flex; align-items: center; gap: 4px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; flex-shrink: 0; }
-.atem-outs-bar .btn-number { font-size: 11px; font-weight: 600; }
+/* Rate Button styled identically to switcher buttons */
+.rate-box-button { 
+    background: #000000; 
+    border: 1px solid rgba(255, 255, 255, 0.1); 
+    border-radius: var(--ui-radius); 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    width: 70px; 
+    height: 36px; 
+    box-sizing: border-box; 
+    cursor: ns-resize;
+    flex-shrink: 0;
+}
+.rate-box-button:hover {
+    border-color: var(--muted);
+}
+.rate-input-field { 
+    width: 100%; 
+    background: transparent; 
+    border: none; 
+    color: var(--orange-hl); 
+    text-align: center; 
+    font-size: var(--le-font-size); 
+    font-weight: var(--device-font-weight); 
+    font-family: var(--le-font-family);
+    line-height: 1;
+    outline: none; 
+    -moz-appearance: textfield; 
+    padding: 0; 
+    cursor: ns-resize; 
+}
+.rate-input-field::-webkit-outer-spin-button, .rate-input-field::-webkit-inner-spin-button { 
+    -webkit-appearance: none; 
+    margin: 0; 
+}
+
 .out-active { background: var(--orange-pastel) !important; border-color: var(--orange-hl) !important; color: #ffffff !important; }
 
 .atem-bus-locked-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; padding: 24px; text-align: center; }
@@ -1089,10 +1209,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
  
 === FILE: src/version.js === 
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.64)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.67)
 // =========================================================================
 
-export const APP_VERSION = 'v2.64';
+export const APP_VERSION = 'v2.67';
  
 === FILE: src/components/Multiview/Panel.jsx === 
 import React, { useState } from 'react';
@@ -1273,45 +1393,81 @@ export default QuadrantGrid;
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.62)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.67)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
 
-// Reusable Drag-to-Adjust Rate Component mimicking button geometry
+// Rate Button with drag up/down, typing, Enter-key submission, and panel-drag suppression
 const DragRateInput = ({ value, onChange, onBlur, title }) => {
+    const isDraggingRef = useRef(false);
+    const startYRef = useRef(0);
+    const startValRef = useRef(30);
+
+    const lockPanelDrag = (e) => {
+        const panel = e.currentTarget.closest('.panel');
+        if (panel) panel.draggable = false;
+    };
+
+    const unlockPanelDrag = (e) => {
+        const panel = e.currentTarget.closest('.panel');
+        if (panel) panel.draggable = true;
+    };
+
     const handleMouseDown = (e) => {
-        e.preventDefault();
-        let startY = e.clientY;
-        let startVal = parseInt(value, 10) || 30;
+        if (e.button !== 0) return;
+        e.stopPropagation();
+        
+        const panel = e.currentTarget.closest('.panel');
+        if (panel) panel.draggable = false;
+
+        isDraggingRef.current = true;
+        startYRef.current = e.clientY;
+        startValRef.current = parseInt(value, 10) || 30;
 
         const handleMouseMove = (moveEvent) => {
-            const deltaY = startY - moveEvent.clientY;
-            let newVal = Math.max(1, startVal + Math.floor(deltaY / 2));
+            if (!isDraggingRef.current) return;
+            const deltaY = startYRef.current - moveEvent.clientY;
+            const newVal = Math.max(1, Math.min(250, startValRef.current + Math.floor(deltaY / 2)));
             onChange(newVal);
         };
 
         const handleMouseUp = () => {
+            isDraggingRef.current = false;
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
-            onBlur();
+            if (panel) panel.draggable = true;
+            if (onBlur) onBlur();
         };
 
         window.addEventListener('mousemove', handleMouseMove);
         window.addEventListener('mouseup', handleMouseUp);
     };
 
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.target.blur();
+            if (onBlur) onBlur();
+        }
+    };
+
     return (
-        <div className="rate-box" title={title} onMouseDown={handleMouseDown}>
-            <span>Rate</span>
+        <div 
+            className="rate-box-button"
+            title={title}
+            onMouseDown={handleMouseDown}
+            onMouseEnter={lockPanelDrag}
+            onMouseLeave={unlockPanelDrag}
+        >
             <input 
                 type="number" 
-                className="drag-rate-input"
+                className="rate-input-field"
                 value={value} 
                 onChange={e => onChange(e.target.value)} 
                 onBlur={onBlur}
-                onMouseDown={e => e.stopPropagation()} 
+                onKeyDown={handleKeyDown}
+                onMouseDown={e => e.stopPropagation()}
             />
         </div>
     );
@@ -1332,24 +1488,11 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     const [pgmInput, setPgmInput] = useState(1);
     const [pvwInput, setPvwInput] = useState(2);
     const [inTransition, setInTransition] = useState(false);
+    const [transitionRate, setTransitionRate] = useState(30);
+    const [localTransRate, setLocalTransRate] = useState(30);
     const [bridgeStatus, setBridgeStatus] = useState('connecting');
     
-    // Hardware State Features
-    const [transitionRate, setTransitionRate] = useState(30);
-    const [transitionStyle, setTransitionStyle] = useState(0); // 0=MIX, 1=DIP, 2=WIPE, 3=DVE, 4=STING
-    const [transitionSelection, setTransitionSelection] = useState(1); // Bitmask (1=BKGD, 2=KEY1, etc.)
-    const [previewTransition, setPreviewTransition] = useState(false);
-    const [uskOnAir, setUskOnAir] = useState([false, false, false, false]);
-
-    const [ftb, setFtb] = useState({ inTransition: false, isFullyBlack: false, rate: 30 });
-    const [dsk, setDsk] = useState({ onAir: false, inTransition: false, autoOnAir: false, tie: false, rate: 30 });
-    
-    // Local Inputs for blur-syncing rates without cursor jumps
-    const [localTransRate, setLocalTransRate] = useState(30);
-    const [localFtbRate, setLocalFtbRate] = useState(30);
-    const [localDskRate, setLocalDskRate] = useState(30);
-
-    // Router Mode
+    // Router Mode: Selected Aux Output (null = Bus mode; 0..5 = Aux 1..6)
     const [selectedOut, setSelectedOut] = useState(null);
     const [auxSources, setAuxSources] = useState([1, 2, 3, 4, 5, 6]);
 
@@ -1369,20 +1512,24 @@ const AtemConstellationBus = ({ connectedDevice }) => {
             wsRef.current.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.hardwareConnected !== undefined) setBridgeStatus(data.hardwareConnected ? 'linked' : 'standby');
-                    if (data.pgm !== undefined) setPgmInput(Number(data.pgm));
-                    if (data.pvw !== undefined) setPvwInput(Number(data.pvw));
-                    if (data.inTransition !== undefined) setInTransition(Boolean(data.inTransition));
-                    if (data.auxSources && Array.isArray(data.auxSources)) setAuxSources(data.auxSources.map(Number));
-                    
-                    if (data.transitionRate !== undefined) setTransitionRate(data.transitionRate);
-                    if (data.transitionStyle !== undefined) setTransitionStyle(data.transitionStyle);
-                    if (data.transitionSelection !== undefined) setTransitionSelection(data.transitionSelection);
-                    if (data.previewTransition !== undefined) setPreviewTransition(data.previewTransition);
-                    if (data.uskOnAir !== undefined) setUskOnAir(data.uskOnAir);
-
-                    if (data.ftb) setFtb(data.ftb);
-                    if (data.dsk) setDsk(data.dsk);
+                    if (data.hardwareConnected !== undefined) {
+                        setBridgeStatus(data.hardwareConnected ? 'linked' : 'standby');
+                    }
+                    if (data.pgm !== undefined) {
+                        setPgmInput(Number(data.pgm));
+                    }
+                    if (data.pvw !== undefined) {
+                        setPvwInput(Number(data.pvw));
+                    }
+                    if (data.inTransition !== undefined) {
+                        setInTransition(Boolean(data.inTransition));
+                    }
+                    if (data.transitionRate !== undefined) {
+                        setTransitionRate(Number(data.transitionRate));
+                    }
+                    if (data.auxSources && Array.isArray(data.auxSources)) {
+                        setAuxSources(data.auxSources.map(Number));
+                    }
                 } catch (err) {
                     console.error("[AtemBus UI] Data Parse Error:", err);
                 }
@@ -1392,13 +1539,19 @@ const AtemConstellationBus = ({ connectedDevice }) => {
             wsRef.current.onclose = () => {
                 setBridgeStatus('offline');
                 if (!reconnectTimerRef.current) {
-                    reconnectTimerRef.current = setTimeout(() => { reconnectTimerRef.current = null; initWebSocket(); }, 2500);
+                    reconnectTimerRef.current = setTimeout(() => {
+                        reconnectTimerRef.current = null;
+                        initWebSocket();
+                    }, 2500);
                 }
             };
         } catch (e) {
             setBridgeStatus('offline');
             if (!reconnectTimerRef.current) {
-                reconnectTimerRef.current = setTimeout(() => { reconnectTimerRef.current = null; initWebSocket(); }, 2500);
+                reconnectTimerRef.current = setTimeout(() => {
+                    reconnectTimerRef.current = null;
+                    initWebSocket();
+                }, 2500);
             }
         }
     };
@@ -1407,13 +1560,15 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         initWebSocket();
         return () => {
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-            if (wsRef.current) { try { wsRef.current.close(); } catch(err) {} }
+            if (wsRef.current) {
+                try { wsRef.current.close(); } catch(err) {}
+            }
         };
     }, []);
 
-    useEffect(() => { setLocalTransRate(transitionRate); }, [transitionRate]);
-    useEffect(() => { setLocalFtbRate(ftb.rate); }, [ftb.rate]);
-    useEffect(() => { setLocalDskRate(dsk.rate); }, [dsk.rate]);
+    useEffect(() => {
+        setLocalTransRate(transitionRate);
+    }, [transitionRate]);
 
     const sendAtemCommand = (commandType, payload = {}) => {
         if (commandType === 'SET_PGM') {
@@ -1425,24 +1580,38 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                 return;
             }
             setPgmInput(payload.input);
-        } else if (commandType === 'SET_PVW') {
+            sendCommand('SET_PGM', payload);
+            return;
+        }
+
+        if (commandType === 'SET_PVW') {
             setPvwInput(payload.input);
+            sendCommand('SET_PVW', payload);
+            return;
         }
 
-        if (commandType === 'CUT' && bridgeStatus !== 'linked') {
-            const temp = pgmInput;
-            setPgmInput(pvwInput);
-            setPvwInput(temp);
-        }
-
-        if (commandType === 'AUTO' && bridgeStatus !== 'linked') {
-            setInTransition(true);
-            setTimeout(() => {
+        if (commandType === 'CUT') {
+            if (bridgeStatus !== 'linked') {
                 const temp = pgmInput;
                 setPgmInput(pvwInput);
                 setPvwInput(temp);
-                setInTransition(false);
-            }, 600);
+            }
+            sendCommand('CUT');
+            return;
+        }
+
+        if (commandType === 'AUTO') {
+            if (bridgeStatus !== 'linked') {
+                setInTransition(true);
+                setTimeout(() => {
+                    const temp = pgmInput;
+                    setPgmInput(pvwInput);
+                    setPvwInput(temp);
+                    setInTransition(false);
+                }, 600);
+            }
+            sendCommand('AUTO');
+            return;
         }
 
         sendCommand(commandType, payload);
@@ -1450,8 +1619,15 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
     const sendCommand = (action, payload = {}) => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            try { wsRef.current.send(JSON.stringify({ action, ip: LOCKED_ATEM_IP, ...payload })); } 
-            catch (err) { console.warn("[AtemBus UI] Dispatch failed."); }
+            try {
+                wsRef.current.send(JSON.stringify({ 
+                    action, 
+                    ip: LOCKED_ATEM_IP, 
+                    ...payload 
+                }));
+            } catch (err) {
+                console.warn("[AtemBus UI] Dispatch failed.");
+            }
         }
     };
 
@@ -1472,120 +1648,120 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
     return (
         <div className="atem-constellation-panel">
+            {/* Header with green online dot */}
             <div className="atem-bus-header">
                 <span className="atem-bus-title">ATEM 1 M/E CONSTELLATION HD</span>
                 <div className="atem-bus-status">
-                    <span className={`atem-bus-online-dot ${bridgeStatus === 'linked' ? '' : 'offline'}`} />
+                    <span className={`atem-bus-online-dot ${bridgeStatus === 'linked' ? 'online' : 'offline'}`} />
                     <span className="atem-bus-ip">{LOCKED_ATEM_IP}</span>
                 </div>
             </div>
 
             <div className="atem-bus-content-layout">
-                {/* TOP SECTION: PGM & PVW BUSES COMBINED */}
+                {/* Unified Centered Bordered Box: PROGRAM & PREVIEW */}
                 <div className="atem-section-box pgm-pvw-box">
-                    <div className={`bus-title-label ${selectedOut !== null ? 'router-label' : 'pgm-label'}`}>
-                        {selectedOut !== null ? `OUTPUT ${selectedOut + 1}` : 'PROGRAM'}
-                    </div>
-                    <div className="atem-bus-grid">
-                        {inputSources.map((s) => (
-                            <button key={`pgm-${s.id}`} className={`atem-btn-standard ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`} onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}>
-                                <span className="btn-number">{s.label}</span>
-                            </button>
-                        ))}
-                        {internalSources.map((s) => (
-                            <button key={`pgm-int-${s.id}`} className={`atem-btn-standard aux-source-btn ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`} onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}>
-                                <span className="btn-number">{s.label}</span>
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="bus-title-label pvw-label" style={{ marginTop: '6px', opacity: selectedOut !== null ? 0.35 : 1 }}>PREVIEW</div>
-                    <div className="atem-bus-grid" style={{ opacity: selectedOut !== null ? 0.35 : 1, pointerEvents: selectedOut !== null ? 'none' : 'auto' }}>
-                        {inputSources.map((s) => (
-                            <button key={`pvw-${s.id}`} className={`atem-btn-standard ${getIsActivePvw(s.id) ? 'tally-green' : ''}`} onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}>
-                                <span className="btn-number">{s.label}</span>
-                            </button>
-                        ))}
-                        {internalSources.map((s) => (
-                            <button key={`pvw-int-${s.id}`} className={`atem-btn-standard aux-source-btn ${getIsActivePvw(s.id) ? 'tally-green' : ''}`} onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}>
-                                <span className="btn-number">{s.label}</span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* BOTTOM SECTION: CONTROLS (Exactly 2 buttons tall) */}
-                <div className="atem-lower-controls-row">
-                    {/* Next Transition */}
-                    <div className="atem-section-box">
-                        <div className="atem-section-title">NEXT TRANSITION</div>
-                        <div className="trans-nxt-grid">
-                            <div className="atem-btn-standard transparent-btn" />
-                            <button className={`atem-btn-standard ${uskOnAir[0] ? 'tally-red' : ''}`} onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk: 0 })}><span className="btn-number">ON AIR</span></button>
-                            <button className={`atem-btn-standard ${uskOnAir[1] ? 'tally-red' : ''}`} onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk: 1 })}><span className="btn-number">ON AIR</span></button>
-                            <button className={`atem-btn-standard ${uskOnAir[2] ? 'tally-red' : ''}`} onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk: 2 })}><span className="btn-number">ON AIR</span></button>
-                            <button className={`atem-btn-standard ${uskOnAir[3] ? 'tally-red' : ''}`} onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk: 3 })}><span className="btn-number">ON AIR</span></button>
+                    {/* PROGRAM BUS */}
+                    <div className="bus-block">
+                        <div className={`bus-title-label ${selectedOut !== null ? 'router-label' : 'pgm-label'}`}>
+                            {selectedOut !== null ? `OUTPUT ${selectedOut + 1}` : 'PROGRAM'}
                         </div>
-                        <div className="trans-nxt-grid">
-                            <button className={`atem-btn-standard ${(transitionSelection & 1) ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 1 })}><span className="btn-number">BKGD</span></button>
-                            <button className={`atem-btn-standard ${(transitionSelection & 2) ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 2 })}><span className="btn-number">KEY 1</span></button>
-                            <button className={`atem-btn-standard ${(transitionSelection & 4) ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 4 })}><span className="btn-number">KEY 2</span></button>
-                            <button className={`atem-btn-standard ${(transitionSelection & 8) ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 8 })}><span className="btn-number">KEY 3</span></button>
-                            <button className={`atem-btn-standard ${(transitionSelection & 16) ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 16 })}><span className="btn-number">KEY 4</span></button>
+                        <div className="atem-bus-grid">
+                            {inputSources.map((s) => (
+                                <button
+                                    key={`pgm-${s.id}`}
+                                    className={`atem-btn-standard ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
+                                    onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}
+                                    data-description={`Input ${s.label}`}
+                                >
+                                    <span className="btn-number">{s.label}</span>
+                                </button>
+                            ))}
+                            {internalSources.map((s) => (
+                                <button
+                                    key={`pgm-int-${s.id}`}
+                                    className={`atem-btn-standard aux-source-btn ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
+                                    onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}
+                                    data-description={`Source ${s.label}`}
+                                >
+                                    <span className="btn-number">{s.label}</span>
+                                </button>
+                            ))}
                         </div>
                     </div>
 
-                    {/* Transition Style */}
-                    <div className="atem-section-box">
-                        <div className="atem-section-title">TRANSITION STYLE</div>
-                        <div className="trans-style-grid">
-                            <button className={`atem-btn-standard ${transitionStyle === 0 ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('SET_TRANS_STYLE', { style: 0 })}><span className="btn-number">MIX</span></button>
-                            <button className={`atem-btn-standard ${transitionStyle === 1 ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('SET_TRANS_STYLE', { style: 1 })}><span className="btn-number">DIP</span></button>
-                            <button className={`atem-btn-standard ${transitionStyle === 2 ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('SET_TRANS_STYLE', { style: 2 })}><span className="btn-number">WIPE</span></button>
-                            <button className={`atem-btn-standard ${transitionStyle === 4 ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('SET_TRANS_STYLE', { style: 4 })}><span className="btn-number">STING</span></button>
-                            <button className={`atem-btn-standard ${transitionStyle === 3 ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('SET_TRANS_STYLE', { style: 3 })}><span className="btn-number">DVE</span></button>
-                        </div>
-                        <div className="trans-action-grid">
-                            <button className={`atem-btn-standard wide-btn ${previewTransition ? 'tally-green' : ''}`} onClick={() => sendAtemCommand('TOGGLE_PREV_TRANS')}><span className="btn-number">PREV TRANS</span></button>
-                            <button className="atem-btn-standard cut-btn" onClick={() => sendAtemCommand('CUT')}><span className="btn-number">CUT</span></button>
-                            <button className={`atem-btn-standard auto-btn ${inTransition ? 'trans-active' : ''}`} onClick={() => sendAtemCommand('AUTO')}><span className="btn-number">AUTO</span></button>
-                            <DragRateInput value={localTransRate} onChange={setLocalTransRate} onBlur={() => sendAtemCommand('SET_TRANSITION_RATE', { rate: parseInt(localTransRate, 10) || 30 })} title="Transition Rate" />
-                        </div>
-                    </div>
-
-                    {/* DSK 1 */}
-                    <div className="atem-section-box">
-                        <div className="atem-section-title">DSK 1</div>
-                        <div className="dsk-grid">
-                            <button className={`atem-btn-standard ${dsk.tie ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_DSK_TIE', { tie: !dsk.tie })}><span className="btn-number">TIE</span></button>
-                            <button className={`atem-btn-standard ${dsk.onAir ? 'tally-red' : ''}`} onClick={() => sendAtemCommand('TOGGLE_DSK_ONAIR', { onAir: !dsk.onAir })}><span className="btn-number">ON AIR</span></button>
-                            <DragRateInput value={localDskRate} onChange={setLocalDskRate} onBlur={() => sendAtemCommand('SET_DSK_RATE', { rate: parseInt(localDskRate, 10) || 30 })} title="DSK Rate" />
-                            <button className={`atem-btn-standard ${dsk.inTransition ? 'tally-orange' : ''}`} onClick={() => sendAtemCommand('EXECUTE_DSK_AUTO')}><span className="btn-number">AUTO</span></button>
-                        </div>
-                    </div>
-
-                    {/* Fade to Black */}
-                    <div className="atem-section-box">
-                        <div className="atem-section-title">FADE TO BLACK</div>
-                        <div className="ftb-grid">
-                            <DragRateInput value={localFtbRate} onChange={setLocalFtbRate} onBlur={() => sendAtemCommand('SET_FTB_RATE', { rate: parseInt(localFtbRate, 10) || 30 })} title="FTB Rate" />
-                            <button className={`atem-btn-standard ftb-btn ${ftb.isFullyBlack ? 'tally-red' : (ftb.inTransition ? 'tally-orange' : '')}`} onClick={() => sendAtemCommand('EXECUTE_FTB')}><span className="btn-number">FTB</span></button>
+                    {/* PREVIEW BUS */}
+                    <div className="bus-block" style={{ opacity: selectedOut !== null ? 0.35 : 1, pointerEvents: selectedOut !== null ? 'none' : 'auto' }}>
+                        <div className="bus-title-label pvw-label">PREVIEW</div>
+                        <div className="atem-bus-grid">
+                            {inputSources.map((s) => (
+                                <button
+                                    key={`pvw-${s.id}`}
+                                    className={`atem-btn-standard ${getIsActivePvw(s.id) ? 'tally-green' : ''}`}
+                                    onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}
+                                    data-description={`Preview Input ${s.label}`}
+                                >
+                                    <span className="btn-number">{s.label}</span>
+                                </button>
+                            ))}
+                            {internalSources.map((s) => (
+                                <button
+                                    key={`pvw-int-${s.id}`}
+                                    className={`atem-btn-standard aux-source-btn ${getIsActivePvw(s.id) ? 'tally-green' : ''}`}
+                                    onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}
+                                    data-description={`Preview Source ${s.label}`}
+                                >
+                                    <span className="btn-number">{s.label}</span>
+                                </button>
+                            ))}
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* BOTTOM: ROUTER OUTS */}
-            <div className="atem-outs-bar">
-                {auxOutputsList.map((num, idx) => (
-                    <button
-                        key={`out-${num}`}
-                        className={`atem-btn-standard ${selectedOut === idx ? 'out-active' : ''}`}
-                        onClick={() => setSelectedOut(prev => prev === idx ? null : idx)}
-                    >
-                        <span className="btn-number">OUT {num}</span>
-                    </button>
-                ))}
+                {/* BOTTOM ROW: Centered 10-column grid matching buses exactly */}
+                <div className="atem-outs-wrapper">
+                    <div className="atem-bottom-grid">
+                        {/* Cols 1 to 6: OUT 1 to OUT 6 */}
+                        {auxOutputsList.map((num, idx) => (
+                            <button
+                                key={`out-${num}`}
+                                className={`atem-btn-standard ${selectedOut === idx ? 'out-active' : ''}`}
+                                onClick={() => setSelectedOut(prev => prev === idx ? null : idx)}
+                                data-description={`Route Output ${num}`}
+                            >
+                                <span className="btn-number">OUT {num}</span>
+                            </button>
+                        ))}
+
+                        {/* Col 7: Spacer */}
+                        <div className="atem-btn-spacer" />
+
+                        {/* Col 8: RATE (Left of CUT) */}
+                        <DragRateInput 
+                            value={localTransRate} 
+                            onChange={setLocalTransRate} 
+                            onBlur={() => sendAtemCommand('SET_TRANSITION_RATE', { rate: parseInt(localTransRate, 10) || 30 })} 
+                            title="Auto Transition Rate (Frames) - Drag up/down or type and press Enter" 
+                        />
+
+                        {/* Col 9: CUT (Under Input 9) */}
+                        <button 
+                            className="atem-btn-standard cut-btn"
+                            onClick={() => sendAtemCommand('CUT')}
+                            data-description="Cut Transition"
+                        >
+                            <span className="btn-number">CUT</span>
+                        </button>
+
+                        {/* Col 10: AUTO (Under Input 10) */}
+                        <button 
+                            className={`atem-btn-standard auto-btn ${inTransition ? 'trans-active' : ''}`}
+                            onClick={() => sendAtemCommand('AUTO')}
+                            data-description="Auto Transition"
+                        >
+                            <span className="btn-number">AUTO</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -1595,10 +1771,9 @@ export default AtemConstellationBus;
  
 === FILE: src/components/Panels/AtemMacros.jsx === 
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.60)
+// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.66)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -1768,34 +1943,26 @@ const AtemMacros = ({ connectedDevice }) => {
         return '';
     };
 
+    // Strict autorun separation: when OFF, clicking ONLY selects; when ON, clicking runs immediately
     const handleMacroClick = (index) => {
         const name = getMacroName(index);
         const isEmpty = !name || name.trim() === '';
 
-        // Clicking an empty macro executes a stop command
         if (isEmpty) {
             stopMacro();
             setSelectedMacroIndex(null);
             return;
         }
 
-        const isCurrentlyRunning = macroPlayer.isRunning && (macroPlayer.macroIndex === index || selectedMacroIndex === index);
-
-        // If macro is already selected or actively running, toggle run/stop state
-        if (selectedMacroIndex === index || isCurrentlyRunning) {
-            if (isCurrentlyRunning) {
-                stopMacro();
-            } else {
-                runMacro(index);
-            }
+        if (!autoRun) {
+            // Only select the macro, never run it regardless of clicks
+            setSelectedMacroIndex(index);
             return;
         }
 
-        // New macro selection
+        // Autorun is engaged: select and execute straight
         setSelectedMacroIndex(index);
-        if (autoRun) {
-            runMacro(index);
-        }
+        runMacro(index);
     };
 
     const handlePlayClick = () => {
@@ -1840,11 +2007,11 @@ const AtemMacros = ({ connectedDevice }) => {
                         </svg>
                     </button>
 
-                    {/* 2. Auto-Run Circular Chase-Play Glyph */}
+                    {/* 2. Auto-Run Icon with dynamic ON/OFF tooltip */}
                     <button 
                         className={`macro-action-btn ${autoRun ? 'active-orange' : ''}`}
                         onClick={() => setAutoRun(prev => !prev)}
-                        data-description={autoRun ? "Auto-Run: ON" : "Auto-Run: OFF"}
+                        data-description={`AUTORUN MACRO: ${autoRun ? 'ON' : 'OFF'}`}
                     >
                         <svg viewBox="0 0 24 24">
                             <path d="M12 2a10 10 0 0 0-7.07 2.93l1.41 1.41A8 8 0 1 1 4 12H2a10 10 0 1 0 10-10z" fill="currentColor"/>

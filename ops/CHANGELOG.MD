@@ -1,5 +1,37 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v2.67] - Strict Grid Realignment, Rate Drag Shielding & Bottom Row Symmetry
+- Restructured the bottom control row into the exact same 10-column grid (`repeat(10, 70px)`) as the buses above: OUT 1â€“6 (Cols 1â€“6), Spacer (Col 7), Rate (Col 8), CUT (Col 9 under Input 9), and AUTO (Col 10 under Input 10).
+- Applied `width: fit-content; margin: 0 auto;` to `.pgm-pvw-box` to tightly wrap the bus grid with zero spillover.
+- Suppressed HTML5 quadrant drag-event collisions on the Rate button during click-and-drag adjustments.
+- Aligned Rate input font family, size (`var(--le-font-size)`), and weight (`var(--device-font-weight)`) with switcher button numbers while preserving the orange highlight.
+- Aligned uppercase "PROGRAM" and "PREVIEW" labels flush with the leftmost edge of Input 1.
+- Synchronized master application version tag to v2.67.
+
+
+## [v2.66] - Bottom Row Integration, Autorun Logic Isolation & Aux Routing Repair
+- Brought back CUT and AUTO buttons, placing them in-line with the bottom OUTS row, justified to the right.
+- Added a standalone rate button in-line with CUT and AUTO matching button dimensions (`70px x 36px`), allowing vertical drag-to-adjust, direct typing, and Enter-key submission for the auto transition rate.
+- Aligned "PROGRAM" and "PREVIEW" labels directly with the leftmost button edge in clean uppercase typography.
+- Fixed Macro Autorun logic: when Autorun is OFF, clicking a macro strictly selects it (never triggers it); when Autorun is ON, clicking runs it immediately.
+- Updated the Autorun tooltip to display `AUTORUN MACRO: ON` or `AUTORUN MACRO: OFF` dynamically.
+- Investigated and repaired physical ATEM Aux routing by implementing bidirectional parameter fallbacks with explicit asynchronous acknowledgement in `bridge/server.js`.
+- Restored round circle hover overlays across all top bar buttons and added a matching pill hover overlay to the version tag.
+- Restored the green online connection indicator ball directly in front of the IP address in the header.
+- Synchronized master application version tag to v2.66.
+
+
+## [v2.65] - Streamlined ATEM Switcher Layout, Fixed Button Geometry & Bridge Watchdog
+- Removed all transitional and secondary control matrices (Next Transition, Transition Style, DSK, and Fade to Black).
+- Replaced side labels with top-aligned "Program" and "Preview" headers matching official ATEM Software styling.
+- Locked switcher button geometry universally to `width: 70px; height: 36px`, calculating maximum fit on 1920px screens with revealed sidebars and keeping the 10-column array strictly centered on quadrant scaling.
+- Sized all six `OUT` buttons to the exact same `70px x 36px` dimensions, aligning them with the first six input columns and removing the "OUTS" text prefix.
+- Restored the green online connection indicator dot preceding the hardware IP in the panel header.
+- Added a bidirectional fallback execution pathway for `setAuxSource` in `bridge/server.js` to eliminate hardware routing drops.
+- Integrated an automated background watchdog in `bridge/server.js` that inspects port 3000 and terminates the daemon automatically if Vite stops.
+- Synchronized master application version tag to v2.65 across all documentation.
+
+
 ## [v2.64] - Clean Version Module Restoration & Parsing Repair
 - Restored `src/version.js` to pure JavaScript export syntax, eliminating Markdown changelog text that triggered Vite parser syntax exceptions.
 - Synchronized master application version tag to v2.64 across metadata and documentation.

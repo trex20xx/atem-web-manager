@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.60)
+// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.66)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -172,34 +171,26 @@ const AtemMacros = ({ connectedDevice }) => {
         return '';
     };
 
+    // Strict autorun separation: when OFF, clicking ONLY selects; when ON, clicking runs immediately
     const handleMacroClick = (index) => {
         const name = getMacroName(index);
         const isEmpty = !name || name.trim() === '';
 
-        // Clicking an empty macro executes a stop command
         if (isEmpty) {
             stopMacro();
             setSelectedMacroIndex(null);
             return;
         }
 
-        const isCurrentlyRunning = macroPlayer.isRunning && (macroPlayer.macroIndex === index || selectedMacroIndex === index);
-
-        // If macro is already selected or actively running, toggle run/stop state
-        if (selectedMacroIndex === index || isCurrentlyRunning) {
-            if (isCurrentlyRunning) {
-                stopMacro();
-            } else {
-                runMacro(index);
-            }
+        if (!autoRun) {
+            // Only select the macro, never run it regardless of clicks
+            setSelectedMacroIndex(index);
             return;
         }
 
-        // New macro selection
+        // Autorun is engaged: select and execute straight
         setSelectedMacroIndex(index);
-        if (autoRun) {
-            runMacro(index);
-        }
+        runMacro(index);
     };
 
     const handlePlayClick = () => {
@@ -244,11 +235,11 @@ const AtemMacros = ({ connectedDevice }) => {
                         </svg>
                     </button>
 
-                    {/* 2. Auto-Run Circular Chase-Play Glyph */}
+                    {/* 2. Auto-Run Icon with dynamic ON/OFF tooltip */}
                     <button 
                         className={`macro-action-btn ${autoRun ? 'active-orange' : ''}`}
                         onClick={() => setAutoRun(prev => !prev)}
-                        data-description={autoRun ? "Auto-Run: ON" : "Auto-Run: OFF"}
+                        data-description={`AUTORUN MACRO: ${autoRun ? 'ON' : 'OFF'}`}
                     >
                         <svg viewBox="0 0 24 24">
                             <path d="M12 2a10 10 0 0 0-7.07 2.93l1.41 1.41A8 8 0 1 1 4 12H2a10 10 0 1 0 10-10z" fill="currentColor"/>

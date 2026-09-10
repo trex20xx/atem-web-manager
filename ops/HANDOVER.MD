@@ -1,6 +1,6 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-**Current Version:** v2.64
-**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Pure Sliding Animations, Fullscreen Toggle, ATEM Macro Matrix (Quadrant 4), Aux Output Routing Bar, Drag-to-Adjust Rate Inputs, Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Modular Runtime-Synced Changelogs, Streamlined 4-Action Master CLI Suite.
+**Current Version:** v2.67
+**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Pure Sliding Animations, Fullscreen Toggle, ATEM Macro Matrix (Quadrant 4), Integrated Bottom Action & Aux Routing Bar, Auto-Watchdog Bridge Daemon, Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Modular Runtime-Synced Changelogs, Streamlined 4-Action Master CLI Suite.
 
 ---
 
@@ -21,9 +21,9 @@
    - **Multiview 16:9 Aspect Ratio:** Strictly maintained under all resize conditions.
    - **Hardware-Locked IP:** `AtemConstellationBus.jsx` and `AtemMacros.jsx` are locked exclusively to IP `192.168.10.240`.
    - **Sidebar Devices, Groups & Edit Panels Design:** Row height `30px`, 4px equidistant edit button geometry, pill edit fields, and color dropdown clear mechanics.
-   - **Top Bar & Navigation:** Apple-style sliding switch with embedded SVG sun/moon icons matching the settings gear size; synchronized sidebar collapse and multiview vertical zoom transitions.
-   - **ATEM Switcher Button Geometry:** Standardized grid buttons (PGM, PVW, Aux, Actions) universally locked to `width: 44px; height: 32px` for layout uniformity. `DragRateInput` components match this geometry exactly.
-   - **ATEM Switcher Bus Layout:** Strictly dual-row arrays (Inputs 1-10 top, Internal sources bottom) encapsulated within unified border sections.
+   - **Top Bar & Navigation:** Apple-style sliding switch with embedded SVG sun/moon icons matching the settings gear size; synchronized sidebar collapse and multiview vertical zoom transitions. All top bar button hover overlays use circular geometry; version tag uses pill hover geometry.
+   - **ATEM Switcher Button Geometry:** Standardized grid buttons (PGM, PVW, Aux, CUT, AUTO, Rate) universally locked to fixed `70px x 36px` dimensions, centered within the quadrant.
+   - **ATEM Switcher Bus Layout:** Strictly dual-row arrays (Inputs 1-10 top, Internal sources bottom) encapsulated within a unified border section, with top-aligned "PROGRAM" and "PREVIEW" labels flush with the leftmost buttons. Bottom row houses OUT 1–6 on the left (Cols 1–6), Spacer (Col 7), Rate (Col 8), CUT (Col 9 under Input 9), and AUTO (Col 10 under Input 10).
 
 ---
 
