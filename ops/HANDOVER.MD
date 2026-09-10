@@ -1,5 +1,5 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-**Current Version:** v2.67
+**Current Version:** v2.68
 **Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Pure Sliding Animations, Fullscreen Toggle, ATEM Macro Matrix (Quadrant 4), Integrated Bottom Action & Aux Routing Bar, Auto-Watchdog Bridge Daemon, Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Modular Runtime-Synced Changelogs, Streamlined 4-Action Master CLI Suite.
 
 ---
@@ -13,8 +13,8 @@
 6. **ITERATION DESCRIPTOR:** Always provide a clear, concise descriptor text at the end of every response summarizing the iteration's changes.
 7. **NO WAITING FOR CONFIRMATION:** Provide full files immediately without holding back for intermediate confirmation.
 8. **WORKSPACE & PATH RESOLUTION PROTOCOL:**
-   - Workspace root path is permanently anchored to the project root directory (e.g. `C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER`).
-   - Portable and enterprise Node.js/npm environments lacking global PATH registration must be detected and resolved via persistent `.atem_node_path` caching and injected into runtime session paths.
+   - Workspace root path is permanently anchored to the project root directory (e.g. `C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER` on Windows, or native macOS equivalents).
+   - Portable, Homebrew, and enterprise Node.js/npm environments lacking global PATH registration must be detected and resolved via persistent `.atem_node_path` caching and injected into runtime session paths.
 9. **[LOCKED] ELEMENTS PROTOCOL:**
    - **Corner Radii:** Buttons use `--pill-radius: 24px`. Panels use `--panel-radius: 9px`.
    - **Video Player UI:** YouTube UI replica layout using custom SVG masks, STRICT 30% transparency (`rgba(30, 30, 30, 0.3)`).

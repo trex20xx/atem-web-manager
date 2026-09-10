@@ -1,5 +1,14 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v2.68] - macOS Parity Audit & POSIX CLI Hardening (OPS.SH)
+- Synchronized `ops/OPS.SH` with `ops/OPS.BAT`, adding interactive iteration description / commit message prompts on finish and merge.
+- Replaced BSD awk multi-line parsing with POSIX `head` and `tail` operations for robust modular changelog merging on macOS.
+- Hardened macOS port cleanup with unified `lsof` process termination across ports 8080 and 3000.
+- Added automatic Apple Silicon (`/opt/homebrew/bin`) and Intel (`/usr/local/bin`) Node.js PATH discovery.
+- Standardized `printf` string serialization in `export_codebase` to eliminate BSD `echo -e` escape artifacts.
+- Synchronized master application version tag to v2.68 across all metadata and documentation.
+
+
 ## [v2.67] - Strict Grid Realignment, Rate Drag Shielding & Bottom Row Symmetry
 - Restructured the bottom control row into the exact same 10-column grid (`repeat(10, 70px)`) as the buses above: OUT 1â€“6 (Cols 1â€“6), Spacer (Col 7), Rate (Col 8), CUT (Col 9 under Input 9), and AUTO (Col 10 under Input 10).
 - Applied `width: fit-content; margin: 0 auto;` to `.pgm-pvw-box` to tightly wrap the bus grid with zero spillover.

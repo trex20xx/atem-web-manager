@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / Linux) (v2.54)
+# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / Linux) (v2.68)
 # =============================================================================
 # Usage: bash ops/OPS.SH  (Execute from project root or ops/)
 # =============================================================================
@@ -19,15 +19,62 @@ cd "$PROJECT_ROOT"
 # Ensure OPS.SH retains POSIX executable bit
 chmod +x "$PROJECT_ROOT/ops/OPS.SH" 2>/dev/null || true
 
+# Discover Node / npm across standard macOS locations (Apple Silicon / Intel / NVM)
+setup_node_env() {
+    # Check if node is already reachable
+    if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+        return 0
+    fi
+
+    # Check Apple Silicon Homebrew
+    if [ -x "/opt/homebrew/bin/node" ]; then
+        export PATH="/opt/homebrew/bin:$PATH"
+        return 0
+    fi
+
+    # Check Intel Homebrew / standard Unix
+    if [ -x "/usr/local/bin/node" ]; then
+        export PATH="/usr/local/bin:$PATH"
+        return 0
+    fi
+
+    # Check persistent cache file
+    if [ -f "$PROJECT_ROOT/.atem_node_path" ]; then
+        CACHED_DIR=$(cat "$PROJECT_ROOT/.atem_node_path" | tr -d '\r\n')
+        if [ -x "$CACHED_DIR/node" ]; then
+            export PATH="$CACHED_DIR:$PATH"
+            return 0
+        fi
+    fi
+
+    # If still not found, prompt user once and cache
+    echo ""
+    echo "================================================================="
+    echo "                 NODE.JS ENVIRONMENT REQUIRED                    "
+    echo "================================================================="
+    echo " 'node' and 'npm' were not detected in your current PATH."
+    echo " Please enter the directory containing your node binary:"
+    echo " (e.g. /opt/homebrew/bin or /Users/name/.nvm/versions/node/v20/bin)"
+    echo "================================================================="
+    read -p " Node.js directory: " USER_DIR
+    USER_DIR=$(echo "$USER_DIR" | tr -d '"' | tr -d "'")
+
+    if [ -x "$USER_DIR/node" ]; then
+        echo "$USER_DIR" > "$PROJECT_ROOT/.atem_node_path"
+        export PATH="$USER_DIR:$PATH"
+        echo "[OK] Node.js path saved to .atem_node_path"
+    else
+        echo "[ERROR] 'node' executable not found in '$USER_DIR'."
+        exit 1
+    fi
+}
+
 # Kill lingering background daemons on ports 8080 (bridge) and 3000 (vite)
 cleanup_ports() {
-    local pids_bridge=$(lsof -ti tcp:8080 2>/dev/null || true)
-    if [ -n "$pids_bridge" ]; then
-        echo "$pids_bridge" | xargs kill -9 2>/dev/null || true
-    fi
-    local pids_vite=$(lsof -ti tcp:3000 2>/dev/null || true)
-    if [ -n "$pids_vite" ]; then
-        echo "$pids_vite" | xargs kill -9 2>/dev/null || true
+    local pids
+    pids=$(lsof -ti tcp:8080,tcp:3000 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+        echo "$pids" | xargs kill -9 2>/dev/null || true
     fi
 }
 
@@ -36,19 +83,27 @@ sync_changelog() {
     local master_file="ops/CHANGELOG.MD"
     local changelog_dir="ops/CHANGELOG"
     [ -d "$changelog_dir" ] || return 0
-    [ -f "$master_file" ] || echo "# ATEM WEB MANAGER - Complete Version History" > "$master_file"
+
+    if [ ! -f "$master_file" ]; then
+        echo "# ATEM WEB MANAGER - Complete Version History" > "$master_file"
+    fi
 
     for file in "$changelog_dir"/*.md; do
         [ -f "$file" ] || continue
-        local vtag=$(grep -oE '\[v[0-9]+(\.[0-9]+)*\]' "$file" | head -n 1)
+        local vtag
+        vtag=$(grep -oE '\[v[0-9]+(\.[0-9]+)*\]' "$file" | head -n 1 || true)
         if [ -n "$vtag" ]; then
             if ! grep -Fq "$vtag" "$master_file"; then
                 echo "[OPS] Merging new changelog entry $vtag into $master_file..."
-                local temp_file=$(mktemp)
-                awk -v entry="$(cat "$file")" '
-                    NR==1 { print; print ""; print entry; next }
-                    { print }
-                ' "$master_file" > "$temp_file" && mv "$temp_file" "$master_file"
+                local temp_file
+                temp_file=$(mktemp)
+                # POSIX-safe head/tail merge (immune to BSD awk newline bugs)
+                head -n 1 "$master_file" > "$temp_file"
+                printf "\n" >> "$temp_file"
+                cat "$file" >> "$temp_file"
+                printf "\n" >> "$temp_file"
+                tail -n +2 "$master_file" >> "$temp_file"
+                mv "$temp_file" "$master_file"
             fi
         fi
     done
@@ -64,28 +119,28 @@ export_codebase() {
 
     for root_file in index.html vite.config.js package.json; do
         if [ -f "$PROJECT_ROOT/$root_file" ]; then
-            echo "=== FILE: $root_file === " >> "$OUTPUT_FILE"
+            printf "=== FILE: %s === \n" "$root_file" >> "$OUTPUT_FILE"
             cat "$PROJECT_ROOT/$root_file" >> "$OUTPUT_FILE"
-            echo -e "\n \n" >> "$OUTPUT_FILE"
+            printf "\n \n\n" >> "$OUTPUT_FILE"
         fi
     done
 
     if [ -d "$PROJECT_ROOT/bridge" ]; then
         for bfile in "$PROJECT_ROOT/bridge"/*; do
-            if [ -f "$bfile" ] && [[ "$(basename "$bfile")" != "package-lock.json" ]]; then
-                echo "=== FILE: bridge/$(basename "$bfile") === " >> "$OUTPUT_FILE"
+            if [ -f "$bfile" ] && [ "$(basename "$bfile")" != "package-lock.json" ]; then
+                printf "=== FILE: bridge/%s === \n" "$(basename "$bfile")" >> "$OUTPUT_FILE"
                 cat "$bfile" >> "$OUTPUT_FILE"
-                echo -e "\n \n" >> "$OUTPUT_FILE"
+                printf "\n \n\n" >> "$OUTPUT_FILE"
             fi
         done
     fi
 
     if [ -d "$PROJECT_ROOT/src" ]; then
-        find "$PROJECT_ROOT/src" -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.css" \) | while read -r src_file; do
+        find "$PROJECT_ROOT/src" -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.css" \) | sort | while read -r src_file; do
             rel_path="${src_file#$PROJECT_ROOT/}"
-            echo "=== FILE: $rel_path === " >> "$OUTPUT_FILE"
+            printf "=== FILE: %s === \n" "$rel_path" >> "$OUTPUT_FILE"
             cat "$src_file" >> "$OUTPUT_FILE"
-            echo -e "\n \n" >> "$OUTPUT_FILE"
+            printf "\n \n\n" >> "$OUTPUT_FILE"
         done
     fi
 
@@ -93,24 +148,27 @@ export_codebase() {
 }
 
 run_and_evaluate() {
+    setup_node_env
     sync_changelog
     cleanup_ports
     export_codebase
 
     # Launch background bridge server
     if [ -f "$PROJECT_ROOT/bridge/server.js" ]; then
-        echo ">>> Starting ATEM Hardware Bridge Daemon (Port 8080) in background..."
+        echo ">>> Starting ATEM Hardware Bridge Daemon on Port 8080 in background..."
         (cd "$PROJECT_ROOT/bridge" && nohup node server.js >/dev/null 2>&1 &)
     fi
 
-    echo ">>> Starting Frontend Server (Port 3000) with auto-launch..."
+    echo ">>> Starting Frontend Server on Port 3000 with auto-launch..."
     set +e
     npm run dev
     set -e
 
     cleanup_ports
 
-    local CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+    local CURRENT_BRANCH
+    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
     echo ""
     echo "================================================================="
     echo "                  EVALUATION / REVERT PIPELINE                   "
@@ -133,14 +191,18 @@ run_and_evaluate() {
 
     case $EVAL_CHOICE in
         1)
-            if [ "$CURRENT_BRANCH" == "main" ]; then
+            local CMSG=""
+            read -p " Enter iteration description / commit message: " CMSG
+            [ -z "$CMSG" ] && CMSG="feat: iteration update"
+
+            if [ "$CURRENT_BRANCH" = "main" ]; then
                 git add -A
-                git commit -m "feat: iteration update" || true
+                git commit -m "$CMSG" || true
                 git push origin main
                 echo ">>> Main branch updated and pushed. <<<"
             else
                 git add -A
-                git commit -m "feat: iteration complete on $CURRENT_BRANCH" || true
+                git commit -m "$CMSG" || true
                 git push origin "$CURRENT_BRANCH"
                 git checkout main
                 git pull origin main
@@ -152,9 +214,10 @@ run_and_evaluate() {
             fi
             ;;
         2)
-            git add -A
+            local CMSG=""
             read -p " Enter commit message: " CMSG
             [ -z "$CMSG" ] && CMSG="wip: evaluation checkpoint"
+            git add -A
             git commit -m "$CMSG" || true
             git push origin "$CURRENT_BRANCH"
             echo ">>> Committed and pushed to $CURRENT_BRANCH. <<<"
@@ -194,7 +257,7 @@ secure_wipe() {
     fi
 
     read -p " Type 'WIPE' to completely destroy this project directory: " CONFIRM
-    if [ "$CONFIRM" == "WIPE" ]; then
+    if [ "$CONFIRM" = "WIPE" ]; then
         cleanup_ports
         cd "$PROJECT_ROOT/.."
         rm -rf "$PROJECT_ROOT"
@@ -205,11 +268,14 @@ secure_wipe() {
     fi
 }
 
-# Main Interactive Loop
+# Ensure background processes are cleaned up if the terminal window is closed or interrupted
+trap cleanup_ports EXIT INT TERM
+
+# Main Interactive Menu
 while true; do
     echo ""
     echo "================================================================="
-    echo "          ATEM WEB MANAGER - MASTER OPERATIONS CLI (v2.54)       "
+    echo "          ATEM WEB MANAGER - MASTER OPERATIONS CLI (v2.68)       "
     echo "================================================================="
     echo "  [1] RUN & EVALUATE  (Vite + Daemon, Auto-Export & Evaluation)"
     echo "  [2] WIPE            (Token-Verified Complete Directory Erasure)"
