@@ -1,5 +1,5 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.60)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.62)
 // =========================================================================
 // Bidirectional switcher bus, macro execution, aux router, DSK & FTB sync over WebSocket.
 
@@ -9,8 +9,8 @@ const WebSocket = require('ws');
 const ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
 
-console.log(`[ATEM Bridge v2.60] Starting bridge service...`);
-console.log(`[ATEM Bridge v2.60] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v2.62] Starting bridge service...`);
+console.log(`[ATEM Bridge v2.62] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 const atem = new Atem();
 let isAtemConnected = false;
@@ -20,7 +20,13 @@ let currentPgm = 1;
 let currentPvw = 2;
 let currentInTransition = false;
 let currentAux = [1, 2, 3, 4, 5, 6];
+
 let transitionRate = 30;
+let transitionStyle = 0; // 0=MIX, 1=DIP, 2=WIPE, 3=DVE, 4=STING
+let transitionSelection = 1; // Bitmask (1=BKGD, 2=KEY1, 4=KEY2, 8=KEY3, 16=KEY4)
+let previewTransition = false;
+let uskOnAir = [false, false, false, false];
+
 let ftb = { inTransition: false, isFullyBlack: false, rate: 30 };
 let dsk = { onAir: false, inTransition: false, autoOnAir: false, tie: false, rate: 30 };
 
@@ -42,7 +48,20 @@ function broadcastState(targetWs = null) {
                     currentInTransition = me.inTransition;
                 }
 
-                if (me.transitionProperties) transitionRate = me.transitionProperties.rate;
+                if (me.transitionProperties) {
+                    transitionRate = me.transitionProperties.rate !== undefined ? me.transitionProperties.rate : transitionRate;
+                    transitionStyle = me.transitionProperties.style !== undefined ? me.transitionProperties.style : transitionStyle;
+                    transitionSelection = me.transitionProperties.selection !== undefined ? me.transitionProperties.selection : transitionSelection;
+                }
+                
+                if (me.transitionPreview !== undefined) {
+                    previewTransition = me.transitionPreview;
+                }
+
+                if (me.upstreamKeyers) {
+                    uskOnAir = [0, 1, 2, 3].map(i => me.upstreamKeyers[i] ? me.upstreamKeyers[i].onAir : false);
+                }
+
                 if (me.fadeToBlack) ftb = me.fadeToBlack;
             }
         }
@@ -86,6 +105,10 @@ function broadcastState(targetWs = null) {
             inTransition: currentInTransition,
             auxSources: currentAux,
             transitionRate,
+            transitionStyle,
+            transitionSelection,
+            previewTransition,
+            uskOnAir,
             ftb,
             dsk,
             macroPlayer,
@@ -141,7 +164,7 @@ function handleHardwareCommand(cmd) {
             changed = true;
             console.log(`[ATEM Bridge ⬅ Physical Switcher Event] Aux ${auxId + 1} routed to Source ${src}`);
         }
-    } else if (raw.includes('FadeToBlack') || raw.includes('Ftb') || raw.includes('Downstream') || raw.includes('Dsk') || raw.includes('TransitionRate')) {
+    } else if (raw.includes('FadeToBlack') || raw.includes('Ftb') || raw.includes('Downstream') || raw.includes('Dsk') || raw.includes('TransitionRate') || raw.includes('TransitionStyle') || raw.includes('TransitionSelection') || raw.includes('PreviewTransition') || raw.includes('Upstream')) {
         changed = true;
     } else if (raw === 'MRPr' || raw.includes('Macro')) {
         changed = true;
@@ -222,11 +245,22 @@ wss.on('connection', (ws) => {
                 const auxIdx = parseInt(data.aux, 10);
                 const src = parseInt(data.source, 10);
                 if (typeof atem.setAuxSource === 'function') {
-                    // atem-connection API for SetAux: atem.setAuxSource(source: number, bus: number)
                     atem.setAuxSource(src, auxIdx).catch(e => console.error('[ATEM Bridge] Aux Error:', e.message || e));
                 }
             } else if (data.action === 'SET_TRANSITION_RATE') {
                 atem.setTransitionRate(parseInt(data.rate, 10) || 30, 0).catch(()=>{});
+            } else if (data.action === 'SET_TRANS_STYLE' && data.style !== undefined) {
+                atem.setTransitionStyle({ style: parseInt(data.style, 10) }, 0).catch(()=>{});
+            } else if (data.action === 'TOGGLE_TRANS_SELECTION' && data.bit !== undefined) {
+                const bit = parseInt(data.bit, 10);
+                let newSelection = transitionSelection ^ bit;
+                if (newSelection === 0) newSelection = bit; // ATEM usually requires at least one bit set
+                atem.setTransitionSelection(newSelection, 0).catch(()=>{});
+            } else if (data.action === 'TOGGLE_PREV_TRANS') {
+                atem.setPreviewTransition(!previewTransition, 0).catch(()=>{});
+            } else if (data.action === 'TOGGLE_USK_ONAIR' && data.usk !== undefined) {
+                const idx = parseInt(data.usk, 10);
+                atem.setUpstreamKeyerOnAir(!uskOnAir[idx], 0, idx).catch(()=>{});
             } else if (data.action === 'SET_FTB_RATE') {
                 atem.setFadeToBlackRate(parseInt(data.rate, 10) || 30, 0).catch(()=>{});
             } else if (data.action === 'EXECUTE_FTB') {

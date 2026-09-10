@@ -67,7 +67,7 @@ export default defineConfig({
  
 === FILE: bridge/server.js === 
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.60)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.62)
 // =========================================================================
 // Bidirectional switcher bus, macro execution, aux router, DSK & FTB sync over WebSocket.
 
@@ -77,8 +77,8 @@ const WebSocket = require('ws');
 const ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
 
-console.log(`[ATEM Bridge v2.60] Starting bridge service...`);
-console.log(`[ATEM Bridge v2.60] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v2.62] Starting bridge service...`);
+console.log(`[ATEM Bridge v2.62] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 const atem = new Atem();
 let isAtemConnected = false;
@@ -88,7 +88,13 @@ let currentPgm = 1;
 let currentPvw = 2;
 let currentInTransition = false;
 let currentAux = [1, 2, 3, 4, 5, 6];
+
 let transitionRate = 30;
+let transitionStyle = 0; // 0=MIX, 1=DIP, 2=WIPE, 3=DVE, 4=STING
+let transitionSelection = 1; // Bitmask (1=BKGD, 2=KEY1, 4=KEY2, 8=KEY3, 16=KEY4)
+let previewTransition = false;
+let uskOnAir = [false, false, false, false];
+
 let ftb = { inTransition: false, isFullyBlack: false, rate: 30 };
 let dsk = { onAir: false, inTransition: false, autoOnAir: false, tie: false, rate: 30 };
 
@@ -110,7 +116,20 @@ function broadcastState(targetWs = null) {
                     currentInTransition = me.inTransition;
                 }
 
-                if (me.transitionProperties) transitionRate = me.transitionProperties.rate;
+                if (me.transitionProperties) {
+                    transitionRate = me.transitionProperties.rate !== undefined ? me.transitionProperties.rate : transitionRate;
+                    transitionStyle = me.transitionProperties.style !== undefined ? me.transitionProperties.style : transitionStyle;
+                    transitionSelection = me.transitionProperties.selection !== undefined ? me.transitionProperties.selection : transitionSelection;
+                }
+                
+                if (me.transitionPreview !== undefined) {
+                    previewTransition = me.transitionPreview;
+                }
+
+                if (me.upstreamKeyers) {
+                    uskOnAir = [0, 1, 2, 3].map(i => me.upstreamKeyers[i] ? me.upstreamKeyers[i].onAir : false);
+                }
+
                 if (me.fadeToBlack) ftb = me.fadeToBlack;
             }
         }
@@ -154,6 +173,10 @@ function broadcastState(targetWs = null) {
             inTransition: currentInTransition,
             auxSources: currentAux,
             transitionRate,
+            transitionStyle,
+            transitionSelection,
+            previewTransition,
+            uskOnAir,
             ftb,
             dsk,
             macroPlayer,
@@ -209,7 +232,7 @@ function handleHardwareCommand(cmd) {
             changed = true;
             console.log(`[ATEM Bridge â¬… Physical Switcher Event] Aux ${auxId + 1} routed to Source ${src}`);
         }
-    } else if (raw.includes('FadeToBlack') || raw.includes('Ftb') || raw.includes('Downstream') || raw.includes('Dsk') || raw.includes('TransitionRate')) {
+    } else if (raw.includes('FadeToBlack') || raw.includes('Ftb') || raw.includes('Downstream') || raw.includes('Dsk') || raw.includes('TransitionRate') || raw.includes('TransitionStyle') || raw.includes('TransitionSelection') || raw.includes('PreviewTransition') || raw.includes('Upstream')) {
         changed = true;
     } else if (raw === 'MRPr' || raw.includes('Macro')) {
         changed = true;
@@ -290,11 +313,22 @@ wss.on('connection', (ws) => {
                 const auxIdx = parseInt(data.aux, 10);
                 const src = parseInt(data.source, 10);
                 if (typeof atem.setAuxSource === 'function') {
-                    // atem-connection API for SetAux: atem.setAuxSource(source: number, bus: number)
                     atem.setAuxSource(src, auxIdx).catch(e => console.error('[ATEM Bridge] Aux Error:', e.message || e));
                 }
             } else if (data.action === 'SET_TRANSITION_RATE') {
                 atem.setTransitionRate(parseInt(data.rate, 10) || 30, 0).catch(()=>{});
+            } else if (data.action === 'SET_TRANS_STYLE' && data.style !== undefined) {
+                atem.setTransitionStyle({ style: parseInt(data.style, 10) }, 0).catch(()=>{});
+            } else if (data.action === 'TOGGLE_TRANS_SELECTION' && data.bit !== undefined) {
+                const bit = parseInt(data.bit, 10);
+                let newSelection = transitionSelection ^ bit;
+                if (newSelection === 0) newSelection = bit; // ATEM usually requires at least one bit set
+                atem.setTransitionSelection(newSelection, 0).catch(()=>{});
+            } else if (data.action === 'TOGGLE_PREV_TRANS') {
+                atem.setPreviewTransition(!previewTransition, 0).catch(()=>{});
+            } else if (data.action === 'TOGGLE_USK_ONAIR' && data.usk !== undefined) {
+                const idx = parseInt(data.usk, 10);
+                atem.setUpstreamKeyerOnAir(!uskOnAir[idx], 0, idx).catch(()=>{});
             } else if (data.action === 'SET_FTB_RATE') {
                 atem.setFadeToBlackRate(parseInt(data.rate, 10) || 30, 0).catch(()=>{});
             } else if (data.action === 'EXECUTE_FTB') {
@@ -325,7 +359,7 @@ wss.on('connection', (ws) => {
 });
  
 === FILE: src/App.jsx === 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar/Sidebar';
 import QuadrantGrid from './components/Multiview/QuadrantGrid';
 import SettingsModal from './components/Settings/SettingsModal';
@@ -336,7 +370,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { APP_VERSION } from './version';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v2.60)
+// ATEM WEB MANAGER - MASTER LAYOUT (v2.61)
 // =========================================================================
 
 function App() {
@@ -370,7 +404,7 @@ function App() {
   const connectedDevice = deviceState.devices.find(d => d.status === 'online');
   const isConnected = !!connectedDevice;
 
-  // Real-time aspect ratio lock syncing during CSS sliding transitions
+  // Real-time aspect ratio lock syncing to completely eliminate vertical jumping
   const handleResize = () => {
     const topBarHeight = 42;
     const sidebarEl = document.querySelector('.sidebar');
@@ -401,7 +435,7 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Synchronize dynamic recalculations during the 350ms sidebar slide to completely eliminate vertical jumping
+  // Synchronize dynamic recalculations during the 350ms sidebar slide
   useEffect(() => {
     let start = null;
     let animationFrameId;
@@ -522,6 +556,7 @@ function App() {
             </div>
           </div>
 
+          {/* Fullscreen Toggle Button */}
           <button 
             className="top-bar-btn"
             onClick={toggleFullscreen}
@@ -544,7 +579,7 @@ function App() {
             data-description="Settings (Cmd/Ctrl + ,)"
           >
             <svg viewBox="0 0 24 24">
-              <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.05-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22l-1.92 3.32c-.12.22-.07.49.12.61l2.03 1.58c-.04.3-.06.61-.06.94s.02.64.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.49-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6S13.98,15.6,12,15.6z"/>
+              <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.05-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22l-1.92 3.32c-.12.22-.07.49-.12-.61l2.03 1.58c-.04.3-.06.61-.06.94s.02.64.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.49-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6S13.98,15.6,12,15.6z"/>
             </svg>
           </button>
         </div>
@@ -601,7 +636,7 @@ export default App;
 === FILE: src/index.css === 
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.60)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.62)
  * =========================================================================
  */
 
@@ -671,7 +706,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .app-title { font-size: 14px; font-weight: 700; color: var(--header-color); letter-spacing: 0.5px; }
 .app-title.centered { position: absolute; left: 50%; transform: translateX(-50%); }
 
-.top-bar-btn { background: transparent; border: none; color: var(--muted); cursor: pointer; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: background 0.15s, color 0.15s; padding: 0; }
+.top-bar-btn { background: transparent; border: none; color: var(--muted); cursor: pointer; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.15s, color 0.15s; padding: 0; }
 .top-bar-btn:hover { background: rgba(150,150,150,0.15); color: var(--text); }
 .top-bar-btn svg { width: 18px; height: 18px; fill: currentColor; display: block; }
 
@@ -686,6 +721,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .apple-theme-switch.active { background: #383838; border-color: #666; }
 .apple-theme-switch.active .apple-switch-thumb { transform: translateX(16px); }
 
+/* Pure CSS layout, no height transitions to prevent jitter */
 .dashboard{ flex: 1; width: 100%; display: flex; justify-content: flex-start; align-items: center; gap: var(--gap); padding: 8px 16px 16px 16px; box-sizing: border-box; overflow: hidden; position: relative; }
 .dashboard.sidebar-collapsed { justify-content: center; }
 
@@ -913,68 +949,62 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-bus-online-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; flex-shrink: 0; margin-right: 6px; }
 .atem-bus-online-dot.offline { background: var(--red); }
 
-/* Content Layout (Buses Left, Controls Right) */
-.atem-bus-content-layout { display: flex; gap: 16px; flex: 1; min-height: 0; margin-top: 4px; }
+/* Layout Architecture */
+.atem-bus-content-layout { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; margin-top: 4px; overflow-y: auto; }
 
-/* Left Buses Column */
-.atem-buses-col { flex: 2.2; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
+/* Global Switcher Button Dimensions */
+.atem-btn-standard { width: 44px; height: 32px; background: var(--panel2); border: 1px solid var(--atem-border); border-radius: var(--ui-radius); color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.12s ease; padding: 0; flex-shrink: 0; box-sizing: border-box; }
+.atem-btn-standard:hover { background: rgba(150,150,150,0.2); color: var(--text); }
+.atem-btn-standard .btn-number { font-size: var(--le-font-size); font-weight: var(--device-font-weight); line-height: 1; font-family: var(--le-font-family); white-space: nowrap; }
 
-.atem-section-box {
-    background: rgba(0, 0, 0, 0.15);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: var(--ui-radius);
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-.transparent-box { background: transparent; border: none; padding: 0; }
-
-.atem-section-title { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
-.router-label { color: var(--orange-hl); font-weight: 700; }
-
-.atem-bus-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
-
-.atem-switcher-btn { height: 32px; background: var(--panel2); border: 1px solid var(--atem-border); border-radius: var(--ui-radius); color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.12s ease; padding: 1px 0; }
-.atem-switcher-btn:hover { background: rgba(150,150,150,0.2); color: var(--text); }
-.atem-switcher-btn .btn-number { font-size: var(--le-font-size); font-weight: var(--device-font-weight); line-height: 1; font-family: var(--le-font-family); white-space: nowrap; }
-
-.atem-switcher-btn.tally-red { background: #d32f2f !important; border-color: #ff5252 !important; color: #fff !important; box-shadow: none !important; }
-.atem-switcher-btn.tally-green { background: #2e7d32 !important; border-color: #4caf50 !important; color: #fff !important; box-shadow: none !important; }
-.atem-switcher-btn.tally-orange { background: var(--orange) !important; border-color: var(--orange-hl) !important; color: #fff !important; box-shadow: none !important; }
-.atem-switcher-btn.tally-yellow { background: var(--yellow-hl) !important; border-color: #f39c12 !important; color: #000 !important; box-shadow: none !important; }
+/* Tally Active States */
+.atem-btn-standard.tally-red { background: #d32f2f !important; border-color: #ff5252 !important; color: #fff !important; box-shadow: none !important; }
+.atem-btn-standard.tally-green { background: #2e7d32 !important; border-color: #4caf50 !important; color: #fff !important; box-shadow: none !important; }
+.atem-btn-standard.tally-orange { background: var(--orange) !important; border-color: var(--orange-hl) !important; color: #fff !important; box-shadow: none !important; }
+.atem-btn-standard.tally-yellow { background: var(--yellow-hl) !important; border-color: #f39c12 !important; color: #000 !important; box-shadow: none !important; }
 .dummy-btn { cursor: default; }
 .dummy-btn:hover { background: var(--panel2); color: var(--muted); }
 
-/* Right Controls Column */
-.atem-trans-col { flex: 1.2; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
-.atem-dsk-col { flex: 0.6; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
+/* Unified PGM/PVW Box Border */
+.pgm-pvw-box { padding-bottom: 12px; }
 
-.trans-nxt-grid { display: grid; gap: 4px; }
-.trans-nxt-grid.top-row { grid-template-columns: repeat(4, 1fr); margin-bottom: 4px; }
-.trans-nxt-grid.bottom-row { grid-template-columns: repeat(5, 1fr); }
+/* Bus Rows & Titles */
+.bus-title-label { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 4px; padding-left: 2px; }
+.atem-bus-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+.router-label { color: var(--orange-hl); font-weight: 700; }
+.aux-source-btn .btn-number { font-size: 11px; }
+
+/* Lower Controls Stacked Row */
+.atem-lower-controls-row { display: flex; justify-content: flex-start; gap: 12px; margin-top: auto; padding-bottom: 8px; flex-shrink: 0; }
+.atem-section-box { background: rgba(0, 0, 0, 0.15); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: var(--ui-radius); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.atem-section-title { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 2px; text-transform: uppercase; }
+
+.trans-nxt-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
 .trans-nxt-grid .btn-number { font-size: 10px; font-weight: 700; }
+.transparent-btn { background: transparent !important; border-color: transparent !important; pointer-events: none; }
 
 .trans-style-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-bottom: 4px; }
 .trans-style-grid .btn-number { font-size: 10px; font-weight: 700; }
-.trans-action-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.trans-action-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; align-items: center; }
 .trans-action-grid .btn-number { font-size: 10px; font-weight: 800; }
+.wide-btn { grid-column: span 2; width: 100%; }
 
-.dsk-grid { display: flex; flex-direction: column; gap: 4px; }
-.dsk-grid .btn-number { font-size: 10px; font-weight: 800; }
-.ftb-grid { display: flex; flex-direction: column; gap: 4px; }
-.ftb-grid .btn-number { font-size: 12px; font-weight: 800; }
+.dsk-grid { display: grid; grid-template-columns: 44px 44px; gap: 4px; justify-content: center; }
+.ftb-grid { display: grid; grid-template-columns: 44px; gap: 4px; justify-content: center; }
+.ftb-btn .btn-number { font-size: 12px; font-weight: 800; }
 
-.rate-box { background: #000; border: 1px solid rgba(255,255,255,0.05); border-radius: 3px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 32px; padding: 2px; }
-.rate-box span { font-size: 9px; color: var(--muted); line-height: 1; }
-.rate-box input { width: 100%; background: transparent; border: none; color: var(--orange-hl); text-align: center; font-size: 11px; font-weight: 700; outline: none; }
+/* Drag Rate Input Box Matching Button Size */
+.rate-box { background: #000; border: 1px solid rgba(255,255,255,0.05); border-radius: var(--ui-radius); display: flex; flex-direction: column; align-items: center; justify-content: center; width: 44px; height: 32px; padding: 0; cursor: ns-resize; box-sizing: border-box; }
+.rate-box span { font-size: 8px; color: var(--muted); line-height: 1; margin-bottom: 1px; }
+.drag-rate-input { width: 100%; background: transparent; border: none; color: var(--orange-hl); text-align: center; font-size: 11px; font-weight: 800; outline: none; -moz-appearance: textfield; padding: 0; cursor: ns-resize; }
+.drag-rate-input::-webkit-outer-spin-button, .drag-rate-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
 .cut-btn:active { background: var(--panel) !important; color: var(--text) !important; }
 .auto-btn.trans-active { background: var(--orange-hl) !important; color: #000000 !important; border-color: var(--orange-hl) !important; }
 
 /* Bottom Router Outs */
-.atem-outs-bar { display: flex; gap: 4px; margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; flex-shrink: 0; }
-.atem-outs-bar .atem-switcher-btn { width: 60px; }
+.atem-outs-bar { display: flex; align-items: center; gap: 4px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; flex-shrink: 0; }
+.atem-outs-bar .btn-number { font-size: 11px; font-weight: 600; }
 .out-active { background: var(--orange-pastel) !important; border-color: var(--orange-hl) !important; color: #ffffff !important; }
 
 .atem-bus-locked-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; padding: 24px; text-align: center; }
@@ -1059,10 +1089,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
  
 === FILE: src/version.js === 
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.60)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.62)
 // =========================================================================
 
-export const APP_VERSION = 'v2.60';
+export const APP_VERSION = 'v2.62';
  
 === FILE: src/components/Multiview/Panel.jsx === 
 import React, { useState } from 'react';
@@ -1243,11 +1273,49 @@ export default QuadrantGrid;
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.60)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.62)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
+
+// Reusable Drag-to-Adjust Rate Component mimicking button geometry
+const DragRateInput = ({ value, onChange, onBlur, title }) => {
+    const handleMouseDown = (e) => {
+        e.preventDefault();
+        let startY = e.clientY;
+        let startVal = parseInt(value, 10) || 30;
+
+        const handleMouseMove = (moveEvent) => {
+            const deltaY = startY - moveEvent.clientY;
+            let newVal = Math.max(1, startVal + Math.floor(deltaY / 2));
+            onChange(newVal);
+        };
+
+        const handleMouseUp = () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+            onBlur();
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+    };
+
+    return (
+        <div className="rate-box" title={title} onMouseDown={handleMouseDown}>
+            <span>Rate</span>
+            <input 
+                type="number" 
+                className="drag-rate-input"
+                value={value} 
+                onChange={e => onChange(e.target.value)} 
+                onBlur={onBlur}
+                onMouseDown={e => e.stopPropagation()} 
+            />
+        </div>
+    );
+};
 
 const AtemConstellationBus = ({ connectedDevice }) => {
     if (!connectedDevice || connectedDevice.ip !== LOCKED_ATEM_IP) {
@@ -1268,6 +1336,11 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     
     // Hardware State Features
     const [transitionRate, setTransitionRate] = useState(30);
+    const [transitionStyle, setTransitionStyle] = useState(0); // 0=MIX, 1=DIP, 2=WIPE, 3=DVE, 4=STING
+    const [transitionSelection, setTransitionSelection] = useState(1); // Bitmask (1=BKGD, 2=KEY1, etc.)
+    const [previewTransition, setPreviewTransition] = useState(false);
+    const [uskOnAir, setUskOnAir] = useState([false, false, false, false]);
+
     const [ftb, setFtb] = useState({ inTransition: false, isFullyBlack: false, rate: 30 });
     const [dsk, setDsk] = useState({ onAir: false, inTransition: false, autoOnAir: false, tie: false, rate: 30 });
     
@@ -1301,7 +1374,13 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                     if (data.pvw !== undefined) setPvwInput(Number(data.pvw));
                     if (data.inTransition !== undefined) setInTransition(Boolean(data.inTransition));
                     if (data.auxSources && Array.isArray(data.auxSources)) setAuxSources(data.auxSources.map(Number));
+                    
                     if (data.transitionRate !== undefined) setTransitionRate(data.transitionRate);
+                    if (data.transitionStyle !== undefined) setTransitionStyle(data.transitionStyle);
+                    if (data.transitionSelection !== undefined) setTransitionSelection(data.transitionSelection);
+                    if (data.previewTransition !== undefined) setPreviewTransition(data.previewTransition);
+                    if (data.uskOnAir !== undefined) setUskOnAir(data.uskOnAir);
+
                     if (data.ftb) setFtb(data.ftb);
                     if (data.dsk) setDsk(data.dsk);
                 } catch (err) {
@@ -1332,7 +1411,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         };
     }, []);
 
-    // Sync remote hardware rates to local input components
     useEffect(() => { setLocalTransRate(transitionRate); }, [transitionRate]);
     useEffect(() => { setLocalFtbRate(ftb.rate); }, [ftb.rate]);
     useEffect(() => { setLocalDskRate(dsk.rate); }, [dsk.rate]);
@@ -1351,7 +1429,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
             setPvwInput(payload.input);
         }
 
-        // Hardware executes transitions cleanly; remove client-side faking when linked
         if (commandType === 'CUT' && bridgeStatus !== 'linked') {
             const temp = pgmInput;
             setPgmInput(pvwInput);
@@ -1395,114 +1472,104 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
     return (
         <div className="atem-constellation-panel">
-            {/* Header aligned exactly with Macros panel */}
             <div className="atem-bus-header">
                 <span className="atem-bus-title">ATEM 1 M/E CONSTELLATION HD</span>
-                <span className="atem-bus-ip">{LOCKED_ATEM_IP}</span>
+                <div className="atem-bus-status">
+                    <span className={`atem-bus-online-dot ${bridgeStatus === 'linked' ? '' : 'offline'}`} />
+                    <span className="atem-bus-ip">{LOCKED_ATEM_IP}</span>
+                </div>
             </div>
 
-            {/* Main ATEM Software Layout Replica */}
             <div className="atem-bus-content-layout">
-                {/* LEFT: PGM & PVW BUSES */}
-                <div className="atem-buses-col">
-                    <div className="atem-section-box transparent-box">
-                        <div className={`atem-section-title ${selectedOut !== null ? 'router-label' : ''}`}>
-                            {selectedOut !== null ? `OUTPUT ${selectedOut + 1}` : 'Program'}
-                        </div>
-                        <div className="atem-bus-grid">
-                            {inputSources.map((s) => (
-                                <button key={`pgm-${s.id}`} className={`atem-switcher-btn ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`} onClick={() => sendAtemCommand('SET_PGM', { input: s.id })} data-description={`Input ${s.label}`}>
-                                    <span className="btn-number">{s.label}</span>
-                                </button>
-                            ))}
-                            {internalSources.map((s) => (
-                                <button key={`pgm-int-${s.id}`} className={`atem-switcher-btn aux-source-btn ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`} onClick={() => sendAtemCommand('SET_PGM', { input: s.id })} data-description={`Source ${s.label}`}>
-                                    <span className="btn-number">{s.label}</span>
-                                </button>
-                            ))}
-                        </div>
+                {/* TOP SECTION: PGM & PVW BUSES COMBINED */}
+                <div className="atem-section-box pgm-pvw-box">
+                    <div className={`bus-title-label ${selectedOut !== null ? 'router-label' : 'pgm-label'}`}>
+                        {selectedOut !== null ? `OUTPUT ${selectedOut + 1}` : 'PROGRAM'}
+                    </div>
+                    <div className="atem-bus-grid">
+                        {inputSources.map((s) => (
+                            <button key={`pgm-${s.id}`} className={`atem-btn-standard ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`} onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}>
+                                <span className="btn-number">{s.label}</span>
+                            </button>
+                        ))}
+                        {internalSources.map((s) => (
+                            <button key={`pgm-int-${s.id}`} className={`atem-btn-standard aux-source-btn ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`} onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}>
+                                <span className="btn-number">{s.label}</span>
+                            </button>
+                        ))}
                     </div>
 
-                    <div className="atem-section-box transparent-box" style={{ opacity: selectedOut !== null ? 0.35 : 1, pointerEvents: selectedOut !== null ? 'none' : 'auto', marginTop: 'auto' }}>
-                        <div className="atem-section-title">Preview</div>
-                        <div className="atem-bus-grid">
-                            {inputSources.map((s) => (
-                                <button key={`pvw-${s.id}`} className={`atem-switcher-btn ${getIsActivePvw(s.id) ? 'tally-green' : ''}`} onClick={() => sendAtemCommand('SET_PVW', { input: s.id })} data-description={`Preview Input ${s.label}`}>
-                                    <span className="btn-number">{s.label}</span>
-                                </button>
-                            ))}
-                            {internalSources.map((s) => (
-                                <button key={`pvw-int-${s.id}`} className={`atem-switcher-btn aux-source-btn ${getIsActivePvw(s.id) ? 'tally-green' : ''}`} onClick={() => sendAtemCommand('SET_PVW', { input: s.id })} data-description={`Preview Source ${s.label}`}>
-                                    <span className="btn-number">{s.label}</span>
-                                </button>
-                            ))}
-                        </div>
+                    <div className="bus-title-label pvw-label" style={{ marginTop: '6px', opacity: selectedOut !== null ? 0.35 : 1 }}>PREVIEW</div>
+                    <div className="atem-bus-grid" style={{ opacity: selectedOut !== null ? 0.35 : 1, pointerEvents: selectedOut !== null ? 'none' : 'auto' }}>
+                        {inputSources.map((s) => (
+                            <button key={`pvw-${s.id}`} className={`atem-btn-standard ${getIsActivePvw(s.id) ? 'tally-green' : ''}`} onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}>
+                                <span className="btn-number">{s.label}</span>
+                            </button>
+                        ))}
+                        {internalSources.map((s) => (
+                            <button key={`pvw-int-${s.id}`} className={`atem-btn-standard aux-source-btn ${getIsActivePvw(s.id) ? 'tally-green' : ''}`} onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}>
+                                <span className="btn-number">{s.label}</span>
+                            </button>
+                        ))}
                     </div>
                 </div>
 
-                {/* MIDDLE: TRANSITIONS */}
-                <div className="atem-trans-col">
+                {/* BOTTOM SECTION: CONTROLS (Exactly 2 buttons tall) */}
+                <div className="atem-lower-controls-row">
+                    {/* Next Transition */}
                     <div className="atem-section-box">
-                        <div className="atem-section-title">Next Transition</div>
-                        <div className="trans-nxt-grid top-row">
-                            <button className="atem-switcher-btn dummy-btn" data-description="Next Transition Key 1 On Air"><span className="btn-number">ON AIR</span></button>
-                            <button className="atem-switcher-btn dummy-btn" data-description="Next Transition Key 2 On Air"><span className="btn-number">ON AIR</span></button>
-                            <button className="atem-switcher-btn dummy-btn" data-description="Next Transition Key 3 On Air"><span className="btn-number">ON AIR</span></button>
-                            <button className="atem-switcher-btn dummy-btn" data-description="Next Transition Key 4 On Air"><span className="btn-number">ON AIR</span></button>
+                        <div className="atem-section-title">NEXT TRANSITION</div>
+                        <div className="trans-nxt-grid">
+                            <div className="atem-btn-standard transparent-btn" />
+                            <button className={`atem-btn-standard ${uskOnAir[0] ? 'tally-red' : ''}`} onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk: 0 })}><span className="btn-number">ON AIR</span></button>
+                            <button className={`atem-btn-standard ${uskOnAir[1] ? 'tally-red' : ''}`} onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk: 1 })}><span className="btn-number">ON AIR</span></button>
+                            <button className={`atem-btn-standard ${uskOnAir[2] ? 'tally-red' : ''}`} onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk: 2 })}><span className="btn-number">ON AIR</span></button>
+                            <button className={`atem-btn-standard ${uskOnAir[3] ? 'tally-red' : ''}`} onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk: 3 })}><span className="btn-number">ON AIR</span></button>
                         </div>
-                        <div className="trans-nxt-grid bottom-row">
-                            <button className="atem-switcher-btn tally-yellow dummy-btn" data-description="Next Transition Background"><span className="btn-number">BKGD</span></button>
-                            <button className="atem-switcher-btn dummy-btn" data-description="Next Transition Key 1"><span className="btn-number">KEY 1</span></button>
-                            <button className="atem-switcher-btn dummy-btn" data-description="Next Transition Key 2"><span className="btn-number">KEY 2</span></button>
-                            <button className="atem-switcher-btn dummy-btn" data-description="Next Transition Key 3"><span className="btn-number">KEY 3</span></button>
-                            <button className="atem-switcher-btn dummy-btn" data-description="Next Transition Key 4"><span className="btn-number">KEY 4</span></button>
+                        <div className="trans-nxt-grid">
+                            <button className={`atem-btn-standard ${(transitionSelection & 1) ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 1 })}><span className="btn-number">BKGD</span></button>
+                            <button className={`atem-btn-standard ${(transitionSelection & 2) ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 2 })}><span className="btn-number">KEY 1</span></button>
+                            <button className={`atem-btn-standard ${(transitionSelection & 4) ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 4 })}><span className="btn-number">KEY 2</span></button>
+                            <button className={`atem-btn-standard ${(transitionSelection & 8) ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 8 })}><span className="btn-number">KEY 3</span></button>
+                            <button className={`atem-btn-standard ${(transitionSelection & 16) ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 16 })}><span className="btn-number">KEY 4</span></button>
                         </div>
                     </div>
 
-                    <div className="atem-section-box" style={{ marginTop: 'auto' }}>
-                        <div className="atem-section-title">Transition Style</div>
+                    {/* Transition Style */}
+                    <div className="atem-section-box">
+                        <div className="atem-section-title">TRANSITION STYLE</div>
                         <div className="trans-style-grid">
-                            <button className="atem-switcher-btn tally-yellow dummy-btn" data-description="Mix Transition"><span className="btn-number">MIX</span></button>
-                            <button className="atem-switcher-btn dummy-btn" data-description="Dip Transition"><span className="btn-number">DIP</span></button>
-                            <button className="atem-switcher-btn dummy-btn" data-description="Wipe Transition"><span className="btn-number">WIPE</span></button>
-                            <button className="atem-switcher-btn dummy-btn" data-description="Sting Transition"><span className="btn-number">STING</span></button>
-                            <button className="atem-switcher-btn dummy-btn" data-description="DVE Transition"><span className="btn-number">DVE</span></button>
+                            <button className={`atem-btn-standard ${transitionStyle === 0 ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('SET_TRANS_STYLE', { style: 0 })}><span className="btn-number">MIX</span></button>
+                            <button className={`atem-btn-standard ${transitionStyle === 1 ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('SET_TRANS_STYLE', { style: 1 })}><span className="btn-number">DIP</span></button>
+                            <button className={`atem-btn-standard ${transitionStyle === 2 ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('SET_TRANS_STYLE', { style: 2 })}><span className="btn-number">WIPE</span></button>
+                            <button className={`atem-btn-standard ${transitionStyle === 4 ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('SET_TRANS_STYLE', { style: 4 })}><span className="btn-number">STING</span></button>
+                            <button className={`atem-btn-standard ${transitionStyle === 3 ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('SET_TRANS_STYLE', { style: 3 })}><span className="btn-number">DVE</span></button>
                         </div>
                         <div className="trans-action-grid">
-                            <button className="atem-switcher-btn dummy-btn" data-description="Preview Transition"><span className="btn-number">PREV TRANS</span></button>
-                            <button className="atem-switcher-btn cut-btn" onClick={() => sendAtemCommand('CUT')} data-description="Cut Transition"><span className="btn-number">CUT</span></button>
-                            <button className={`atem-switcher-btn auto-btn ${inTransition ? 'trans-active' : ''}`} onClick={() => sendAtemCommand('AUTO')} data-description="Auto Transition"><span className="btn-number">AUTO</span></button>
-                            <div className="rate-box" data-description="Transition Rate (Frames)">
-                                <span>Rate</span>
-                                <input type="number" value={localTransRate} onChange={e => setLocalTransRate(e.target.value)} onBlur={() => sendAtemCommand('SET_TRANSITION_RATE', { rate: parseInt(localTransRate, 10) || 30 })} />
-                            </div>
+                            <button className={`atem-btn-standard wide-btn ${previewTransition ? 'tally-green' : ''}`} onClick={() => sendAtemCommand('TOGGLE_PREV_TRANS')}><span className="btn-number">PREV TRANS</span></button>
+                            <button className="atem-btn-standard cut-btn" onClick={() => sendAtemCommand('CUT')}><span className="btn-number">CUT</span></button>
+                            <button className={`atem-btn-standard auto-btn ${inTransition ? 'trans-active' : ''}`} onClick={() => sendAtemCommand('AUTO')}><span className="btn-number">AUTO</span></button>
+                            <DragRateInput value={localTransRate} onChange={setLocalTransRate} onBlur={() => sendAtemCommand('SET_TRANSITION_RATE', { rate: parseInt(localTransRate, 10) || 30 })} title="Transition Rate" />
                         </div>
                     </div>
-                </div>
 
-                {/* RIGHT: DSK & FTB */}
-                <div className="atem-dsk-col">
+                    {/* DSK 1 */}
                     <div className="atem-section-box">
                         <div className="atem-section-title">DSK 1</div>
                         <div className="dsk-grid">
-                            <button className={`atem-switcher-btn ${dsk.tie ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_DSK_TIE', { tie: !dsk.tie })} data-description="Tie Downstream Key 1"><span className="btn-number">TIE</span></button>
-                            <div className="rate-box" data-description="DSK 1 Rate (Frames)">
-                                <span>Rate</span>
-                                <input type="number" value={localDskRate} onChange={e => setLocalDskRate(e.target.value)} onBlur={() => sendAtemCommand('SET_DSK_RATE', { rate: parseInt(localDskRate, 10) || 30 })} />
-                            </div>
-                            <button className={`atem-switcher-btn ${dsk.onAir ? 'tally-red' : ''}`} onClick={() => sendAtemCommand('TOGGLE_DSK_ONAIR', { onAir: !dsk.onAir })} data-description="Downstream Key 1 On Air"><span className="btn-number">ON AIR</span></button>
-                            <button className={`atem-switcher-btn ${dsk.inTransition ? 'tally-orange' : ''}`} onClick={() => sendAtemCommand('EXECUTE_DSK_AUTO')} data-description="Auto Downstream Key 1"><span className="btn-number">AUTO</span></button>
+                            <button className={`atem-btn-standard ${dsk.tie ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_DSK_TIE', { tie: !dsk.tie })}><span className="btn-number">TIE</span></button>
+                            <button className={`atem-btn-standard ${dsk.onAir ? 'tally-red' : ''}`} onClick={() => sendAtemCommand('TOGGLE_DSK_ONAIR', { onAir: !dsk.onAir })}><span className="btn-number">ON AIR</span></button>
+                            <DragRateInput value={localDskRate} onChange={setLocalDskRate} onBlur={() => sendAtemCommand('SET_DSK_RATE', { rate: parseInt(localDskRate, 10) || 30 })} title="DSK Rate" />
+                            <button className={`atem-btn-standard ${dsk.inTransition ? 'tally-orange' : ''}`} onClick={() => sendAtemCommand('EXECUTE_DSK_AUTO')}><span className="btn-number">AUTO</span></button>
                         </div>
                     </div>
 
-                    <div className="atem-section-box ftb-box" style={{ marginTop: 'auto' }}>
-                        <div className="atem-section-title">Fade to Black</div>
+                    {/* Fade to Black */}
+                    <div className="atem-section-box">
+                        <div className="atem-section-title">FADE TO BLACK</div>
                         <div className="ftb-grid">
-                            <div className="rate-box" data-description="FTB Rate (Frames)">
-                                <span>Rate</span>
-                                <input type="number" value={localFtbRate} onChange={e => setLocalFtbRate(e.target.value)} onBlur={() => sendAtemCommand('SET_FTB_RATE', { rate: parseInt(localFtbRate, 10) || 30 })} />
-                            </div>
-                            <button className={`atem-switcher-btn ${ftb.isFullyBlack ? 'tally-red' : (ftb.inTransition ? 'tally-orange' : '')}`} onClick={() => sendAtemCommand('EXECUTE_FTB')} data-description="Execute Fade to Black"><span className="btn-number">FTB</span></button>
+                            <DragRateInput value={localFtbRate} onChange={setLocalFtbRate} onBlur={() => sendAtemCommand('SET_FTB_RATE', { rate: parseInt(localFtbRate, 10) || 30 })} title="FTB Rate" />
+                            <button className={`atem-btn-standard ftb-btn ${ftb.isFullyBlack ? 'tally-red' : (ftb.inTransition ? 'tally-orange' : '')}`} onClick={() => sendAtemCommand('EXECUTE_FTB')}><span className="btn-number">FTB</span></button>
                         </div>
                     </div>
                 </div>
@@ -1513,9 +1580,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                 {auxOutputsList.map((num, idx) => (
                     <button
                         key={`out-${num}`}
-                        className={`atem-switcher-btn ${selectedOut === idx ? 'out-active' : ''}`}
+                        className={`atem-btn-standard ${selectedOut === idx ? 'out-active' : ''}`}
                         onClick={() => setSelectedOut(prev => prev === idx ? null : idx)}
-                        data-description={`Route Aux Output ${num}`}
                     >
                         <span className="btn-number">OUT {num}</span>
                     </button>

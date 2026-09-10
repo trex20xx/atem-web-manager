@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.60)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.62)
  * =========================================================================
  */
 
@@ -70,7 +70,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .app-title { font-size: 14px; font-weight: 700; color: var(--header-color); letter-spacing: 0.5px; }
 .app-title.centered { position: absolute; left: 50%; transform: translateX(-50%); }
 
-.top-bar-btn { background: transparent; border: none; color: var(--muted); cursor: pointer; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: background 0.15s, color 0.15s; padding: 0; }
+.top-bar-btn { background: transparent; border: none; color: var(--muted); cursor: pointer; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.15s, color 0.15s; padding: 0; }
 .top-bar-btn:hover { background: rgba(150,150,150,0.15); color: var(--text); }
 .top-bar-btn svg { width: 18px; height: 18px; fill: currentColor; display: block; }
 
@@ -85,6 +85,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .apple-theme-switch.active { background: #383838; border-color: #666; }
 .apple-theme-switch.active .apple-switch-thumb { transform: translateX(16px); }
 
+/* Pure CSS layout, no height transitions to prevent jitter */
 .dashboard{ flex: 1; width: 100%; display: flex; justify-content: flex-start; align-items: center; gap: var(--gap); padding: 8px 16px 16px 16px; box-sizing: border-box; overflow: hidden; position: relative; }
 .dashboard.sidebar-collapsed { justify-content: center; }
 
@@ -312,68 +313,62 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-bus-online-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; flex-shrink: 0; margin-right: 6px; }
 .atem-bus-online-dot.offline { background: var(--red); }
 
-/* Content Layout (Buses Left, Controls Right) */
-.atem-bus-content-layout { display: flex; gap: 16px; flex: 1; min-height: 0; margin-top: 4px; }
+/* Layout Architecture */
+.atem-bus-content-layout { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; margin-top: 4px; overflow-y: auto; }
 
-/* Left Buses Column */
-.atem-buses-col { flex: 2.2; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
+/* Global Switcher Button Dimensions */
+.atem-btn-standard { width: 44px; height: 32px; background: var(--panel2); border: 1px solid var(--atem-border); border-radius: var(--ui-radius); color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.12s ease; padding: 0; flex-shrink: 0; box-sizing: border-box; }
+.atem-btn-standard:hover { background: rgba(150,150,150,0.2); color: var(--text); }
+.atem-btn-standard .btn-number { font-size: var(--le-font-size); font-weight: var(--device-font-weight); line-height: 1; font-family: var(--le-font-family); white-space: nowrap; }
 
-.atem-section-box {
-    background: rgba(0, 0, 0, 0.15);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: var(--ui-radius);
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-.transparent-box { background: transparent; border: none; padding: 0; }
-
-.atem-section-title { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
-.router-label { color: var(--orange-hl); font-weight: 700; }
-
-.atem-bus-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
-
-.atem-switcher-btn { height: 32px; background: var(--panel2); border: 1px solid var(--atem-border); border-radius: var(--ui-radius); color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.12s ease; padding: 1px 0; }
-.atem-switcher-btn:hover { background: rgba(150,150,150,0.2); color: var(--text); }
-.atem-switcher-btn .btn-number { font-size: var(--le-font-size); font-weight: var(--device-font-weight); line-height: 1; font-family: var(--le-font-family); white-space: nowrap; }
-
-.atem-switcher-btn.tally-red { background: #d32f2f !important; border-color: #ff5252 !important; color: #fff !important; box-shadow: none !important; }
-.atem-switcher-btn.tally-green { background: #2e7d32 !important; border-color: #4caf50 !important; color: #fff !important; box-shadow: none !important; }
-.atem-switcher-btn.tally-orange { background: var(--orange) !important; border-color: var(--orange-hl) !important; color: #fff !important; box-shadow: none !important; }
-.atem-switcher-btn.tally-yellow { background: var(--yellow-hl) !important; border-color: #f39c12 !important; color: #000 !important; box-shadow: none !important; }
+/* Tally Active States */
+.atem-btn-standard.tally-red { background: #d32f2f !important; border-color: #ff5252 !important; color: #fff !important; box-shadow: none !important; }
+.atem-btn-standard.tally-green { background: #2e7d32 !important; border-color: #4caf50 !important; color: #fff !important; box-shadow: none !important; }
+.atem-btn-standard.tally-orange { background: var(--orange) !important; border-color: var(--orange-hl) !important; color: #fff !important; box-shadow: none !important; }
+.atem-btn-standard.tally-yellow { background: var(--yellow-hl) !important; border-color: #f39c12 !important; color: #000 !important; box-shadow: none !important; }
 .dummy-btn { cursor: default; }
 .dummy-btn:hover { background: var(--panel2); color: var(--muted); }
 
-/* Right Controls Column */
-.atem-trans-col { flex: 1.2; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
-.atem-dsk-col { flex: 0.6; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
+/* Unified PGM/PVW Box Border */
+.pgm-pvw-box { padding-bottom: 12px; }
 
-.trans-nxt-grid { display: grid; gap: 4px; }
-.trans-nxt-grid.top-row { grid-template-columns: repeat(4, 1fr); margin-bottom: 4px; }
-.trans-nxt-grid.bottom-row { grid-template-columns: repeat(5, 1fr); }
+/* Bus Rows & Titles */
+.bus-title-label { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 4px; padding-left: 2px; }
+.atem-bus-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+.router-label { color: var(--orange-hl); font-weight: 700; }
+.aux-source-btn .btn-number { font-size: 11px; }
+
+/* Lower Controls Stacked Row */
+.atem-lower-controls-row { display: flex; justify-content: flex-start; gap: 12px; margin-top: auto; padding-bottom: 8px; flex-shrink: 0; }
+.atem-section-box { background: rgba(0, 0, 0, 0.15); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: var(--ui-radius); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.atem-section-title { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 2px; text-transform: uppercase; }
+
+.trans-nxt-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
 .trans-nxt-grid .btn-number { font-size: 10px; font-weight: 700; }
+.transparent-btn { background: transparent !important; border-color: transparent !important; pointer-events: none; }
 
 .trans-style-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-bottom: 4px; }
 .trans-style-grid .btn-number { font-size: 10px; font-weight: 700; }
-.trans-action-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.trans-action-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; align-items: center; }
 .trans-action-grid .btn-number { font-size: 10px; font-weight: 800; }
+.wide-btn { grid-column: span 2; width: 100%; }
 
-.dsk-grid { display: flex; flex-direction: column; gap: 4px; }
-.dsk-grid .btn-number { font-size: 10px; font-weight: 800; }
-.ftb-grid { display: flex; flex-direction: column; gap: 4px; }
-.ftb-grid .btn-number { font-size: 12px; font-weight: 800; }
+.dsk-grid { display: grid; grid-template-columns: 44px 44px; gap: 4px; justify-content: center; }
+.ftb-grid { display: grid; grid-template-columns: 44px; gap: 4px; justify-content: center; }
+.ftb-btn .btn-number { font-size: 12px; font-weight: 800; }
 
-.rate-box { background: #000; border: 1px solid rgba(255,255,255,0.05); border-radius: 3px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 32px; padding: 2px; }
-.rate-box span { font-size: 9px; color: var(--muted); line-height: 1; }
-.rate-box input { width: 100%; background: transparent; border: none; color: var(--orange-hl); text-align: center; font-size: 11px; font-weight: 700; outline: none; }
+/* Drag Rate Input Box Matching Button Size */
+.rate-box { background: #000; border: 1px solid rgba(255,255,255,0.05); border-radius: var(--ui-radius); display: flex; flex-direction: column; align-items: center; justify-content: center; width: 44px; height: 32px; padding: 0; cursor: ns-resize; box-sizing: border-box; }
+.rate-box span { font-size: 8px; color: var(--muted); line-height: 1; margin-bottom: 1px; }
+.drag-rate-input { width: 100%; background: transparent; border: none; color: var(--orange-hl); text-align: center; font-size: 11px; font-weight: 800; outline: none; -moz-appearance: textfield; padding: 0; cursor: ns-resize; }
+.drag-rate-input::-webkit-outer-spin-button, .drag-rate-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
 .cut-btn:active { background: var(--panel) !important; color: var(--text) !important; }
 .auto-btn.trans-active { background: var(--orange-hl) !important; color: #000000 !important; border-color: var(--orange-hl) !important; }
 
 /* Bottom Router Outs */
-.atem-outs-bar { display: flex; gap: 4px; margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; flex-shrink: 0; }
-.atem-outs-bar .atem-switcher-btn { width: 60px; }
+.atem-outs-bar { display: flex; align-items: center; gap: 4px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; flex-shrink: 0; }
+.atem-outs-bar .btn-number { font-size: 11px; font-weight: 600; }
 .out-active { background: var(--orange-pastel) !important; border-color: var(--orange-hl) !important; color: #ffffff !important; }
 
 .atem-bus-locked-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; padding: 24px; text-align: center; }

@@ -1,5 +1,27 @@
 ﻿## [v2.60] - ATEM Fullscreen Layout Parity, DSK Integrations & Seamless Sidebar Math
 
+## [v2.62] - Dual-Row Bus Routing, Active Transition Control Arrays & Drag Rates
+- Transformed PGM and PVW into dedicated `.atem-section-box` architectures bordered uniformly.
+- Re-architected input matrices to a dual-row CSS Grid paradigm (Inputs 1-10 on row one; internal sources on row two), matching official layout parity.
+- Re-located "PROGRAM" and "PREVIEW" labels to the top of their respective bus groupings.
+- Restored the green `online` indicator dot directly preceding the header IP.
+- Stacked Next Transition, Transition Style, DSK 1, and Fade to Black control matrices strictly into two-button-high containers underneath the PVW bus.
+- Refined `.rate-box` containers into `44px x 32px` rigid dimensions matching standard switcher buttons.
+- Replaced native number spin inputs with a `DragRateInput` component across Transition, DSK, and FTB rates allowing vertical drag value scaling.
+- Injected backend handlers and frontend dispatches for `SET_TRANS_STYLE`, `TOGGLE_TRANS_SELECTION`, `TOGGLE_PREV_TRANS`, and `TOGGLE_USK_ONAIR` ensuring complete control matrix hardware integration.
+- Standardized all titles within control boxes to uppercase typography tracking.
+- Synced master tags to v2.62.
+
+
+## [v2.61] - Unified Global Button Geometry, Rate Drag Controls & Master Switcher Layout
+- Converted all `.top-bar-btn` hover overlays from squares back to pure `border-radius: 50%` circles.
+- Re-engineered the ATEM Constellation Bus layout to maximize panel real estate: PGM and PVW buses are now stacked immediately above the stacked Transitions, DSK, and Fade to Black rows.
+- Forced universal scaling on all switcher controls by implementing a strict `.atem-btn-standard` layout (`width: 44px; height: 32px`), completely mirroring the sizes of the 6 bottom OUTS buttons.
+- Replaced native number spin-box inputs inside Transition/DSK/FTB control panels with a custom `DragRateInput` component, allowing seamless drag-up/drag-down frame rate adjustments.
+- Confirmed the exact mapping parameters for the `setAuxSource` Bridge routing API to ensure physical hardware Aux bus assignment functions correctly.
+- Synchronized application version tags to v2.61 across metadata and operations tools.
+
+
 ## [v2.59] - Master Switcher UI Overhaul, DSK & Fade-to-Black Hardware Integration
 - Eliminated sidebar vertical jumping and jitter during collapse animation by enforcing strict flex-shrink sizing and visibility constraints.
 - Adjusted global Top Bar alignment to vertically align settings, fullscreen, and theme toggles flawlessly.
