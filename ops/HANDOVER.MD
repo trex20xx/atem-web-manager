@@ -1,5 +1,5 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-**Current Version:** v2.61
+**Current Version:** v2.64
 **Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Pure Sliding Animations, Fullscreen Toggle, ATEM Macro Matrix (Quadrant 4), Aux Output Routing Bar, Drag-to-Adjust Rate Inputs, Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Modular Runtime-Synced Changelogs, Streamlined 4-Action Master CLI Suite.
 
 ---
@@ -22,7 +22,8 @@
    - **Hardware-Locked IP:** `AtemConstellationBus.jsx` and `AtemMacros.jsx` are locked exclusively to IP `192.168.10.240`.
    - **Sidebar Devices, Groups & Edit Panels Design:** Row height `30px`, 4px equidistant edit button geometry, pill edit fields, and color dropdown clear mechanics.
    - **Top Bar & Navigation:** Apple-style sliding switch with embedded SVG sun/moon icons matching the settings gear size; synchronized sidebar collapse and multiview vertical zoom transitions.
-   - **ATEM Switcher Button Geometry:** Standardized grid buttons (PGM, PVW, Aux, Actions) universally locked to `width: 44px; height: 32px` for layout uniformity.
+   - **ATEM Switcher Button Geometry:** Standardized grid buttons (PGM, PVW, Aux, Actions) universally locked to `width: 44px; height: 32px` for layout uniformity. `DragRateInput` components match this geometry exactly.
+   - **ATEM Switcher Bus Layout:** Strictly dual-row arrays (Inputs 1-10 top, Internal sources bottom) encapsulated within unified border sections.
 
 ---
 
