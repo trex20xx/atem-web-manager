@@ -1,5 +1,20 @@
 # ATEM WEB MANAGER - Complete Version History
 
+## [v2.42.0] - Descriptive Evaluation Menu & Protocol Optimization
+- Added comprehensive, plain-English descriptions to options [1–4] in the Post-Vite Evaluation menu across `ops/OPS.SH` and `ops/OPS.BAT`.
+- Optimized delivery protocol: decoupled unchanged component re-rendering (e.g. `App.jsx`) from operational and documentation updates, preserving prompt efficiency.
+- Synchronized master specification in `ops/HANDOVER.MD` to v2.42.0.
+
+## [v2.41.0] - Vite Auto-Browser Launch & Post-Run Evaluation / Revert Pipeline
+- Configured `open: true` in root `vite.config.js` to automatically launch the application in the system's default browser upon startup.
+- Upgraded option `[1]` in `ops/OPS.SH` and `ops/OPS.BAT` into an interactive **Run & Evaluate** pipeline: exiting Vite (`Ctrl+C`) intercepts execution and displays immediate choices to **Merge to Main**, **Push to Branch**, or **Revert & Discard All Changes** (`git reset --hard && git clean -fd`).
+- Synchronized master application version tag to v2.41.0 across layout and documentation.
+
+## [v2.40.0] - Automated Iteration Lifecycle Pipeline in Master CLI
+- Added automated `[5] START ITERATION` workflow to `ops/OPS.SH` and `ops/OPS.BAT`, creating clean isolated feature branches directly from updated remote `main`.
+- Added automated `[6] FINISH & MERGE` pipeline, folding verified feature branches into `main`, syncing with GitHub, and pruning merged branches across local and remote repositories in a single action.
+- Synchronized master application version tag to v2.40.0 across all components.
+
 ## [v2.39.0] - Windows Portable Node Session PATH Injection & Install Integrity Validation
 - Fixed npm child process failure (`node install.js`) by injecting `CUSTOM_NODE_PATH` directly into the active session `%PATH%` in `ops/OPS.BAT`.
 - Upgraded dependency checking to inspect core packages (`node_modules\vite\` and `bridge\node_modules\ws\`) rather than mere folder existence, preventing skipped recovery on corrupted/partial installs.
