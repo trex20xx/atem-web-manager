@@ -7,9 +7,9 @@ import Skeleton from '../UI/Skeleton';
 import QuadrantContextMenu from '../UI/QuadrantContextMenu';
 
 // =========================================================================
-// ATEM WEB MANAGER - PANEL COMPONENT (v2.19.0)
+// ATEM WEB MANAGER - PANEL COMPONENT (v2.56)
 // =========================================================================
-// Quadrant 1: Player | Quadrant 2: ATEM Macros | Quadrant 3: Switcher Bus
+// 1: Stream | 2: Media Pool | 3: Mixer | 4: Macros
 
 const Panel = ({ 
     panelId, positionIndex, currentVideoSource, isConnected, connectedDevice, isLoading,
@@ -35,16 +35,28 @@ const Panel = ({
             );
         }
 
+        // 1. STREAM
         if (panelId === 1 && isConnected) {
             return <Player currentVideoSource={currentVideoSource} />;
         }
 
-        if (panelId === 2 && isConnected && connectedDevice?.ip === '192.168.10.240') {
-            return <AtemMacros connectedDevice={connectedDevice} />;
+        // 2. MEDIA POOL (Placeholder view)
+        if (panelId === 2 && isConnected) {
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '8px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.6px', color: 'var(--muted)' }}>MEDIA POOL</div>
+                </div>
+            );
         }
 
+        // 3. MIXER (ATEM Constellation HD Bus)
         if (panelId === 3 && isConnected && connectedDevice?.ip === '192.168.10.240') {
             return <AtemConstellationBus connectedDevice={connectedDevice} />;
+        }
+
+        // 4. MACROS
+        if (panelId === 4 && isConnected && connectedDevice?.ip === '192.168.10.240') {
+            return <AtemMacros connectedDevice={connectedDevice} />;
         }
 
         return null;
