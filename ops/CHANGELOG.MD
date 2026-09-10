@@ -1,4 +1,87 @@
-# ATEM WEB MANAGER - Complete Version History
+﻿# ATEM WEB MANAGER - Complete Version History
+
+## [v2.54] - Portable Node.js Auto-Detection & Session PATH Injection
+- Restored intelligent detection and persistent caching (`.atem_node_path`) for portable Node.js environments in `ops/OPS.BAT`.
+- Injected portable directory directly into active session `%PATH%` and resolved explicit `%NODE_CMD%` and `%NPM_CMD%` execution paths.
+- Updated background daemon launcher to invoke `%NODE_CMD%` directly within PowerShell `Start-Process`, preventing "The system cannot find the file specified" errors.
+- Synchronized master application version tag to v2.54 across metadata and documentation.
+
+
+## [v2.53] - Atomic Codebase Serialization & Batch Parenthesis Syntax Fix
+- Replaced iterative `Add-Content` stream operations in `ops/OPS.BAT` with an atomic in-memory `.NET` collection written via `[System.IO.File]::WriteAllLines`, permanently resolving Windows `Stream was not readable` file-lock errors.
+- Fixed `cmd.exe` syntax abort (`in was unexpected at this time`) caused by unescaped parentheses inside the `:RUN_EVAL` daemon startup echo statement prematurely closing the `if exist` block.
+- Standardized `for /f "delims="` evaluation in `ops/OPS.BAT` for bulletproof git branch detection.
+- Synchronized master application version tag to v2.53 across metadata and documentation.
+
+
+## [v2.52] - Batch Command-Line Escaping Fix & Structural Label Refactor
+- Eliminated all cmd.exe quote-parity corruption by replacing inner double quotes with single quotes (`'...'`) across all PowerShell commands in `ops/OPS.BAT`.
+- Replaced PowerShell `!` negation operator with `-not` to prevent variable mangling under batch script parsing.
+- Refactored evaluation menu choices into isolated labels (`:MERGE_MAIN`, `:PUSH_BRANCH`, `:REVERT_DISCARD`) and removed `EnableDelayedExpansion` completely.
+- Replaced `netstat` and `taskkill` calls with a dedicated single-string PowerShell process-termination command.
+- Synchronized application version tag to v2.52 across all documentation and runtime modules.
+
+
+## [v2.51] - Windows CLI Syntax Repair & Streamlined Inline Execution Engine
+- Resolved `cmd.exe` token parser crash in `ops/OPS.BAT` caused by caret-continued multi-line PowerShell executions in `:SYNC_CHANGELOG` and `:EXPORT_CODEBASE`.
+- Replaced PowerShell `-in` operator with regex match `^\.(js|jsx|css)$` to permanently eliminate cmd keyword collision (`in was unexpected at this time`).
+- Flattened PowerShell commands in `OPS.BAT` into single-string executions to guarantee safe batch parameter passing and error-free execution.
+- Synchronized application version tag to v2.51 across metadata and documentation.
+
+
+## [v2.50] - Macro Panel Palette Optimization, Column Layout & Token-Saving Modular Changelog Engine
+- Implemented modular changelog architecture with automated runtime synchronization inside `ops/OPS.SH` and `ops/OPS.BAT`, eliminating redundant full-history chat payloads while preventing duplicate merges.
+- Switched application version tag formatting from three-number semantic notation to two-segment `vX.XX` notation (v2.50).
+- Unified "MACROS" title font color with sidebar device names (`var(--text)` at 0.8 opacity).
+- Removed horizontal border line beneath Macro Panel header for a seamless transition into the button matrix.
+- Replaced macro running color with Muted Red (`#8a4b48`) matching the sidebar device dropdown palette.
+- Replaced macro selected state with a subtle, flat grey highlight (`#404040`), removing all orange fills.
+- Redesigned Recall & Run icon to a clean double-play vector arrow matching standard play sizing.
+- Added GlobalTooltip hover descriptions on all transport buttons and dynamically enabled tooltips for macro names that exceed button width boundaries.
+- Reordered the 20-button macro matrix into column-first orientation (Column 1: 1â€“10; Column 2: 11â€“20).
+- Bolstered pagination navigation arrows with bold 2.8px stroke chevrons for improved legibility.
+- Accelerated mouse wheel pagination scrolling response by reducing debounce to 35ms.
+
+
+## [v2.49.0] - Inline Control Bar, Autoplay Vector Glyph & Crisp Numbers
+- Consolidated the Macro Panel header and transport toolbar into a single in-line row to conserve vertical space and expand macro slot heights.
+- Replaced the textual "RECALL AND RUN" tag with a dual-arrow motion trail autoplay vector glyph positioned directly to the left of the loop button.
+- Added right-click toggle support on the Recall & Run button to freely switch between the autoplay glyph and full textual pill representation.
+- Flattened macro numbers to non-italic, non-debossed crisp numerals (15px, weight 800) matching quadrant standard typography.
+- Fully restored Sections 3 and 4 within `ops/HANDOVER.MD` while maintaining clean, non-redundant response deliveries.
+- Synchronized application version tag to v2.49.0 across metadata and documentation.
+
+## [v2.48.0] - Pastel Palette Alignment, Hover Overlays & Fast Wheel Navigation
+- Re-scaled "RECALL AND RUN" to exact 13px device row font size and added matching pill hover background overlay.
+- Aligned macro slot label typography, boldness, size, weight (400), and color directly to sidebar device rows.
+- Re-introduced italic styling to the debossed 15px macro slot numbering.
+- Tuned wheel scrolling responsiveness to 65ms debounce with a lowered delta threshold for much faster page flipping.
+- Mapped selected macro states, engaged transport controls, and active recall triggers to the device dropdown's Pastel Orange (`#a66332`).
+- Mapped running macro states to the device dropdown's Pastel Green (`#487540`).
+- Streamlined `ops/HANDOVER.MD` by removing redundant operational and bootstrap handover instructions.
+- Synchronized application version tag to v2.48.0 across all components and documentation.
+
+## [v2.47.0] - Macro Panel Visual Hierarchy, Flat Statuses & Scrub Navigation
+- Refactored debossed macro slot numbering to use quadrant typography metrics (Segoe UI, weight 800, non-italic) in high-contrast light grey with debossed text shading.
+- Enlarged "MACROS" title to 14px bold (weight 700) to firmly anchor the panel within the established architectural typography hierarchy.
+- Replaced the loop icon with a modern curved-arrow glyph and enlarged all transport action button SVGs to 17px.
+- Unified transport action button idle states to muted grey and mapped active/engaged states exclusively to orange highlights.
+- Removed the toggle dot from "RECALL AND RUN", bolded the label (weight 700), and mapped active state directly to orange highlight.
+- Replaced disabled pagination arrow `not-allowed` cursor behavior with `cursor: default` and suppressed tooltips when reaching page limits.
+- Added mouse click-and-drag horizontal scrubbing across pagination dots and enabled panel-wide mouse wheel pagination scrolling.
+- Stripped all outlines and borders from macro slot buttons for an ultra-flat design.
+- Replaced pulsating macro animations with solid uniform color fills (orange for selected, green for running) matching ATEM switcher bus tally buttons.
+- Synchronized application version tag to v2.47.0 across metadata and documentation.
+
+## [v2.46.0] - Macro Panel Typography Alignment, Flat Material Controls & Stop Trigger
+- Left-justified the "MACROS" title and unified typography, color, size (13px), and font-weight (400) directly with the Sidebar device rows.
+- Styled "RECALL AND RUN" label to match Sidebar device row metrics and upgraded the toggle dot to a monochrome active-white dot matching pagination styling.
+- Streamlined transport action buttons (Loop, Play, Stop) to flat monochrome Material Design vectors with no initial border and a circular hover overlay.
+- Upgraded macro slot numbering to a larger 15px bold italic format (weight 900) featuring a subtle negative-embossed shadow treatment.
+- Enforced uppercase rendering and sidebar-matched typography across all macro names.
+- Removed default circle backgrounds and borders from pagination navigation arrows in favor of circle hover overlays.
+- Implemented smart macro stop execution: clicking the active macro a second time or clicking an empty slot triggers an immediate stop and clears selection.
+- Synchronized application version tag to v2.46.0 across metadata and documentation.
 
 ## [v2.45.0] - AI Session Handover Milestone & Foundation Protection
 - Formalized Handover Protocol for incoming AI chat sessions utilizing `HANDOVER.MD`, `codebase.txt`, and `CHANGELOG.MD`.
@@ -18,7 +101,7 @@
 - Updated engagement rules: discontinued mandatory git push command outputs at end of responses.
 
 ## [v2.42.0] - Descriptive Evaluation Menu & Protocol Optimization
-- Added comprehensive, plain-English descriptions to options [1–4] in the Post-Vite Evaluation menu across `ops/OPS.SH` and `ops/OPS.BAT`.
+- Added comprehensive, plain-English descriptions to options [1â€“4] in the Post-Vite Evaluation menu across `ops/OPS.SH` and `ops/OPS.BAT`.
 - Optimized delivery protocol: decoupled unchanged component re-rendering (e.g. `App.jsx`) from operational and documentation updates, preserving prompt efficiency.
 - Synchronized master specification in `ops/HANDOVER.MD` to v2.42.0.
 
@@ -42,7 +125,7 @@
 - Established verified one-liner Git invocation for Windows environments bypassing private repository curl limitations.
 - Synchronized master application version tag to v2.38.0 across layout and documentation.
 
-## [v2.37.0] - Markdown Code Fence Formatting & Package Lockfile Clarification
+## [v2.37.0] - Markdown Code fence Formatting & Package Lockfile Clarification
 - Fortified code block fence formatting across AI delivery artifacts to eliminate nested block parser errors.
 - Clarified lockfile lifecycle: validated `package-lock.json` retention in repository while intentionally excluding lockfile hashes from AI codebase exports.
 - Synchronized master application version tag to v2.37.0 across layout and documentation.
@@ -156,7 +239,7 @@
 
 ## [v2.16.0] - Compact Apple Switch Icons, Fade-Toggle Version Tag & Alignment Precision
 - Embedded responsive SVG Sun and Moon icons directly inside the sliding Apple-style theme toggle switch.
-- Scaled Apple switch geometry to 36px × 20px to match the proportions of the adjacent settings gear.
+- Scaled Apple switch geometry to 36px Ã— 20px to match the proportions of the adjacent settings gear.
 - Added smooth opacity fade transition (0.3s) to the version tag, allowing click-to-hide and click-to-reveal.
 - Fixed search bar width alignment by removing the redundant nested wrapper, achieving exact parity with device pill highlights.
 - Anchored multiview quadrant grid left alignment to match the sidebar's uncollapsed left boundary when the sidebar collapses.
@@ -224,9 +307,9 @@
 - Mathematically centered edit buttons (`.edit-btn`, `.group-edit-btn`) with exact 4px equidistant top, bottom, and right padding inside `30px` pill rows.
 - Standardized all edit panel inputs (`Name`, `IP`, `Group`, `Color`, `Description`) with pill-rounded geometry (`24px`).
 - Unified dark mode palette across Device and Group edit forms (`.device-editing-inner` & `.group-editing-inner`).
-- Added "Clear Color" (`×`) button inside the Color Dropdown to reset colors to transparent ("No Color").
+- Added "Clear Color" (`Ã—`) button inside the Color Dropdown to reset colors to transparent ("No Color").
 - Restored custom minimalist range sliders and monochrome toggles in Settings (removed all native blue/colored fills).
-- Implemented right-click quadrant context menu routing specific Quadrant numbers (1–4) into target slots.
+- Implemented right-click quadrant context menu routing specific Quadrant numbers (1â€“4) into target slots.
 - Added Tally LED brightness global settings slider.
 
 ## [v2.06.0] - Synchronization & Full Rollup Release
@@ -259,7 +342,7 @@
 ## [v2.01.0] - Settings UI Restoration, Full-Collapse Sidebar, & Row Geometry Lock
 - Changed Bottom Action Button font-weight from bold (700) to normal (500).
 - Converted all edit-form fields (Name, IP, Group, Color, Description) to pill-rounded styling (`24px`).
-- Added clear button (`×`) to Color Dropdown to reset color to transparent ("No Color").
+- Added clear button (`Ã—`) to Color Dropdown to reset color to transparent ("No Color").
 - Restored minimalist range slider tracks/thumbs and monochrome toggles in Settings (removed all blue/colored elements).
 - Set "Classic (Solid)" as the default sidebar variant.
 - Made hamburger collapse toggle a perfect circular button (`border-radius: 50%`).

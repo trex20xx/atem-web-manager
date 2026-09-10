@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.20.0)
+// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.50)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -24,13 +25,18 @@ const AtemMacros = ({ connectedDevice }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedMacroIndex, setSelectedMacroIndex] = useState(null);
     const [recallAndRun, setRecallAndRun] = useState(true);
+    const [recallMode, setRecallMode] = useLocalStorage('atem_macro_recall_mode', 'icon'); // 'icon' | 'text'
+    const [isDraggingDots, setIsDraggingDots] = useState(false);
     
     // Live hardware state from bridge
     const [macroPlayer, setMacroPlayer] = useState({ isRunning: false, isWaiting: false, loop: false, macroIndex: -1 });
     const [macroProperties, setMacroProperties] = useState([]);
     const [bridgeStatus, setBridgeStatus] = useState('connecting');
+    
     const wsRef = useRef(null);
     const reconnectTimerRef = useRef(null);
+    const dotsContainerRef = useRef(null);
+    const lastWheelTimeRef = useRef(0);
 
     const initWebSocket = () => {
         const wsUrl = `ws://localhost:${BRIDGE_PORT}`;
@@ -85,6 +91,58 @@ const AtemMacros = ({ connectedDevice }) => {
         };
     }, []);
 
+    // Accelerated mouse wheel pagination across the entire macro quadrant
+    const handlePanelWheel = (e) => {
+        const now = Date.now();
+        if (now - lastWheelTimeRef.current < 35) return;
+        
+        if (Math.abs(e.deltaY) > 1 || Math.abs(e.deltaX) > 1) {
+            lastWheelTimeRef.current = now;
+            if (e.deltaY > 0 || e.deltaX > 0) {
+                setCurrentPage(p => Math.min(TOTAL_PAGES, p + 1));
+            } else if (e.deltaY < 0 || e.deltaX < 0) {
+                setCurrentPage(p => Math.max(1, p - 1));
+            }
+        }
+    };
+
+    // Scrub / slide pagination by holding mouse down across dots
+    const updatePageFromClientX = (clientX) => {
+        if (!dotsContainerRef.current) return;
+        const rect = dotsContainerRef.current.getBoundingClientRect();
+        const relativeX = clientX - rect.left;
+        const progress = Math.max(0, Math.min(1, relativeX / rect.width));
+        const targetPage = Math.min(TOTAL_PAGES, Math.max(1, Math.ceil(progress * TOTAL_PAGES)));
+        setCurrentPage(targetPage);
+    };
+
+    const handleDotsMouseDown = (e) => {
+        setIsDraggingDots(true);
+        updatePageFromClientX(e.clientX);
+    };
+
+    useEffect(() => {
+        const handleMouseMove = (e) => {
+            if (isDraggingDots) {
+                updatePageFromClientX(e.clientX);
+            }
+        };
+        const handleMouseUp = () => {
+            if (isDraggingDots) {
+                setIsDraggingDots(false);
+            }
+        };
+
+        if (isDraggingDots) {
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+        }
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isDraggingDots]);
+
     const sendCommand = (action, payload = {}) => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             try {
@@ -108,7 +166,31 @@ const AtemMacros = ({ connectedDevice }) => {
         sendCommand('MACRO_LOOP', { loop: !macroPlayer.loop });
     };
 
+    const getMacroName = (index) => {
+        if (macroProperties && macroProperties[index] && macroProperties[index].name) {
+            return macroProperties[index].name;
+        }
+        return '';
+    };
+
     const handleMacroClick = (index) => {
+        const name = getMacroName(index);
+        const isEmpty = !name || name.trim() === '';
+
+        // Clicking an empty macro executes a stop command
+        if (isEmpty) {
+            stopMacro();
+            setSelectedMacroIndex(null);
+            return;
+        }
+
+        // Clicking the same macro a second time executes a stop command
+        if (selectedMacroIndex === index) {
+            stopMacro();
+            setSelectedMacroIndex(null);
+            return;
+        }
+
         setSelectedMacroIndex(index);
         if (recallAndRun) {
             runMacro(index);
@@ -117,55 +199,83 @@ const AtemMacros = ({ connectedDevice }) => {
 
     const handlePlayClick = () => {
         if (selectedMacroIndex !== null) {
+            const name = getMacroName(selectedMacroIndex);
+            if (!name || name.trim() === '') {
+                stopMacro();
+                setSelectedMacroIndex(null);
+                return;
+            }
             runMacro(selectedMacroIndex);
+        }
+    };
+
+    const handleRecallContextMenu = (e) => {
+        e.preventDefault();
+        setRecallMode(prev => prev === 'icon' ? 'text' : 'icon');
+    };
+
+    const handleRecallClick = () => {
+        setRecallAndRun(prev => !prev);
+    };
+
+    const handleMacroMouseEnter = (e, macroIdx, name) => {
+        const textEl = e.currentTarget.querySelector('.macro-slot-text');
+        if (textEl && name && textEl.scrollWidth > textEl.clientWidth) {
+            e.currentTarget.setAttribute('data-description', `Macro ${macroIdx + 1}: ${name}`);
+        } else {
+            e.currentTarget.removeAttribute('data-description');
         }
     };
 
     const startIndex = (currentPage - 1) * MACROS_PER_PAGE;
     const currentMacroIndices = Array.from({ length: MACROS_PER_PAGE }, (_, i) => startIndex + i);
 
-    const getMacroName = (index) => {
-        if (macroProperties && macroProperties[index] && macroProperties[index].name) {
-            return macroProperties[index].name;
-        }
-        return '';
-    };
-
     return (
-        <div className="atem-macros-panel">
-            {/* 1. Header */}
+        <div className="atem-macros-panel" onWheel={handlePanelWheel}>
+            {/* Seamless Header Bar without divider line */}
             <div className="macro-header-bar">
                 <div className="macro-header-title">MACROS</div>
-            </div>
-
-            {/* 2. Control Toolbar */}
-            <div className="macro-toolbar">
-                <div 
-                    className="macro-toggle-group"
-                    onClick={() => setRecallAndRun(prev => !prev)}
-                    title="When enabled, clicking a macro executes it immediately"
-                >
-                    <div className={`macro-toggle-circle ${recallAndRun ? 'active' : ''}`} />
-                    <span className="macro-toggle-label">RECALL AND RUN</span>
-                </div>
 
                 <div className="macro-actions-group">
-                    {/* Modern Flat Loop */}
+                    {/* Recall & Run (Simple Double Play Triangle OR Text) */}
+                    {recallMode === 'icon' ? (
+                        <button 
+                            className={`macro-action-btn ${recallAndRun ? 'active-loop' : ''}`}
+                            onClick={handleRecallClick}
+                            onContextMenu={handleRecallContextMenu}
+                            data-description={`Recall & Run: ${recallAndRun ? 'ON' : 'OFF'} (Right-click for text)`}
+                        >
+                            <svg viewBox="0 0 24 24">
+                                <path d="M5 6.5v11l7.5-5.5L5 6.5zm8 0v11l7.5-5.5L13 6.5z" fill="currentColor" />
+                            </svg>
+                        </button>
+                    ) : (
+                        <button 
+                            className={`macro-toggle-pill ${recallAndRun ? 'active' : ''}`}
+                            onClick={handleRecallClick}
+                            onContextMenu={handleRecallContextMenu}
+                            data-description="Recall & Run (Right-click for icon)"
+                        >
+                            RECALL AND RUN
+                        </button>
+                    )}
+
+                    {/* Loop icon */}
                     <button 
                         className={`macro-action-btn ${macroPlayer.loop ? 'active-loop' : ''}`}
                         onClick={toggleLoop}
-                        title="Loop Macro"
+                        data-description="Loop Macro"
                     >
                         <svg viewBox="0 0 24 24">
-                            <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
+                            <path d="M17 17H7a4 4 0 0 1-4-4v-1h2v1a2 2 0 0 0 2 2h10v-3l4 4-4 4v-3zm-10-10h10a4 4 0 0 1 4 4v1h-2v-1a2 2 0 0 0-2-2H7v3L3 7l4-4v3z"/>
                         </svg>
                     </button>
 
-                    {/* Modern Flat Play */}
+                    {/* Play button */}
                     <button 
                         className={`macro-action-btn play-btn ${selectedMacroIndex !== null ? 'ready' : 'disabled'}`}
                         onClick={handlePlayClick}
-                        title="Run Selected Macro"
+                        data-description="Run Selected Macro"
                         disabled={selectedMacroIndex === null}
                     >
                         <svg viewBox="0 0 24 24">
@@ -173,11 +283,11 @@ const AtemMacros = ({ connectedDevice }) => {
                         </svg>
                     </button>
 
-                    {/* Modern Flat Stop */}
+                    {/* Stop button */}
                     <button 
                         className={`macro-action-btn stop-btn ${macroPlayer.isRunning ? 'active' : ''}`}
                         onClick={stopMacro}
-                        title="Stop Macro"
+                        data-description="Stop Macro"
                     >
                         <svg viewBox="0 0 24 24">
                             <path d="M8 6h8c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2H8c-1.1 0-2-.9-2-2V8c0-1.1.9-2 2-2z"/>
@@ -186,7 +296,7 @@ const AtemMacros = ({ connectedDevice }) => {
                 </div>
             </div>
 
-            {/* 3. 20-Button Matrix Grid (2 Columns x 10 Rows) */}
+            {/* 20-Button Matrix Grid (Column 1: 1-10; Column 2: 11-20) */}
             <div className="macro-matrix-grid">
                 {currentMacroIndices.map((macroIdx) => {
                     const name = getMacroName(macroIdx);
@@ -198,36 +308,43 @@ const AtemMacros = ({ connectedDevice }) => {
                             key={`macro-btn-${macroIdx}`}
                             className={`macro-slot-btn ${isSelected ? 'selected' : ''} ${isRunning ? 'running' : ''}`}
                             onClick={() => handleMacroClick(macroIdx)}
-                            title={`Macro ${macroIdx + 1}${name ? `: ${name}` : ''}`}
+                            onMouseEnter={(e) => handleMacroMouseEnter(e, macroIdx, name)}
+                            onMouseLeave={(e) => e.currentTarget.removeAttribute('data-description')}
                         >
                             <div className="macro-slot-content">
                                 <span className="macro-slot-num">{macroIdx + 1}</span>
-                                <span className="macro-slot-text">{name}</span>
+                                <span className="macro-slot-text">{name ? name.toUpperCase() : ''}</span>
                             </div>
                         </button>
                     );
                 })}
             </div>
 
-            {/* 4. Centered Pagination Footer */}
+            {/* Pagination Footer with Bold Navigation Arrows */}
             <div className="macro-pagination-footer">
                 <div className="macro-pagination-wrapper">
                     <button 
                         className="macro-page-nav-btn"
                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
-                        title="Previous Page"
+                        data-description={currentPage === 1 ? undefined : "Previous Page"}
                     >
-                        <svg viewBox="0 0 24 24"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M14.5 17.5L9 12l5.5-5.5" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
                     </button>
 
-                    <div className="macro-page-dots-container">
+                    <div 
+                        className="macro-page-dots-container"
+                        ref={dotsContainerRef}
+                        onMouseDown={handleDotsMouseDown}
+                    >
                         {Array.from({ length: TOTAL_PAGES }, (_, i) => i + 1).map((pageNum) => (
                             <button
                                 key={`page-dot-${pageNum}`}
                                 className={`macro-page-dot ${currentPage === pageNum ? 'active' : ''}`}
-                                onClick={() => setCurrentPage(pageNum)}
-                                title={`Page ${pageNum} (Macros ${(pageNum - 1) * 20 + 1}–${pageNum * 20})`}
+                                onClick={(e) => { e.stopPropagation(); setCurrentPage(pageNum); }}
+                                data-description={`Page ${pageNum} (Macros ${(pageNum - 1) * 20 + 1}–${pageNum * 20})`}
                             />
                         ))}
                     </div>
@@ -236,9 +353,11 @@ const AtemMacros = ({ connectedDevice }) => {
                         className="macro-page-nav-btn"
                         onClick={() => setCurrentPage(p => Math.min(TOTAL_PAGES, p + 1))}
                         disabled={currentPage === TOTAL_PAGES}
-                        title="Next Page"
+                        data-description={currentPage === TOTAL_PAGES ? undefined : "Next Page"}
                     >
-                        <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M9.5 6.5L15 12l-5.5 5.5" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
                     </button>
                 </div>
             </div>

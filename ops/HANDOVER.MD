@@ -1,15 +1,15 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-**Current Version:** v2.45.0
-**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Streamlined 4-Action Master CLI Suite.
+**Current Version:** v2.54
+**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Modular Runtime-Synced Changelogs, Streamlined 4-Action Master CLI Suite.
 
 ---
 
 ## 1. STRICT RULES OF ENGAGEMENT (PERMANENT PROTOCOL)
-1. **INCREMENT VERSION:** Increment the version number in file headers, documentation, and `src/version.js` with EVERY single iteration.
+1. **INCREMENT VERSION:** Increment the version number in file headers, documentation, and `src/version.js` with EVERY single iteration using two-segment `vX.XX` notation (no three-dot decimals).
 2. **NO UNREQUESTED CHANGES:** Never modify existing functionality, logic, or design unless explicitly requested.
-3. **MAINTAIN ALL COMMENTS & COMPLETE HISTORY:** Never trim, truncate, or delete historical changelog entries or architectural comments. Retain all records from v1.72 onwards inside `ops/CHANGELOG.MD`.
-4. **FULL FILES ONLY FOR MODIFIED FILES:** Always provide 100% complete files ready to copy-paste directly in each reply. Never output code snippets or partial diffs. Do not re-output unmodified components (such as `App.jsx` or `main.jsx`) unless their internal layout, component, or state logic is actively modified.
-5. **DOCUMENTATION CONSOLIDATION IN /OPS:** All project documentation lives exclusively within `ops/` as two core files: `ops/CHANGELOG.MD` (history) and `ops/HANDOVER.MD` (master spec).
+3. **MAINTAIN ALL COMMENTS & COMPLETE HISTORY:** Never trim, truncate, or delete historical changelog entries or architectural comments. Retain all records inside `ops/CHANGELOG.MD`. Deliver individual iteration changelogs inside `ops/CHANGELOG/vX.XX.md` for automated synchronization by the CLI suite.
+4. **FULL FILES ONLY FOR MODIFIED FILES:** Always provide 100% complete files ready to copy-paste directly in each reply. Never output code snippets or partial diffs. Do not re-output unmodified components unless their internal layout, component, or state logic is actively modified.
+5. **DOCUMENTATION CONSOLIDATION IN /OPS:** All project documentation lives exclusively within `ops/` as two core files (`ops/CHANGELOG.MD` and `ops/HANDOVER.MD`) supported by modular snippets in `ops/CHANGELOG/`.
 6. **ITERATION DESCRIPTOR:** Always provide a clear, concise descriptor text at the end of every response summarizing the iteration's changes.
 7. **NO WAITING FOR CONFIRMATION:** Provide full files immediately without holding back for intermediate confirmation.
 8. **[LOCKED] ELEMENTS PROTOCOL:**
@@ -33,7 +33,8 @@ ATEM_WEB_MANAGER/
 ├── index.html                     # HTML root shell mounting /src/main.jsx
 │
 ├── ops/                           # Operations & Documentation
-│   ├── CHANGELOG.MD               # Complete history archive (v1.72+)
+│   ├── CHANGELOG.MD               # Complete master history archive (v1.72+)
+│   ├── CHANGELOG/                 # Modular per-iteration changelog snippets (vX.XX.md)
 │   ├── HANDOVER.MD                # Master documentation and spec (THIS FILE)
 │   ├── OPS.BAT                    # Master Windows CLI (Run & Evaluate, Wipe, Export, Exit)
 │   └── OPS.SH                     # Master macOS/Linux CLI (Run & Evaluate, Wipe, Export, Exit)
@@ -56,29 +57,3 @@ ATEM_WEB_MANAGER/
     │   ├── VideoPlayer/       # Player, OverlayDrawer, QualityMenu, SnapshotEngine
     │   └── Settings/          # SettingsModal
     └── hooks/                 # useDevices, useDragDrop, useLocalStorage
-```
-
----
-
-## 3. MASTER OPERATIONS CLI (`OPS.SH` & `OPS.BAT`)
-Execute directly from inside your project directory:
-- **macOS / Linux:** `bash ops/OPS.SH`
-- **Windows:** `ops\OPS.BAT`
-
-### Streamlined 4-Option Menu
-1. **`[1] RUN & EVALUATE`**: Automatically serializes `codebase.txt`, starts the bridge daemon, launches Vite with auto-opening browser, and opens the Evaluation Menu upon exit (`Ctrl+C`):
-   - `[1] MERGE TO MAIN`: Merges the feature branch into `main`, pushes to GitHub, and deletes the feature branch.
-   - `[2] PUSH TO BRANCH`: Commits and pushes progress to the active branch without merging into `main`.
-   - `[3] REVERT & DISCARD`: Executes `git reset --hard HEAD` and `git clean -fd` to discard all experimental changes and restore a clean state.
-   - `[4] RETURN TO MENU`: Leaves local files intact without committing or reverting.
-2. **`[2] WIPE`**: Enforces security token verification (`ATEM_MANAGER_SECURE_WIPE_KEY_2026`) and completely deletes the directory safely.
-3. **`[3] EXPORT`**: Manual export of `codebase.txt` for AI sessions on demand.
-4. **`[4] EXIT`**: Clean exit.
-
----
-
-## 4. MASTER AI HANDOVER PROTOCOL (FOR NEW SESSIONS)
-When initiating a new session, provide:
-1. `ops/HANDOVER.MD` (This file)
-2. `codebase.txt` (Generated via option `[8]` or `[1]` in `OPS.SH` / `OPS.BAT`)
-3. `ops/CHANGELOG.MD` (Historical archive)

@@ -1,4 +1,4 @@
-=== FILE: index.html === 
+﻿=== FILE: index.html === 
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -11,7 +11,7 @@
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
-</html> 
+</html>
  
 === FILE: vite.config.js === 
 import { defineConfig } from 'vite';
@@ -28,7 +28,7 @@ export default defineConfig({
     host: true,
     open: true // Automatically launches localhost:3000 in default browser
   }
-}); 
+});
  
 === FILE: package.json === 
 {
@@ -51,9 +51,9 @@ export default defineConfig({
     "@vitejs/plugin-react": "^4.3.1",
     "vite": "^5.3.1"
   }
-} 
+}
  
-=== FILE: bridge\package.json === 
+=== FILE: bridge/package.json === 
 {
   "name": "atem-bridge-server",
   "version": "1.85.0",
@@ -63,9 +63,9 @@ export default defineConfig({
     "atem-connection": "^3.5.0",
     "ws": "^8.16.0"
   }
-} 
+}
  
-=== FILE: bridge\server.js === 
+=== FILE: bridge/server.js === 
 // =========================================================================
 // ATEM LOCAL HARDWARE BRIDGE SERVER (v2.20.0)
 // =========================================================================
@@ -156,14 +156,14 @@ function handleHardwareCommand(cmd) {
         if (typeof src === 'number') {
             currentPgm = src;
             changed = true;
-            console.log(`[ATEM Bridge ⬅ Physical Switcher Event] Program changed to Input ${src}`);
+            console.log(`[ATEM Bridge â¬… Physical Switcher Event] Program changed to Input ${src}`);
         }
     } else if (raw === 'PrvI' || raw.includes('PreviewInput')) {
         const src = props.source !== undefined ? props.source : props.previewInput;
         if (typeof src === 'number') {
             currentPvw = src;
             changed = true;
-            console.log(`[ATEM Bridge ⬅ Physical Switcher Event] Preview changed to Input ${src}`);
+            console.log(`[ATEM Bridge â¬… Physical Switcher Event] Preview changed to Input ${src}`);
         }
     } else if (raw === 'TrPr' || raw === 'TrPs' || raw.includes('TransitionPosition')) {
         if (props.inTransition !== undefined) {
@@ -251,17 +251,17 @@ wss.on('connection', (ws) => {
                 atem.autoTransition(0).catch((e) => console.error('[ATEM Bridge] AUTO Error:', e.message || e));
             } else if (data.action === 'MACRO_RUN' && data.index !== undefined) {
                 const mIdx = parseInt(data.index, 10);
-                console.log(`[ATEM Bridge ➔ Executing Macro] Index: ${mIdx}`);
+                console.log(`[ATEM Bridge âž” Executing Macro] Index: ${mIdx}`);
                 if (typeof atem.macroRun === 'function') {
                     atem.macroRun(mIdx).catch((e) => console.error('[ATEM Bridge] Macro Run Error:', e.message || e));
                 }
             } else if (data.action === 'MACRO_STOP') {
-                console.log(`[ATEM Bridge ➔ Stopping Macro]`);
+                console.log(`[ATEM Bridge âž” Stopping Macro]`);
                 if (typeof atem.macroStop === 'function') {
                     atem.macroStop().catch((e) => console.error('[ATEM Bridge] Macro Stop Error:', e.message || e));
                 }
             } else if (data.action === 'MACRO_LOOP' && data.loop !== undefined) {
-                console.log(`[ATEM Bridge ➔ Setting Macro Loop] Loop: ${data.loop}`);
+                console.log(`[ATEM Bridge âž” Setting Macro Loop] Loop: ${data.loop}`);
                 if (typeof atem.macroSetLoop === 'function') {
                     atem.macroSetLoop(data.loop).catch((e) => console.error('[ATEM Bridge] Macro Loop Error:', e.message || e));
                 }
@@ -274,16 +274,9 @@ wss.on('connection', (ws) => {
     ws.on('close', () => {
         console.log('[ATEM Bridge] React Frontend UI disconnected.');
     });
-}); 
+});
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\version.js === 
-// =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.45.0)
-// =========================================================================
-
-export const APP_VERSION = 'v2.45.0'; 
- 
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\App.jsx === 
+=== FILE: src/App.jsx === 
 import React, { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar/Sidebar';
 import QuadrantGrid from './components/Multiview/QuadrantGrid';
@@ -507,29 +500,12 @@ function App() {
   );
 }
 
-export default App; 
+export default App;
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\main.jsx === 
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App.jsx';
-import './index.css';
-
-// =========================================================================
-// ATEM WEB MANAGER - REACT BOOTSTRAP (v1.75)
-// =========================================================================
-// Initializes the React tree and mounts it to the DOM.
-
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-); 
- 
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\index.css === 
+=== FILE: src/index.css === 
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.21.0)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.50)
  * =========================================================================
  */
 
@@ -552,6 +528,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     --red:#ea4335;
     --orange:#e67e22;
     --orange-hl:#ff9436;
+    
+    /* Muted Pastel Tones matching Devices Dropdown Palette */
+    --red-muted: #8a4b48;
+    --orange-pastel: #a66332;
+    --green-pastel: #487540;
+
     --tally-opacity: 0.85;
 
     --atem-bg: #222222;
@@ -667,7 +649,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .offline{ background:var(--red); opacity: var(--tally-opacity); transition: opacity 0.2s; }
 
 .device-text{ flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; padding:4px 0; }
-.device-name{ font-family:var(--le-font-family); font-size:var(--le-font-size); color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition: color 0.15s ease; opacity: 0.8; }
+.device-name{ font-family:var(--le-font-family); font-size:var(--le-font-size); color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition: color 0.15s ease; opacity: 0.8; font-weight: var(--device-font-weight); }
 .device-wrapper:hover .device-name { opacity: 1; }
 .device-wrapper.selected .device-name { opacity: 1; }
 
@@ -820,60 +802,22 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     overflow: hidden;
 }
 
+/* In-line Header without divider line */
 .macro-header-bar {
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding-bottom: 4px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    justify-content: space-between;
+    padding: 0 4px 2px 4px;
+    border-bottom: none;
+    flex-shrink: 0;
 }
 
 .macro-header-title {
-    font-size: 11px;
+    font-family: var(--le-font-family);
+    font-size: 14px;
     font-weight: 700;
-    letter-spacing: 0.6px;
     color: var(--text);
     opacity: 0.8;
-}
-
-/* Control Toolbar */
-.macro-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 2px;
-}
-
-.macro-toggle-group {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-}
-
-.macro-toggle-circle {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    border: 1.5px solid rgba(255, 255, 255, 0.4);
-    background: transparent;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.15s ease;
-}
-
-.macro-toggle-circle.active {
-    background: var(--orange);
-    border-color: var(--orange-hl);
-    box-shadow: 0 0 4px rgba(230, 126, 34, 0.5);
-}
-
-.macro-toggle-label {
-    font-size: 10px;
-    font-weight: 700;
-    color: var(--text);
-    opacity: 0.9;
     letter-spacing: 0.5px;
 }
 
@@ -883,12 +827,35 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     gap: 8px;
 }
 
-.macro-action-btn {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
+.macro-toggle-pill {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    user-select: none;
+    padding: 3px 8px;
+    border-radius: var(--pill-radius);
+    font-family: var(--le-font-family);
+    font-size: var(--le-font-size);
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.macro-toggle-pill:hover {
     background: var(--panel2);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.macro-toggle-pill.active {
+    color: var(--red-muted);
+}
+
+.macro-action-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -899,55 +866,53 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 }
 
 .macro-action-btn svg {
-    width: 14px;
-    height: 14px;
+    width: 17px;
+    height: 17px;
     fill: currentColor;
 }
 
 .macro-action-btn:hover:not(:disabled) {
-    background: rgba(150, 150, 150, 0.2);
-    color: var(--text);
+    background: rgba(150, 150, 150, 0.15);
 }
 
-.macro-action-btn.active-loop {
-    color: #2196f3;
+.macro-action-btn.active-loop,
+.macro-action-btn.stop-btn.active {
+    color: var(--red-muted) !important;
 }
 
 .macro-action-btn.play-btn.ready {
-    color: var(--green);
-}
-
-.macro-action-btn.stop-btn.active {
-    color: var(--red);
-    background: #3a1c1a;
-    border-color: #ff5252;
+    color: #ffffff !important;
 }
 
 .macro-action-btn.disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
+    opacity: 0.25;
+    cursor: default !important;
+    pointer-events: none;
 }
 
-/* 20-Button Matrix Grid (2 Columns x 10 Rows) */
+/* 20-Button Matrix Grid (Column 1: 1-10; Column 2: 11-20) */
 .macro-matrix-grid {
     flex: 1;
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: repeat(10, 1fr);
+    grid-auto-flow: column;
     gap: 4px 8px;
-    padding: 4px 0;
+    padding: 6px 0;
     overflow: hidden;
 }
 
 .macro-slot-btn {
     background: var(--panel2);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
     border-radius: var(--ui-radius);
     display: flex;
     align-items: center;
     padding: 0 8px;
     cursor: pointer;
-    transition: all 0.12s ease;
+    transition: background 0.12s ease;
     height: 100%;
     width: 100%;
 }
@@ -959,48 +924,91 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     gap: 8px;
 }
 
+/* Non-italic, non-debossed slot numbers */
 .macro-slot-num {
+    font-family: var(--le-font-family);
     font-weight: 800;
-    font-style: italic;
-    color: rgba(150, 150, 150, 0.4);
-    font-size: 11px;
-    min-width: 22px;
+    font-style: normal;
+    font-size: 15px;
+    color: rgba(185, 185, 185, 0.5);
+    text-shadow: none !important;
+    min-width: 26px;
     text-align: left;
     flex-shrink: 0;
 }
 
+[data-theme="light"] .macro-slot-num {
+    color: rgba(0, 0, 0, 0.4);
+    text-shadow: none !important;
+}
+
+/* Slot labels sharing exact sidebar device row typography */
 .macro-slot-text {
-    color: var(--text);
     font-family: var(--le-font-family);
     font-size: var(--le-font-size);
+    font-weight: var(--device-font-weight);
+    color: var(--text);
+    opacity: 0.8;
+    text-transform: uppercase;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     text-align: left;
     flex: 1;
+    transition: opacity 0.15s ease, color 0.15s ease;
 }
 
 .macro-slot-btn:hover {
     background: rgba(150, 150, 150, 0.15);
 }
 
+.macro-slot-btn:hover .macro-slot-text {
+    opacity: 1;
+}
+
+/* Selected: Distinct flat grey highlight */
 .macro-slot-btn.selected {
-    border-color: var(--orange);
-    background: #2f2720;
+    background: #404040 !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    animation: none !important;
 }
 
+.macro-slot-btn.selected .macro-slot-text {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
+
+.macro-slot-btn.selected .macro-slot-num {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Running: Muted Red (#8a4b48) matching device dropdown */
 .macro-slot-btn.running {
-    border-color: var(--green) !important;
-    background: #1b2d1f !important;
-    animation: pulse 1s infinite alternate;
+    background: var(--red-muted) !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    animation: none !important;
 }
 
-/* Pagination Footer with Carousel Dots */
+.macro-slot-btn.running .macro-slot-text {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
+
+.macro-slot-btn.running .macro-slot-num {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Pagination Footer with Bold Navigation Arrows */
 .macro-pagination-footer {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding-top: 8px;
+    padding-top: 6px;
+    flex-shrink: 0;
 }
 
 .macro-pagination-wrapper {
@@ -1010,8 +1018,8 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 }
 
 .macro-page-nav-btn {
-    background: var(--panel2);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: transparent;
+    border: none;
     color: var(--muted);
     cursor: pointer;
     width: 24px;
@@ -1026,23 +1034,26 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .macro-page-nav-btn svg {
     width: 16px;
     height: 16px;
-    fill: currentColor;
 }
 
 .macro-page-nav-btn:hover:not(:disabled) {
-    color: #ffffff;
-    background: rgba(150, 150, 150, 0.2);
+    color: var(--text);
+    background: rgba(150, 150, 150, 0.15);
 }
 
 .macro-page-nav-btn:disabled {
-    opacity: 0.2;
-    cursor: not-allowed;
+    opacity: 0.15;
+    cursor: default !important;
+    pointer-events: none;
 }
 
 .macro-page-dots-container {
     display: flex;
     align-items: center;
     gap: 12px;
+    cursor: pointer;
+    padding: 4px 6px;
+    user-select: none;
 }
 
 .macro-page-dot {
@@ -1063,9 +1074,33 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .macro-page-dot.active {
     background: #ffffff;
     transform: scale(1.2);
-} 
+}
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Multiview\Panel.jsx === 
+=== FILE: src/main.jsx === 
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App.jsx';
+import './index.css';
+
+// =========================================================================
+// ATEM WEB MANAGER - REACT BOOTSTRAP (v1.75)
+// =========================================================================
+// Initializes the React tree and mounts it to the DOM.
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+ 
+=== FILE: src/version.js === 
+// =========================================================================
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.54)
+// =========================================================================
+
+export const APP_VERSION = 'v2.54';
+ 
+=== FILE: src/components/Multiview/Panel.jsx === 
 import React, { useState } from 'react';
 import Player from '../VideoPlayer/Player';
 import AtemConstellationBus from '../Panels/AtemConstellationBus';
@@ -1158,9 +1193,9 @@ const Panel = ({
     );
 };
 
-export default Panel; 
+export default Panel;
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Multiview\QuadrantGrid.jsx === 
+=== FILE: src/components/Multiview/QuadrantGrid.jsx === 
 import React from 'react';
 import Panel from './Panel';
 
@@ -1216,9 +1251,9 @@ const QuadrantGrid = ({
     );
 };
 
-export default QuadrantGrid; 
+export default QuadrantGrid;
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Panels\AtemConstellationBus.jsx === 
+=== FILE: src/components/Panels/AtemConstellationBus.jsx === 
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
@@ -1445,13 +1480,14 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     );
 };
 
-export default AtemConstellationBus; 
+export default AtemConstellationBus;
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Panels\AtemMacros.jsx === 
+=== FILE: src/components/Panels/AtemMacros.jsx === 
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.20.0)
+// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.50)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -1474,13 +1510,18 @@ const AtemMacros = ({ connectedDevice }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedMacroIndex, setSelectedMacroIndex] = useState(null);
     const [recallAndRun, setRecallAndRun] = useState(true);
+    const [recallMode, setRecallMode] = useLocalStorage('atem_macro_recall_mode', 'icon'); // 'icon' | 'text'
+    const [isDraggingDots, setIsDraggingDots] = useState(false);
     
     // Live hardware state from bridge
     const [macroPlayer, setMacroPlayer] = useState({ isRunning: false, isWaiting: false, loop: false, macroIndex: -1 });
     const [macroProperties, setMacroProperties] = useState([]);
     const [bridgeStatus, setBridgeStatus] = useState('connecting');
+    
     const wsRef = useRef(null);
     const reconnectTimerRef = useRef(null);
+    const dotsContainerRef = useRef(null);
+    const lastWheelTimeRef = useRef(0);
 
     const initWebSocket = () => {
         const wsUrl = `ws://localhost:${BRIDGE_PORT}`;
@@ -1535,6 +1576,58 @@ const AtemMacros = ({ connectedDevice }) => {
         };
     }, []);
 
+    // Accelerated mouse wheel pagination across the entire macro quadrant
+    const handlePanelWheel = (e) => {
+        const now = Date.now();
+        if (now - lastWheelTimeRef.current < 35) return;
+        
+        if (Math.abs(e.deltaY) > 1 || Math.abs(e.deltaX) > 1) {
+            lastWheelTimeRef.current = now;
+            if (e.deltaY > 0 || e.deltaX > 0) {
+                setCurrentPage(p => Math.min(TOTAL_PAGES, p + 1));
+            } else if (e.deltaY < 0 || e.deltaX < 0) {
+                setCurrentPage(p => Math.max(1, p - 1));
+            }
+        }
+    };
+
+    // Scrub / slide pagination by holding mouse down across dots
+    const updatePageFromClientX = (clientX) => {
+        if (!dotsContainerRef.current) return;
+        const rect = dotsContainerRef.current.getBoundingClientRect();
+        const relativeX = clientX - rect.left;
+        const progress = Math.max(0, Math.min(1, relativeX / rect.width));
+        const targetPage = Math.min(TOTAL_PAGES, Math.max(1, Math.ceil(progress * TOTAL_PAGES)));
+        setCurrentPage(targetPage);
+    };
+
+    const handleDotsMouseDown = (e) => {
+        setIsDraggingDots(true);
+        updatePageFromClientX(e.clientX);
+    };
+
+    useEffect(() => {
+        const handleMouseMove = (e) => {
+            if (isDraggingDots) {
+                updatePageFromClientX(e.clientX);
+            }
+        };
+        const handleMouseUp = () => {
+            if (isDraggingDots) {
+                setIsDraggingDots(false);
+            }
+        };
+
+        if (isDraggingDots) {
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+        }
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isDraggingDots]);
+
     const sendCommand = (action, payload = {}) => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             try {
@@ -1558,7 +1651,31 @@ const AtemMacros = ({ connectedDevice }) => {
         sendCommand('MACRO_LOOP', { loop: !macroPlayer.loop });
     };
 
+    const getMacroName = (index) => {
+        if (macroProperties && macroProperties[index] && macroProperties[index].name) {
+            return macroProperties[index].name;
+        }
+        return '';
+    };
+
     const handleMacroClick = (index) => {
+        const name = getMacroName(index);
+        const isEmpty = !name || name.trim() === '';
+
+        // Clicking an empty macro executes a stop command
+        if (isEmpty) {
+            stopMacro();
+            setSelectedMacroIndex(null);
+            return;
+        }
+
+        // Clicking the same macro a second time executes a stop command
+        if (selectedMacroIndex === index) {
+            stopMacro();
+            setSelectedMacroIndex(null);
+            return;
+        }
+
         setSelectedMacroIndex(index);
         if (recallAndRun) {
             runMacro(index);
@@ -1567,55 +1684,83 @@ const AtemMacros = ({ connectedDevice }) => {
 
     const handlePlayClick = () => {
         if (selectedMacroIndex !== null) {
+            const name = getMacroName(selectedMacroIndex);
+            if (!name || name.trim() === '') {
+                stopMacro();
+                setSelectedMacroIndex(null);
+                return;
+            }
             runMacro(selectedMacroIndex);
+        }
+    };
+
+    const handleRecallContextMenu = (e) => {
+        e.preventDefault();
+        setRecallMode(prev => prev === 'icon' ? 'text' : 'icon');
+    };
+
+    const handleRecallClick = () => {
+        setRecallAndRun(prev => !prev);
+    };
+
+    const handleMacroMouseEnter = (e, macroIdx, name) => {
+        const textEl = e.currentTarget.querySelector('.macro-slot-text');
+        if (textEl && name && textEl.scrollWidth > textEl.clientWidth) {
+            e.currentTarget.setAttribute('data-description', `Macro ${macroIdx + 1}: ${name}`);
+        } else {
+            e.currentTarget.removeAttribute('data-description');
         }
     };
 
     const startIndex = (currentPage - 1) * MACROS_PER_PAGE;
     const currentMacroIndices = Array.from({ length: MACROS_PER_PAGE }, (_, i) => startIndex + i);
 
-    const getMacroName = (index) => {
-        if (macroProperties && macroProperties[index] && macroProperties[index].name) {
-            return macroProperties[index].name;
-        }
-        return '';
-    };
-
     return (
-        <div className="atem-macros-panel">
-            {/* 1. Header */}
+        <div className="atem-macros-panel" onWheel={handlePanelWheel}>
+            {/* Seamless Header Bar without divider line */}
             <div className="macro-header-bar">
                 <div className="macro-header-title">MACROS</div>
-            </div>
-
-            {/* 2. Control Toolbar */}
-            <div className="macro-toolbar">
-                <div 
-                    className="macro-toggle-group"
-                    onClick={() => setRecallAndRun(prev => !prev)}
-                    title="When enabled, clicking a macro executes it immediately"
-                >
-                    <div className={`macro-toggle-circle ${recallAndRun ? 'active' : ''}`} />
-                    <span className="macro-toggle-label">RECALL AND RUN</span>
-                </div>
 
                 <div className="macro-actions-group">
-                    {/* Modern Flat Loop */}
+                    {/* Recall & Run (Simple Double Play Triangle OR Text) */}
+                    {recallMode === 'icon' ? (
+                        <button 
+                            className={`macro-action-btn ${recallAndRun ? 'active-loop' : ''}`}
+                            onClick={handleRecallClick}
+                            onContextMenu={handleRecallContextMenu}
+                            data-description={`Recall & Run: ${recallAndRun ? 'ON' : 'OFF'} (Right-click for text)`}
+                        >
+                            <svg viewBox="0 0 24 24">
+                                <path d="M5 6.5v11l7.5-5.5L5 6.5zm8 0v11l7.5-5.5L13 6.5z" fill="currentColor" />
+                            </svg>
+                        </button>
+                    ) : (
+                        <button 
+                            className={`macro-toggle-pill ${recallAndRun ? 'active' : ''}`}
+                            onClick={handleRecallClick}
+                            onContextMenu={handleRecallContextMenu}
+                            data-description="Recall & Run (Right-click for icon)"
+                        >
+                            RECALL AND RUN
+                        </button>
+                    )}
+
+                    {/* Loop icon */}
                     <button 
                         className={`macro-action-btn ${macroPlayer.loop ? 'active-loop' : ''}`}
                         onClick={toggleLoop}
-                        title="Loop Macro"
+                        data-description="Loop Macro"
                     >
                         <svg viewBox="0 0 24 24">
-                            <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
+                            <path d="M17 17H7a4 4 0 0 1-4-4v-1h2v1a2 2 0 0 0 2 2h10v-3l4 4-4 4v-3zm-10-10h10a4 4 0 0 1 4 4v1h-2v-1a2 2 0 0 0-2-2H7v3L3 7l4-4v3z"/>
                         </svg>
                     </button>
 
-                    {/* Modern Flat Play */}
+                    {/* Play button */}
                     <button 
                         className={`macro-action-btn play-btn ${selectedMacroIndex !== null ? 'ready' : 'disabled'}`}
                         onClick={handlePlayClick}
-                        title="Run Selected Macro"
+                        data-description="Run Selected Macro"
                         disabled={selectedMacroIndex === null}
                     >
                         <svg viewBox="0 0 24 24">
@@ -1623,11 +1768,11 @@ const AtemMacros = ({ connectedDevice }) => {
                         </svg>
                     </button>
 
-                    {/* Modern Flat Stop */}
+                    {/* Stop button */}
                     <button 
                         className={`macro-action-btn stop-btn ${macroPlayer.isRunning ? 'active' : ''}`}
                         onClick={stopMacro}
-                        title="Stop Macro"
+                        data-description="Stop Macro"
                     >
                         <svg viewBox="0 0 24 24">
                             <path d="M8 6h8c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2H8c-1.1 0-2-.9-2-2V8c0-1.1.9-2 2-2z"/>
@@ -1636,7 +1781,7 @@ const AtemMacros = ({ connectedDevice }) => {
                 </div>
             </div>
 
-            {/* 3. 20-Button Matrix Grid (2 Columns x 10 Rows) */}
+            {/* 20-Button Matrix Grid (Column 1: 1-10; Column 2: 11-20) */}
             <div className="macro-matrix-grid">
                 {currentMacroIndices.map((macroIdx) => {
                     const name = getMacroName(macroIdx);
@@ -1648,36 +1793,43 @@ const AtemMacros = ({ connectedDevice }) => {
                             key={`macro-btn-${macroIdx}`}
                             className={`macro-slot-btn ${isSelected ? 'selected' : ''} ${isRunning ? 'running' : ''}`}
                             onClick={() => handleMacroClick(macroIdx)}
-                            title={`Macro ${macroIdx + 1}${name ? `: ${name}` : ''}`}
+                            onMouseEnter={(e) => handleMacroMouseEnter(e, macroIdx, name)}
+                            onMouseLeave={(e) => e.currentTarget.removeAttribute('data-description')}
                         >
                             <div className="macro-slot-content">
                                 <span className="macro-slot-num">{macroIdx + 1}</span>
-                                <span className="macro-slot-text">{name}</span>
+                                <span className="macro-slot-text">{name ? name.toUpperCase() : ''}</span>
                             </div>
                         </button>
                     );
                 })}
             </div>
 
-            {/* 4. Centered Pagination Footer */}
+            {/* Pagination Footer with Bold Navigation Arrows */}
             <div className="macro-pagination-footer">
                 <div className="macro-pagination-wrapper">
                     <button 
                         className="macro-page-nav-btn"
                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
-                        title="Previous Page"
+                        data-description={currentPage === 1 ? undefined : "Previous Page"}
                     >
-                        <svg viewBox="0 0 24 24"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M14.5 17.5L9 12l5.5-5.5" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
                     </button>
 
-                    <div className="macro-page-dots-container">
+                    <div 
+                        className="macro-page-dots-container"
+                        ref={dotsContainerRef}
+                        onMouseDown={handleDotsMouseDown}
+                    >
                         {Array.from({ length: TOTAL_PAGES }, (_, i) => i + 1).map((pageNum) => (
                             <button
                                 key={`page-dot-${pageNum}`}
                                 className={`macro-page-dot ${currentPage === pageNum ? 'active' : ''}`}
-                                onClick={() => setCurrentPage(pageNum)}
-                                title={`Page ${pageNum} (Macros ${(pageNum - 1) * 20 + 1}–${pageNum * 20})`}
+                                onClick={(e) => { e.stopPropagation(); setCurrentPage(pageNum); }}
+                                data-description={`Page ${pageNum} (Macros ${(pageNum - 1) * 20 + 1}â€“${pageNum * 20})`}
                             />
                         ))}
                     </div>
@@ -1686,9 +1838,11 @@ const AtemMacros = ({ connectedDevice }) => {
                         className="macro-page-nav-btn"
                         onClick={() => setCurrentPage(p => Math.min(TOTAL_PAGES, p + 1))}
                         disabled={currentPage === TOTAL_PAGES}
-                        title="Next Page"
+                        data-description={currentPage === TOTAL_PAGES ? undefined : "Next Page"}
                     >
-                        <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M9.5 6.5L15 12l-5.5 5.5" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
                     </button>
                 </div>
             </div>
@@ -1696,9 +1850,9 @@ const AtemMacros = ({ connectedDevice }) => {
     );
 };
 
-export default AtemMacros; 
+export default AtemMacros;
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Settings\SettingsModal.jsx === 
+=== FILE: src/components/Settings/SettingsModal.jsx === 
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
@@ -1919,9 +2073,9 @@ const SettingsModal = ({
     );
 };
 
-export default SettingsModal; 
+export default SettingsModal;
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Sidebar\BottomActionBtn.jsx === 
+=== FILE: src/components/Sidebar/BottomActionBtn.jsx === 
 import React from 'react';
 
 // =========================================================================
@@ -2014,9 +2168,9 @@ const BottomActionBtn = ({ deviceState, showActionButton, isVisible }) => {
     );
 };
 
-export default BottomActionBtn; 
+export default BottomActionBtn;
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Sidebar\ColorDropdown.jsx === 
+=== FILE: src/components/Sidebar/ColorDropdown.jsx === 
 import React, { useState, useRef, useEffect } from 'react';
 import { mutedColors } from '../../hooks/useDevices';
 
@@ -2081,9 +2235,9 @@ const ColorDropdown = ({ currentColor, onChange }) => {
     );
 };
 
-export default ColorDropdown; 
+export default ColorDropdown;
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Sidebar\DeviceList.jsx === 
+=== FILE: src/components/Sidebar/DeviceList.jsx === 
 import React, { useState } from 'react';
 import DeviceRow from './DeviceRow';
 import ColorDropdown from './ColorDropdown';
@@ -2275,7 +2429,7 @@ const DeviceList = ({ deviceState, enableDragDrop, forceUppercase }) => {
                                                 setEditingId(null);
                                                 setEditingGroupContext(g);
                                             }}
-                                        >✎</button>
+                                        >âœŽ</button>
                                     )}
                                 </div>
                             </div>
@@ -2321,9 +2475,9 @@ const DeviceList = ({ deviceState, enableDragDrop, forceUppercase }) => {
     );
 };
 
-export default DeviceList; 
+export default DeviceList;
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Sidebar\DeviceRow.jsx === 
+=== FILE: src/components/Sidebar/DeviceRow.jsx === 
 import React, { useState, useRef, useEffect } from 'react';
 import ColorDropdown from './ColorDropdown';
 
@@ -2486,15 +2640,15 @@ const DeviceRow = ({
                     className="edit-btn" 
                     title="Edit"
                     onClick={(e) => { e.stopPropagation(); onEditStart(device.id); }}
-                >✎</button>
+                >âœŽ</button>
             </div>
         </div>
     );
 };
 
-export default DeviceRow; 
+export default DeviceRow;
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Sidebar\SearchBar.jsx === 
+=== FILE: src/components/Sidebar/SearchBar.jsx === 
 import React, { useState, useEffect } from 'react';
 
 // =========================================================================
@@ -2601,9 +2755,9 @@ const SearchBar = ({ deviceState, showActionButton }) => {
     );
 };
 
-export default SearchBar; 
+export default SearchBar;
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\Sidebar\Sidebar.jsx === 
+=== FILE: src/components/Sidebar/Sidebar.jsx === 
 import React, { useState } from 'react';
 import SearchBar from './SearchBar';
 import DeviceList from './DeviceList';
@@ -2643,9 +2797,9 @@ const Sidebar = ({
     );
 };
 
-export default Sidebar; 
+export default Sidebar;
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\UI\ErrorBoundary.jsx === 
+=== FILE: src/components/UI/ErrorBoundary.jsx === 
 import React from 'react';
 
 // =========================================================================
@@ -2690,9 +2844,9 @@ class ErrorBoundary extends React.Component {
     }
 }
 
-export default ErrorBoundary; 
+export default ErrorBoundary;
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\UI\GlobalTooltip.jsx === 
+=== FILE: src/components/UI/GlobalTooltip.jsx === 
 import React, { useEffect, useRef } from 'react';
 
 // =========================================================================
@@ -2734,9 +2888,9 @@ export default function GlobalTooltip() {
     }, []);
 
     return <div ref={tooltipRef} className="global-tooltip" />;
-} 
+}
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\UI\QuadrantContextMenu.jsx === 
+=== FILE: src/components/UI/QuadrantContextMenu.jsx === 
 import React, { useEffect, useRef } from 'react';
 
 // =========================================================================
@@ -2770,14 +2924,14 @@ export default function QuadrantContextMenu({ x, y, currentQuad, onClose, onSele
                     onClick={() => { onSelectQuadrant(quad); onClose(); }}
                 >
                     <span>Quadrant {quad}</span>
-                    {currentQuad === quad && <span style={{ color: 'var(--green)', fontWeight: 'bold' }}>✓</span>}
+                    {currentQuad === quad && <span style={{ color: 'var(--green)', fontWeight: 'bold' }}>âœ“</span>}
                 </div>
             ))}
         </div>
     );
-} 
+}
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\UI\Skeleton.jsx === 
+=== FILE: src/components/UI/Skeleton.jsx === 
 import React from 'react';
 
 // =========================================================================
@@ -2793,64 +2947,9 @@ const Skeleton = ({ width = '100%', height = '30px', borderRadius = 'var(--pill-
     );
 };
 
-export default Skeleton; 
+export default Skeleton;
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\VideoPlayer\SnapshotEngine.js === 
-// =========================================================================
-// ATEM WEB MANAGER - SNAPSHOT ENGINE (v1.75)
-// =========================================================================
-
-export const takeSnapshot = (videoEl, customOverlayImg, wipeState) => {
-    const { clipV, clipH, revV, revH, opacity } = wipeState;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 1920; 
-    canvas.height = 1080;
-    const ctx = canvas.getContext('2d');
-    
-    // Draw Video Frame
-    if (videoEl && videoEl.readyState >= 2) {
-        try {
-            ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-        } catch (e) {
-            ctx.fillStyle = '#111';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
-    } else {
-        ctx.fillStyle = '#111';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-    
-    // Calculate Wipe Math for Overlay
-    let tCrop = revV ? 0 : (clipV / 100) * canvas.height;
-    let bCrop = revV ? (clipV / 100) * canvas.height : 0;
-    let lCrop = revH ? 0 : (clipH / 100) * canvas.width;
-    let rCrop = revH ? (clipH / 100) * canvas.width : 0;
-    
-    let drawX = lCrop;
-    let drawY = tCrop;
-    let drawW = canvas.width - lCrop - rCrop;
-    let drawH = canvas.height - tCrop - bCrop;
-    
-    if (drawW > 0 && drawH > 0 && customOverlayImg && customOverlayImg.src) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(drawX, drawY, drawW, drawH);
-        ctx.clip();
-        
-        ctx.globalAlpha = parseFloat(opacity) / 100;
-        ctx.drawImage(customOverlayImg, 0, 0, canvas.width, canvas.height);
-        ctx.globalAlpha = 1.0;
-        ctx.restore();
-    }
-    
-    const link = document.createElement('a');
-    link.download = 'atem-snapshot-' + Date.now() + '.png';
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-}; 
- 
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\VideoPlayer\OverlayDrawer.jsx === 
+=== FILE: src/components/VideoPlayer/OverlayDrawer.jsx === 
 import React from 'react';
 
 // =========================================================================
@@ -2908,9 +3007,9 @@ const OverlayDrawer = ({ show, overlayImg, onImageUpload, onClearImage, wipeStat
     );
 };
 
-export default OverlayDrawer; 
+export default OverlayDrawer;
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\VideoPlayer\Player.jsx === 
+=== FILE: src/components/VideoPlayer/Player.jsx === 
 import React, { useEffect, useRef, useState } from 'react';
 import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
@@ -3134,9 +3233,9 @@ const Player = ({ currentVideoSource }) => {
     );
 };
 
-export default Player; 
+export default Player;
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\components\VideoPlayer\QualityMenu.jsx === 
+=== FILE: src/components/VideoPlayer/QualityMenu.jsx === 
 import React from 'react';
 
 // =========================================================================
@@ -3161,9 +3260,64 @@ const QualityMenu = ({ show, onResolutionSelect }) => {
     );
 };
 
-export default QualityMenu; 
+export default QualityMenu;
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\hooks\useDevices.js === 
+=== FILE: src/components/VideoPlayer/SnapshotEngine.js === 
+// =========================================================================
+// ATEM WEB MANAGER - SNAPSHOT ENGINE (v1.75)
+// =========================================================================
+
+export const takeSnapshot = (videoEl, customOverlayImg, wipeState) => {
+    const { clipV, clipH, revV, revH, opacity } = wipeState;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1920; 
+    canvas.height = 1080;
+    const ctx = canvas.getContext('2d');
+    
+    // Draw Video Frame
+    if (videoEl && videoEl.readyState >= 2) {
+        try {
+            ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+        } catch (e) {
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+    } else {
+        ctx.fillStyle = '#111';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    
+    // Calculate Wipe Math for Overlay
+    let tCrop = revV ? 0 : (clipV / 100) * canvas.height;
+    let bCrop = revV ? (clipV / 100) * canvas.height : 0;
+    let lCrop = revH ? 0 : (clipH / 100) * canvas.width;
+    let rCrop = revH ? (clipH / 100) * canvas.width : 0;
+    
+    let drawX = lCrop;
+    let drawY = tCrop;
+    let drawW = canvas.width - lCrop - rCrop;
+    let drawH = canvas.height - tCrop - bCrop;
+    
+    if (drawW > 0 && drawH > 0 && customOverlayImg && customOverlayImg.src) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(drawX, drawY, drawW, drawH);
+        ctx.clip();
+        
+        ctx.globalAlpha = parseFloat(opacity) / 100;
+        ctx.drawImage(customOverlayImg, 0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 1.0;
+        ctx.restore();
+    }
+    
+    const link = document.createElement('a');
+    link.download = 'atem-snapshot-' + Date.now() + '.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+};
+ 
+=== FILE: src/hooks/useDevices.js === 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 
@@ -3255,9 +3409,9 @@ export function useDevices() {
         actionState, setActionState, validIP, ipTaken, groupExists,
         addDevice, deleteDevice, connectDevice
     };
-} 
+}
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\hooks\useDragDrop.js === 
+=== FILE: src/hooks/useDragDrop.js === 
 import { useCallback } from 'react';
 
 // =========================================================================
@@ -3339,9 +3493,9 @@ export function useDragDrop(enableDragDrop) {
         handleQuadrantDragLeave,
         handleQuadrantDrop
     };
-} 
+}
  
-=== FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\hooks\useLocalStorage.js === 
+=== FILE: src/hooks/useLocalStorage.js === 
 import { useState, useEffect } from 'react';
 
 // =========================================================================
@@ -3371,5 +3525,5 @@ export function useLocalStorage(key, initialValue) {
     }, [key, value]);
 
     return [value, setValue];
-} 
+}
  

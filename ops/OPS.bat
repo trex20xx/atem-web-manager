@@ -1,246 +1,223 @@
 @echo off
-setlocal EnableDelayedExpansion
-title ATEM WEB MANAGER - OPERATIONS SUITE (v2.43.0)
+setlocal
 
-set "REPO_URL=https://github.com/trex20xx/atem-web-manager.git"
-set "EXPECTED_KEY=ATEM_MANAGER_SECURE_WIPE_KEY_2026"
+:: =============================================================================
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v2.54)
+:: =============================================================================
 
-set "PROJECT_ROOT=%~dp0\.."
-if not exist "%PROJECT_ROOT%\package.json" set "PROJECT_ROOT=%CD%"
+:: Establish Project Root context
+set "SCRIPT_DIR=%~dp0"
+if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
+for %%I in ("%SCRIPT_DIR%") do (
+    if /I "%%~nxI"=="ops" (
+        set "PROJECT_ROOT=%%~dpI"
+    ) else (
+        set "PROJECT_ROOT=%SCRIPT_DIR%"
+    )
+)
+if "%PROJECT_ROOT:~-1%"=="\" set "PROJECT_ROOT=%PROJECT_ROOT:~0,-1%"
 cd /d "%PROJECT_ROOT%"
 
 :MENU
 cls
-for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set "CURRENT_BRANCH=%%b"
-if "!CURRENT_BRANCH!"=="" set "CURRENT_BRANCH=not-cloned"
+echo =================================================================
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v2.54)       
+echo =================================================================
+echo   [1] RUN ^& EVALUATE  (Vite + Daemon, Auto-Export ^& Evaluation)
+echo   [2] WIPE            (Token-Verified Complete Directory Erasure)
+echo   [3] EXPORT          (Serialize workspace to codebase.txt)
+echo   [4] EXIT
+echo =================================================================
+set /p CHOICE=" Select action (1-4): "
 
-echo =========================================================================
-echo         ATEM WEB MANAGER - OPERATIONS SUITE (v2.43.0)                    
-echo         Active Branch: [!CURRENT_BRANCH!]                                
-echo =========================================================================
-echo   [1] RUN ^& EVALUATE - Auto-export codebase, start bridge + UI, evaluate 
-echo   [2] WIPE           - Secure token check ^& workspace erasure           
-echo   [3] EXPORT         - Package full codebase into codebase.txt for AI   
-echo   [4] EXIT                                                               
-echo =========================================================================
-set /p "CHOICE=Select an option [1-4]: "
-
-if "%CHOICE%"=="1" goto DO_INIT
-if "%CHOICE%"=="2" goto DO_WIPE
-if "%CHOICE%"=="3" goto DO_EXPORT
-if "%CHOICE%"=="4" exit /b 0
+if "%CHOICE%"=="1" goto RUN_EVAL
+if "%CHOICE%"=="2" goto WIPE
+if "%CHOICE%"=="3" goto EXPORT
+if "%CHOICE%"=="4" goto QUIT
 goto MENU
 
-:DO_EXPORT_SILENT
-set "OUT_FILE=%PROJECT_ROOT%\codebase.txt"
-break > "%OUT_FILE%"
-
-for %%F in (index.html vite.config.js package.json bridge\package.json bridge\server.js) do (
-    if exist "%PROJECT_ROOT%\%%F" (
-        echo === FILE: %%F === >> "%OUT_FILE%"
-        type "%PROJECT_ROOT%\%%F" >> "%OUT_FILE%"
-        echo. >> "%OUT_FILE%"
-        echo. >> "%OUT_FILE%"
-    )
-)
-
-for /r "%PROJECT_ROOT%\src" %%F in (*.js *.jsx *.css) do (
-    set "FULL_PATH=%%F"
-    set "REL_PATH=!FULL_PATH:%PROJECT_ROOT%\=!"
-    echo === FILE: !REL_PATH! === >> "%OUT_FILE%"
-    type "%%F" >> "%OUT_FILE%"
-    echo. >> "%OUT_FILE%"
-    echo. >> "%OUT_FILE%"
-)
-exit /b 0
-
-:DO_INIT
-echo.
-echo [INFO] Verifying workspace...
-
-if not exist "%PROJECT_ROOT%\package.json" (
-    echo [INFO] Project files not found in current directory.
-    set /p "USER_DIR=Enter installation path: "
-    if "!USER_DIR!"=="" set "USER_DIR=%CD%\ATEM_WEB_MANAGER"
-    git clone -b main !REPO_URL! "!USER_DIR!"
-    set "PROJECT_ROOT=!USER_DIR!"
-    cd /d "!PROJECT_ROOT!"
-)
-
-set "NODE_EXE=node"
-set "NPM_EXE=npm"
+:SETUP_NODE_ENV
 call node -v >nul 2>&1
-if !ERRORLEVEL! NEQ 0 (
-    if exist "%PROJECT_ROOT%\.atem_node_path" (
-        set /p CUSTOM_NODE_PATH=<"%PROJECT_ROOT%\.atem_node_path"
-    ) else (
-        set /p CUSTOM_NODE_PATH="Enter portable Node.js directory path: "
-        echo !CUSTOM_NODE_PATH!> "%PROJECT_ROOT%\.atem_node_path"
-    )
-    set "PATH=!CUSTOM_NODE_PATH!;!PATH!"
-    set "NODE_EXE=!CUSTOM_NODE_PATH!\node.exe"
-    set "NPM_EXE=!CUSTOM_NODE_PATH!\npm.cmd"
+if %ERRORLEVEL% equ 0 (
+    set "NODE_CMD=node"
+    set "NPM_CMD=npm"
+    goto :eof
 )
 
-for /f "tokens=5" %%a in ('netstat -aon ^| find ":8080" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
-for /f "tokens=5" %%a in ('netstat -aon ^| find ":3000" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
-for /f "tokens=5" %%a in ('netstat -aon ^| find ":5173" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
-
-if not exist "node_modules\vite\" (
-    echo [INFO] Installing frontend dependencies...
-    call "!NPM_EXE!" install
+if not exist "%PROJECT_ROOT%\.atem_node_path" goto PROMPT_NODE_PATH
+set /p CACHED_NODE_DIR=<"%PROJECT_ROOT%\.atem_node_path"
+if exist "%CACHED_NODE_DIR%\node.exe" (
+    set "PATH=%CACHED_NODE_DIR%;%PATH%"
+    set "NODE_CMD=%CACHED_NODE_DIR%\node.exe"
+    set "NPM_CMD=%CACHED_NODE_DIR%\npm.cmd"
+    goto :eof
 )
 
-cd bridge
-if not exist "node_modules\ws\" (
-    echo [INFO] Installing hardware bridge dependencies...
-    call "!NPM_EXE!" install
+:PROMPT_NODE_PATH
+echo.
+echo =================================================================
+echo                 NODE.JS ENVIRONMENT REQUIRED
+echo =================================================================
+echo  'node' and 'npm' were not detected in your global system PATH.
+echo  Please enter the full folder path containing node.exe and npm.cmd
+echo  (e.g. C:\Tools\Node or C:\Users\user\Downloads\node-v20-win-x64):
+echo =================================================================
+set "USER_NODE_DIR="
+set /p USER_NODE_DIR=" Enter path: "
+if "%USER_NODE_DIR%"=="" goto MENU
+set "USER_NODE_DIR=%USER_NODE_DIR:"=%"
+
+if not exist "%USER_NODE_DIR%\node.exe" (
+    echo [ERROR] node.exe was not found in: "%USER_NODE_DIR%"
+    pause
+    goto MENU
 )
-cd ..
 
-:: Auto-export codebase on every run
-echo [INFO] Auto-exporting latest codebase to codebase.txt...
-call :DO_EXPORT_SILENT
+echo %USER_NODE_DIR%>"%PROJECT_ROOT%\.atem_node_path"
+set "PATH=%USER_NODE_DIR%;%PATH%"
+set "NODE_CMD=%USER_NODE_DIR%\node.exe"
+set "NPM_CMD=%USER_NODE_DIR%\npm.cmd"
+echo [OK] Node.js path saved to .atem_node_path
+goto :eof
 
-set "VBS_SCRIPT=%TEMP%\atem_bridge_launcher.vbs"
-echo Set WshShell = CreateObject("WScript.Shell") > "!VBS_SCRIPT!"
-echo WshShell.CurrentDirectory = "!PROJECT_ROOT!\bridge" >> "!VBS_SCRIPT!"
-echo WshShell.Run """!NODE_EXE!"" server.js", 0, False >> "!VBS_SCRIPT!"
-cscript //nologo "!VBS_SCRIPT!"
+:SYNC_CHANGELOG
+if not exist "ops\CHANGELOG" goto :eof
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$m='ops\CHANGELOG.MD'; if (-not (Test-Path $m)) { Set-Content -Path $m -Value '# ATEM WEB MANAGER - Complete Version History' -Encoding UTF8 }; $files=Get-ChildItem -Path 'ops\CHANGELOG\*.md' -ErrorAction SilentlyContinue; if ($files) { $mt=Get-Content $m -Raw; foreach ($f in $files) { $c=(Get-Content $f.FullName -Raw).Trim(); if ($c -match '\[v[0-9]+(\.[0-9]+)*\]') { $tag=$matches[0]; if ($mt -notmatch [regex]::Escape($tag)) { Write-Host ('[OPS] Merging ' + $tag + ' into ' + $m + '...'); $lines=Get-Content $m; $header=$lines[0]; $rest=if ($lines.Count -gt 1) { $lines[1..($lines.Count - 1)] } else { @() }; @($header, '', $c, '') + $rest | Set-Content -Path $m -Encoding UTF8; $mt=Get-Content $m -Raw } } } }"
+goto :eof
 
-echo [INFO] Launching Vite UI (Auto-opening browser)...
-echo [NOTE] Press Ctrl+C in this console when finished testing to open Evaluation Menu.
+:CLEANUP_PORTS
+powershell -NoProfile -ExecutionPolicy Bypass -Command "8080, 3000 | ForEach-Object { $p = (Get-NetTCPConnection -LocalPort $_ -State Listen -ErrorAction SilentlyContinue).OwningProcess; if ($p) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue } }"
+goto :eof
+
+:EXPORT_CODEBASE
 echo.
-call "!NPM_EXE!" run dev
+echo =================================================================
+echo        SERIALIZING CODEBASE FOR AI HANDOVER (codebase.txt)       
+echo =================================================================
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$out='codebase.txt'; $all=@(); @('index.html','vite.config.js','package.json') | ForEach-Object { if (Test-Path $_) { $all += ('=== FILE: ' + $_ + ' === '); $all += (Get-Content $_ -Raw); $all += ' ' } }; if (Test-Path 'bridge') { Get-ChildItem -Path 'bridge' -File | Where-Object { $_.Name -ne 'package-lock.json' } | ForEach-Object { $all += ('=== FILE: bridge/' + $_.Name + ' === '); $all += (Get-Content $_.FullName -Raw); $all += ' ' } }; if (Test-Path 'src') { $baseLen=(Get-Location).Path.Length + 1; Get-ChildItem -Path 'src' -Recurse -File | Where-Object { $_.Extension -match '^\.(js|jsx|css)$' } | ForEach-Object { $rel=$_.FullName.Substring($baseLen).Replace('\', '/'); $all += ('=== FILE: ' + $rel + ' === '); $all += (Get-Content $_.FullName -Raw); $all += ' ' } }; [System.IO.File]::WriteAllLines((Join-Path (Get-Location) $out), $all, [System.Text.Encoding]::UTF8);"
+echo ^>^>^> Successfully serialized workspace to codebase.txt ^<^<^<
+goto :eof
 
-echo.
-echo [INFO] Vite UI stopped. Terminating background bridge daemon...
-for /f "tokens=5" %%a in ('netstat -aon ^| find ":8080" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
-echo [SUCCESS] Bridge daemon terminated cleanly.
+:RUN_EVAL
+call :SETUP_NODE_ENV
+call :SYNC_CHANGELOG
+call :CLEANUP_PORTS
+call :EXPORT_CODEBASE
 
-:DO_EVALUATE
-echo.
-echo =========================================================================
-echo                    ITERATION EVALUATION ^& NEXT STEPS                     
-echo =========================================================================
-echo   How did your changes look in the browser? Choose an action below:      
-echo.
-echo   [1] MERGE TO MAIN (Success - Feature Complete)
-echo       -^> Stages and commits your work, switches to 'main', pulls latest,
-echo          merges this branch into 'main', pushes to GitHub, and deletes
-echo          the temporary feature branch. Use this when the feature is DONE.
-echo.
-echo   [2] PUSH TO BRANCH (Success - Work in Progress)
-echo       -^> Stages, commits, and pushes your work to your current branch
-echo          on GitHub without merging into 'main'. Use this to save progress.
-echo.
-echo   [3] REVERT ^& DISCARD (Failed - Scrap Changes)
-echo       -^> Permanently undoes all modifications and deletes new untracked
-echo          files, resetting your workspace back to the last clean commit.
-echo          Use this when an experiment broke or you want to start over.
-echo.
-echo   [4] RETURN TO MENU (Keep Files As-Is)
-echo       -^> Leaves your local files exactly as they are without committing,
-echo          pushing, or reverting, and returns to the operations menu.
-echo =========================================================================
-set /p "EV_CHOICE=Choose an evaluation action [1-4]: "
+if exist "bridge\server.js" (
+    echo ^>^>^> Starting ATEM Hardware Bridge Daemon on Port 8080...
+    powershell -NoProfile -WindowStyle Hidden -Command "Start-Process '%NODE_CMD%' -ArgumentList 'server.js' -WorkingDirectory '%PROJECT_ROOT%\bridge'"
+)
 
-if "%EV_CHOICE%"=="1" (
-    for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD') do set "CURRENT_BRANCH=%%b"
-    set /p "COMMIT_DESC=Enter commit description: "
-    if "!COMMIT_DESC!"=="" set "COMMIT_DESC=feat: update iteration changes"
+echo ^>^>^> Starting Frontend Server on Port 3000 with auto-launch...
+call "%NPM_CMD%" run dev
 
-    if "!CURRENT_BRANCH!"=="main" (
-        git add -A
-        git commit -m "!COMMIT_DESC!"
-        git push origin main
-        echo [SUCCESS] Pushed directly to main.
-        pause
-        goto MENU
-    )
+call :CLEANUP_PORTS
 
+for /f "delims=" %%b in ('git rev-parse --abbrev-ref HEAD') do set "CURRENT_BRANCH=%%b"
+echo.
+echo =================================================================
+echo                   EVALUATION / REVERT PIPELINE                   
+echo =================================================================
+echo  Active Branch: %CURRENT_BRANCH%
+echo -----------------------------------------------------------------
+echo   [1] MERGE TO MAIN   - Merge this feature branch into 'main',
+echo                         push to GitHub, and delete feature branch.
+echo.
+echo   [2] PUSH TO BRANCH  - Keep working on this branch. Commit and
+echo                         push progress to GitHub without merging.
+echo.
+echo   [3] REVERT ^& DISCARD- Experiment failed. Reset codebase back to
+echo                         clean HEAD state (git reset --hard ^& clean).
+echo.
+echo   [4] RETURN TO MENU  - Leave all files exactly as they are without
+echo                         committing or reverting.
+echo =================================================================
+set /p EVAL_CHOICE=" Select post-run action (1-4): "
+
+if "%EVAL_CHOICE%"=="1" goto MERGE_MAIN
+if "%EVAL_CHOICE%"=="2" goto PUSH_BRANCH
+if "%EVAL_CHOICE%"=="3" goto REVERT_DISCARD
+goto MENU
+
+:MERGE_MAIN
+if "%CURRENT_BRANCH%"=="main" (
     git add -A
-    git commit -m "!COMMIT_DESC!" >nul 2>nul
+    git commit -m "feat: iteration update"
+    git push origin main
+    echo ^>^>^> Main branch updated and pushed. ^<^<^<
+) else (
+    git add -A
+    git commit -m "feat: iteration complete on %CURRENT_BRANCH%"
+    git push origin %CURRENT_BRANCH%
     git checkout main
     git pull origin main
-    git merge !CURRENT_BRANCH! -m "merge: fold verified !CURRENT_BRANCH! into main"
+    git merge %CURRENT_BRANCH% --no-edit
     git push origin main
-    git branch -d !CURRENT_BRANCH! >nul 2>nul
-    git push origin --delete !CURRENT_BRANCH! >nul 2>nul
-    echo [SUCCESS] Iteration complete! Main updated and branch pruned.
-    pause
-    goto MENU
+    git branch -d %CURRENT_BRANCH%
+    git push origin --delete %CURRENT_BRANCH% 2>nul
+    echo ^>^>^> Feature branch successfully merged into main and pruned. ^<^<^<
 )
-
-if "%EV_CHOICE%"=="2" (
-    set /p "COMMIT_MSG=Enter your commit message: "
-    if "!COMMIT_MSG!"=="" set "COMMIT_MSG=chore: save progress"
-    for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD') do set "CURRENT_BRANCH=%%b"
-    git add -A
-    git commit -m "!COMMIT_MSG!"
-    git push -u origin !CURRENT_BRANCH!
-    echo [SUCCESS] Code pushed to origin/!CURRENT_BRANCH!.
-    pause
-    goto MENU
-)
-
-if "%EV_CHOICE%"=="3" (
-    echo.
-    set /p "REV_CONFIRM=Are you sure you want to DISCARD all changes and revert? [y/N]: "
-    if /i "!REV_CONFIRM!"=="Y" (
-        git reset --hard HEAD
-        git clean -fd
-        echo [SUCCESS] Workspace reverted to clean state.
-    ) else (
-        echo [ABORT] Revert cancelled.
-    )
-    pause
-    goto MENU
-)
-
-if "%EV_CHOICE%"=="4" goto MENU
-goto DO_EVALUATE
-
-:DO_WIPE
-echo.
-set "TOKEN_FILE=%PROJECT_ROOT%\.atem_workspace_token"
-if not exist "%TOKEN_FILE%" (
-    echo [ERROR] Security token '%TOKEN_FILE%' not found. Aborted.
-    pause
-    goto MENU
-)
-set /p FILE_KEY=<"%TOKEN_FILE%"
-if "!FILE_KEY!" NEQ "%EXPECTED_KEY%" (
-    echo [ERROR] Token mismatch! Aborted.
-    pause
-    goto MENU
-)
-set /p "CONFIRM=Type 'DELETE' to permanently erase the entire workspace: "
-if "!CONFIRM!" NEQ "DELETE" (
-    echo [ABORT] Wipe cancelled.
-    pause
-    goto MENU
-)
-
-for /f "tokens=5" %%a in ('netstat -aon ^| find ":8080" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
-for /f "tokens=5" %%a in ('netstat -aon ^| find ":5173" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
-for /f "tokens=5" %%a in ('netstat -aon ^| find ":3000" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
-
-set "GHOST=%TEMP%\atem_wiper.bat"
-echo @echo off > "%GHOST%"
-echo timeout /t 3 /nobreak ^>nul >> "%GHOST%"
-echo rmdir /s /q "%PROJECT_ROOT%" >> "%GHOST%"
-echo echo [SUCCESS] Entire workspace deleted from drive. >> "%GHOST%"
-echo pause >> "%GHOST%"
-echo del "%%~f0" >> "%GHOST%"
-start "" "%GHOST%"
-exit
-
-:DO_EXPORT
-echo.
-echo [INFO] Packaging complete codebase into codebase.txt...
-call :DO_EXPORT_SILENT
-echo [SUCCESS] Complete codebase saved to: codebase.txt
-echo [INFO] Ready to upload directly to any AI chat session.
 pause
 goto MENU
+
+:PUSH_BRANCH
+git add -A
+set "CMSG="
+set /p CMSG=" Enter commit message: "
+if "%CMSG%"=="" set "CMSG=wip: evaluation checkpoint"
+git commit -m "%CMSG%"
+git push origin %CURRENT_BRANCH%
+echo ^>^>^> Committed and pushed to %CURRENT_BRANCH%. ^<^<^<
+pause
+goto MENU
+
+:REVERT_DISCARD
+echo ^>^>^> Discarding all uncommitted changes and cleaning workspace...
+git reset --hard HEAD
+git clean -fd
+echo ^>^>^> Workspace clean and reverted. ^<^<^<
+pause
+goto MENU
+
+:WIPE
+echo.
+echo =================================================================
+echo                   SECURE WORKSPACE WIPE PROTOCOL                 
+echo =================================================================
+set "TOKEN_FILE=%PROJECT_ROOT%\.atem_workspace_token"
+set "REQUIRED_KEY=ATEM_MANAGER_SECURE_WIPE_KEY_2026"
+
+if not exist "%TOKEN_FILE%" (
+    echo [ABORT] Security token missing: .atem_workspace_token not found.
+    pause
+    goto MENU
+)
+set /p FOUND_KEY=<"%TOKEN_FILE%"
+if not "%FOUND_KEY%"=="%REQUIRED_KEY%" (
+    echo [ABORT] Invalid security key inside .atem_workspace_token.
+    pause
+    goto MENU
+)
+
+set /p CONFIRM=" Type 'WIPE' to completely destroy this project directory: "
+if "%CONFIRM%"=="WIPE" (
+    call :CLEANUP_PORTS
+    cd ..
+    rmdir /S /Q "%PROJECT_ROOT%"
+    echo ^>^>^> Project workspace successfully erased. ^<^<^<
+    exit /b 0
+)
+echo ^>^>^> Wipe aborted. ^<^<^<
+pause
+goto MENU
+
+:EXPORT
+call :EXPORT_CODEBASE
+pause
+goto MENU
+
+:QUIT
+call :CLEANUP_PORTS
+echo ^>^>^> Exiting master CLI. Goodbye! ^<^<^<
+exit /b 0
