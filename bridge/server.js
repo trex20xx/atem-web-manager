@@ -1,7 +1,7 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.58)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.60)
 // =========================================================================
-// Bidirectional switcher bus, macro execution & aux router sync over WebSocket (8080).
+// Bidirectional switcher bus, macro execution, aux router, DSK & FTB sync over WebSocket.
 
 const { Atem } = require('atem-connection');
 const WebSocket = require('ws');
@@ -9,8 +9,8 @@ const WebSocket = require('ws');
 const ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
 
-console.log(`[ATEM Bridge v2.58] Starting bridge service...`);
-console.log(`[ATEM Bridge v2.58] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v2.60] Starting bridge service...`);
+console.log(`[ATEM Bridge v2.60] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 const atem = new Atem();
 let isAtemConnected = false;
@@ -20,23 +20,30 @@ let currentPgm = 1;
 let currentPvw = 2;
 let currentInTransition = false;
 let currentAux = [1, 2, 3, 4, 5, 6];
+let transitionRate = 30;
+let ftb = { inTransition: false, isFullyBlack: false, rate: 30 };
+let dsk = { onAir: false, inTransition: false, autoOnAir: false, tie: false, rate: 30 };
 
 function broadcastState(targetWs = null) {
     try {
         const hardwareConnected = (atem && atem.status === 2) || isAtemConnected;
 
-        // Synchronize with atem-connection state tree if populated
+        // Extract PGM/PVW/Transitions
         if (atem && atem.state && atem.state.video && atem.state.video.mixEffects) {
             const meObj = atem.state.video.mixEffects;
             const me = meObj[0] || (Array.isArray(meObj) ? meObj[0] : Object.values(meObj)[0]);
             if (me) {
                 if (typeof me.programInput === 'number') currentPgm = me.programInput;
                 if (typeof me.previewInput === 'number') currentPvw = me.previewInput;
+                
                 if (me.transitionPosition && typeof me.transitionPosition.inTransition === 'boolean') {
                     currentInTransition = me.transitionPosition.inTransition;
                 } else if (typeof me.inTransition === 'boolean') {
                     currentInTransition = me.inTransition;
                 }
+
+                if (me.transitionProperties) transitionRate = me.transitionProperties.rate;
+                if (me.fadeToBlack) ftb = me.fadeToBlack;
             }
         }
 
@@ -49,16 +56,26 @@ function broadcastState(targetWs = null) {
             });
         }
 
-        // Extract Macro state if available
+        // Extract DSK
+        if (atem && atem.state && atem.state.video && atem.state.video.downstreamKeyers) {
+            const d = atem.state.video.downstreamKeyers[0];
+            if (d) {
+                dsk.onAir = d.onAir;
+                dsk.inTransition = d.inTransition;
+                dsk.autoOnAir = d.autoOnAir;
+                if (d.properties) {
+                    dsk.tie = d.properties.tie;
+                    dsk.rate = d.properties.rate;
+                }
+            }
+        }
+
+        // Extract Macros
         let macroPlayer = { isRunning: false, isWaiting: false, loop: false, macroIndex: -1 };
         let macroProperties = [];
         if (atem && atem.state && atem.state.macro) {
-            if (atem.state.macro.macroPlayer) {
-                macroPlayer = atem.state.macro.macroPlayer;
-            }
-            if (atem.state.macro.macroProperties) {
-                macroProperties = atem.state.macro.macroProperties;
-            }
+            if (atem.state.macro.macroPlayer) macroPlayer = atem.state.macro.macroPlayer;
+            if (atem.state.macro.macroProperties) macroProperties = atem.state.macro.macroProperties;
         }
 
         const payload = JSON.stringify({
@@ -68,6 +85,9 @@ function broadcastState(targetWs = null) {
             pvw: currentPvw,
             inTransition: currentInTransition,
             auxSources: currentAux,
+            transitionRate,
+            ftb,
+            dsk,
             macroPlayer,
             macroProperties
         });
@@ -121,6 +141,8 @@ function handleHardwareCommand(cmd) {
             changed = true;
             console.log(`[ATEM Bridge ⬅ Physical Switcher Event] Aux ${auxId + 1} routed to Source ${src}`);
         }
+    } else if (raw.includes('FadeToBlack') || raw.includes('Ftb') || raw.includes('Downstream') || raw.includes('Dsk') || raw.includes('TransitionRate')) {
+        changed = true;
     } else if (raw === 'MRPr' || raw.includes('Macro')) {
         changed = true;
     }
@@ -199,26 +221,30 @@ wss.on('connection', (ws) => {
             } else if (data.action === 'SET_AUX' && data.aux !== undefined && data.source !== undefined) {
                 const auxIdx = parseInt(data.aux, 10);
                 const src = parseInt(data.source, 10);
-                console.log(`[ATEM Bridge ➔ Routing Aux] Output ${auxIdx + 1} to Source ${src}`);
                 if (typeof atem.setAuxSource === 'function') {
+                    // atem-connection API for SetAux: atem.setAuxSource(source: number, bus: number)
                     atem.setAuxSource(src, auxIdx).catch(e => console.error('[ATEM Bridge] Aux Error:', e.message || e));
                 }
+            } else if (data.action === 'SET_TRANSITION_RATE') {
+                atem.setTransitionRate(parseInt(data.rate, 10) || 30, 0).catch(()=>{});
+            } else if (data.action === 'SET_FTB_RATE') {
+                atem.setFadeToBlackRate(parseInt(data.rate, 10) || 30, 0).catch(()=>{});
+            } else if (data.action === 'EXECUTE_FTB') {
+                atem.fadeToBlack(0).catch(()=>{});
+            } else if (data.action === 'SET_DSK_RATE') {
+                atem.setDownstreamKeyRate(parseInt(data.rate, 10) || 30, 0).catch(()=>{});
+            } else if (data.action === 'TOGGLE_DSK_TIE') {
+                atem.setDownstreamKeyTie(data.tie, 0).catch(()=>{});
+            } else if (data.action === 'TOGGLE_DSK_ONAIR') {
+                atem.setDownstreamKeyOnAir(data.onAir, 0).catch(()=>{});
+            } else if (data.action === 'EXECUTE_DSK_AUTO') {
+                atem.autoDownstreamKey(0).catch(()=>{});
             } else if (data.action === 'MACRO_RUN' && data.index !== undefined) {
-                const mIdx = parseInt(data.index, 10);
-                console.log(`[ATEM Bridge ➔ Executing Macro] Index: ${mIdx}`);
-                if (typeof atem.macroRun === 'function') {
-                    atem.macroRun(mIdx).catch((e) => console.error('[ATEM Bridge] Macro Run Error:', e.message || e));
-                }
+                if (typeof atem.macroRun === 'function') atem.macroRun(parseInt(data.index, 10)).catch(()=>{});
             } else if (data.action === 'MACRO_STOP') {
-                console.log(`[ATEM Bridge ➔ Stopping Macro]`);
-                if (typeof atem.macroStop === 'function') {
-                    atem.macroStop().catch((e) => console.error('[ATEM Bridge] Macro Stop Error:', e.message || e));
-                }
+                if (typeof atem.macroStop === 'function') atem.macroStop().catch(()=>{});
             } else if (data.action === 'MACRO_LOOP' && data.loop !== undefined) {
-                console.log(`[ATEM Bridge ➔ Setting Macro Loop] Loop: ${data.loop}`);
-                if (typeof atem.macroSetLoop === 'function') {
-                    atem.macroSetLoop(data.loop).catch((e) => console.error('[ATEM Bridge] Macro Loop Error:', e.message || e));
-                }
+                if (typeof atem.macroSetLoop === 'function') atem.macroSetLoop(data.loop).catch(()=>{});
             }
         } catch (err) {
             console.error('[ATEM Bridge] Message processing error:', err);

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.56)
+// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.60)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -243,7 +244,7 @@ const AtemMacros = ({ connectedDevice }) => {
                         </svg>
                     </button>
 
-                    {/* 2. Auto-Run Icon (Repositioned between Loop and Play) */}
+                    {/* 2. Auto-Run Circular Chase-Play Glyph */}
                     <button 
                         className={`macro-action-btn ${autoRun ? 'active-orange' : ''}`}
                         onClick={() => setAutoRun(prev => !prev)}

@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - GLOBAL TOOLTIP (v2.56)
+// ATEM WEB MANAGER - GLOBAL TOOLTIP (v2.60)
 // =========================================================================
-// Google AI Studio replica: Anchored below element, horizontally centered,
-// with left/right boundary clamping.
+// Google AI Studio replica: Anchored directly below the mouse/element, horizontally centered,
+// with left/right boundary clamping to prevent screen edge overflow.
 
 export default function GlobalTooltip() {
     const tooltipRef = useRef(null);
@@ -17,9 +17,9 @@ export default function GlobalTooltip() {
             const rect = target.getBoundingClientRect();
             const tipWidth = tip.offsetWidth || 120;
             const tipHeight = tip.offsetHeight || 26;
-            const margin = 8;
+            const margin = 12;
 
-            // Horizontally center under element
+            // Horizontally center directly beneath the hovered element
             let left = rect.left + (rect.width / 2) - (tipWidth / 2);
 
             // Left/Right boundary clamping
@@ -29,10 +29,12 @@ export default function GlobalTooltip() {
                 left = window.innerWidth - tipWidth - margin;
             }
 
-            // Position below element, or flip above if hitting bottom
-            let top = rect.bottom + 6;
+            // Anchor exactly below the element
+            let top = rect.bottom + 8;
+            
+            // Flip above if hitting the bottom edge
             if (top + tipHeight > window.innerHeight - margin) {
-                top = rect.top - tipHeight - 6;
+                top = rect.top - tipHeight - 8;
             }
 
             tip.style.left = `${Math.round(left)}px`;
@@ -44,7 +46,7 @@ export default function GlobalTooltip() {
             if (target && target.dataset.description && tooltipRef.current) {
                 tooltipRef.current.textContent = target.dataset.description;
                 tooltipRef.current.style.display = 'block';
-                // Trigger layout pass before measuring dimensions
+                // Trigger layout pass before measuring actual dimensions
                 requestAnimationFrame(() => {
                     updatePosition(target);
                 });

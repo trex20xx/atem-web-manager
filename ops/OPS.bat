@@ -2,7 +2,7 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v2.57)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v2.59)
 :: =============================================================================
 
 :: Establish Project Root context
@@ -21,7 +21,7 @@ cd /d "%PROJECT_ROOT%"
 :MENU
 cls
 echo =================================================================
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v2.57)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v2.59)       
 echo =================================================================
 echo   [1] RUN ^& EVALUATE  (Vite + Daemon, Auto-Export ^& Evaluation)
 echo   [2] WIPE            (Token-Verified Complete Directory Erasure)

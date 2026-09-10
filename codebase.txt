@@ -67,9 +67,9 @@ export default defineConfig({
  
 === FILE: bridge/server.js === 
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.58)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.60)
 // =========================================================================
-// Bidirectional switcher bus, macro execution & aux router sync over WebSocket (8080).
+// Bidirectional switcher bus, macro execution, aux router, DSK & FTB sync over WebSocket.
 
 const { Atem } = require('atem-connection');
 const WebSocket = require('ws');
@@ -77,8 +77,8 @@ const WebSocket = require('ws');
 const ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
 
-console.log(`[ATEM Bridge v2.58] Starting bridge service...`);
-console.log(`[ATEM Bridge v2.58] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v2.60] Starting bridge service...`);
+console.log(`[ATEM Bridge v2.60] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 const atem = new Atem();
 let isAtemConnected = false;
@@ -88,23 +88,30 @@ let currentPgm = 1;
 let currentPvw = 2;
 let currentInTransition = false;
 let currentAux = [1, 2, 3, 4, 5, 6];
+let transitionRate = 30;
+let ftb = { inTransition: false, isFullyBlack: false, rate: 30 };
+let dsk = { onAir: false, inTransition: false, autoOnAir: false, tie: false, rate: 30 };
 
 function broadcastState(targetWs = null) {
     try {
         const hardwareConnected = (atem && atem.status === 2) || isAtemConnected;
 
-        // Synchronize with atem-connection state tree if populated
+        // Extract PGM/PVW/Transitions
         if (atem && atem.state && atem.state.video && atem.state.video.mixEffects) {
             const meObj = atem.state.video.mixEffects;
             const me = meObj[0] || (Array.isArray(meObj) ? meObj[0] : Object.values(meObj)[0]);
             if (me) {
                 if (typeof me.programInput === 'number') currentPgm = me.programInput;
                 if (typeof me.previewInput === 'number') currentPvw = me.previewInput;
+                
                 if (me.transitionPosition && typeof me.transitionPosition.inTransition === 'boolean') {
                     currentInTransition = me.transitionPosition.inTransition;
                 } else if (typeof me.inTransition === 'boolean') {
                     currentInTransition = me.inTransition;
                 }
+
+                if (me.transitionProperties) transitionRate = me.transitionProperties.rate;
+                if (me.fadeToBlack) ftb = me.fadeToBlack;
             }
         }
 
@@ -117,16 +124,26 @@ function broadcastState(targetWs = null) {
             });
         }
 
-        // Extract Macro state if available
+        // Extract DSK
+        if (atem && atem.state && atem.state.video && atem.state.video.downstreamKeyers) {
+            const d = atem.state.video.downstreamKeyers[0];
+            if (d) {
+                dsk.onAir = d.onAir;
+                dsk.inTransition = d.inTransition;
+                dsk.autoOnAir = d.autoOnAir;
+                if (d.properties) {
+                    dsk.tie = d.properties.tie;
+                    dsk.rate = d.properties.rate;
+                }
+            }
+        }
+
+        // Extract Macros
         let macroPlayer = { isRunning: false, isWaiting: false, loop: false, macroIndex: -1 };
         let macroProperties = [];
         if (atem && atem.state && atem.state.macro) {
-            if (atem.state.macro.macroPlayer) {
-                macroPlayer = atem.state.macro.macroPlayer;
-            }
-            if (atem.state.macro.macroProperties) {
-                macroProperties = atem.state.macro.macroProperties;
-            }
+            if (atem.state.macro.macroPlayer) macroPlayer = atem.state.macro.macroPlayer;
+            if (atem.state.macro.macroProperties) macroProperties = atem.state.macro.macroProperties;
         }
 
         const payload = JSON.stringify({
@@ -136,6 +153,9 @@ function broadcastState(targetWs = null) {
             pvw: currentPvw,
             inTransition: currentInTransition,
             auxSources: currentAux,
+            transitionRate,
+            ftb,
+            dsk,
             macroPlayer,
             macroProperties
         });
@@ -189,6 +209,8 @@ function handleHardwareCommand(cmd) {
             changed = true;
             console.log(`[ATEM Bridge â¬… Physical Switcher Event] Aux ${auxId + 1} routed to Source ${src}`);
         }
+    } else if (raw.includes('FadeToBlack') || raw.includes('Ftb') || raw.includes('Downstream') || raw.includes('Dsk') || raw.includes('TransitionRate')) {
+        changed = true;
     } else if (raw === 'MRPr' || raw.includes('Macro')) {
         changed = true;
     }
@@ -267,26 +289,30 @@ wss.on('connection', (ws) => {
             } else if (data.action === 'SET_AUX' && data.aux !== undefined && data.source !== undefined) {
                 const auxIdx = parseInt(data.aux, 10);
                 const src = parseInt(data.source, 10);
-                console.log(`[ATEM Bridge âž” Routing Aux] Output ${auxIdx + 1} to Source ${src}`);
                 if (typeof atem.setAuxSource === 'function') {
+                    // atem-connection API for SetAux: atem.setAuxSource(source: number, bus: number)
                     atem.setAuxSource(src, auxIdx).catch(e => console.error('[ATEM Bridge] Aux Error:', e.message || e));
                 }
+            } else if (data.action === 'SET_TRANSITION_RATE') {
+                atem.setTransitionRate(parseInt(data.rate, 10) || 30, 0).catch(()=>{});
+            } else if (data.action === 'SET_FTB_RATE') {
+                atem.setFadeToBlackRate(parseInt(data.rate, 10) || 30, 0).catch(()=>{});
+            } else if (data.action === 'EXECUTE_FTB') {
+                atem.fadeToBlack(0).catch(()=>{});
+            } else if (data.action === 'SET_DSK_RATE') {
+                atem.setDownstreamKeyRate(parseInt(data.rate, 10) || 30, 0).catch(()=>{});
+            } else if (data.action === 'TOGGLE_DSK_TIE') {
+                atem.setDownstreamKeyTie(data.tie, 0).catch(()=>{});
+            } else if (data.action === 'TOGGLE_DSK_ONAIR') {
+                atem.setDownstreamKeyOnAir(data.onAir, 0).catch(()=>{});
+            } else if (data.action === 'EXECUTE_DSK_AUTO') {
+                atem.autoDownstreamKey(0).catch(()=>{});
             } else if (data.action === 'MACRO_RUN' && data.index !== undefined) {
-                const mIdx = parseInt(data.index, 10);
-                console.log(`[ATEM Bridge âž” Executing Macro] Index: ${mIdx}`);
-                if (typeof atem.macroRun === 'function') {
-                    atem.macroRun(mIdx).catch((e) => console.error('[ATEM Bridge] Macro Run Error:', e.message || e));
-                }
+                if (typeof atem.macroRun === 'function') atem.macroRun(parseInt(data.index, 10)).catch(()=>{});
             } else if (data.action === 'MACRO_STOP') {
-                console.log(`[ATEM Bridge âž” Stopping Macro]`);
-                if (typeof atem.macroStop === 'function') {
-                    atem.macroStop().catch((e) => console.error('[ATEM Bridge] Macro Stop Error:', e.message || e));
-                }
+                if (typeof atem.macroStop === 'function') atem.macroStop().catch(()=>{});
             } else if (data.action === 'MACRO_LOOP' && data.loop !== undefined) {
-                console.log(`[ATEM Bridge âž” Setting Macro Loop] Loop: ${data.loop}`);
-                if (typeof atem.macroSetLoop === 'function') {
-                    atem.macroSetLoop(data.loop).catch((e) => console.error('[ATEM Bridge] Macro Loop Error:', e.message || e));
-                }
+                if (typeof atem.macroSetLoop === 'function') atem.macroSetLoop(data.loop).catch(()=>{});
             }
         } catch (err) {
             console.error('[ATEM Bridge] Message processing error:', err);
@@ -299,7 +325,7 @@ wss.on('connection', (ws) => {
 });
  
 === FILE: src/App.jsx === 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Sidebar from './components/Sidebar/Sidebar';
 import QuadrantGrid from './components/Multiview/QuadrantGrid';
 import SettingsModal from './components/Settings/SettingsModal';
@@ -310,7 +336,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { APP_VERSION } from './version';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v2.58)
+// ATEM WEB MANAGER - MASTER LAYOUT (v2.60)
 // =========================================================================
 
 function App() {
@@ -344,33 +370,50 @@ function App() {
   const connectedDevice = deviceState.devices.find(d => d.status === 'online');
   const isConnected = !!connectedDevice;
 
+  // Real-time aspect ratio lock syncing during CSS sliding transitions
+  const handleResize = () => {
+    const topBarHeight = 42;
+    const sidebarEl = document.querySelector('.sidebar');
+    const sidebarWidth = sidebarEl ? sidebarEl.getBoundingClientRect().width : (isSidebarCollapsed ? 0 : 260);
+    const gap = isSidebarCollapsed ? 0 : 8;
+    const horizontalPadding = 32;
+    const verticalPadding = 24;
+
+    const availableWidth = Math.max(100, window.innerWidth - sidebarWidth - gap - horizontalPadding);
+    const availableHeight = Math.max(100, window.innerHeight - topBarHeight - verticalPadding);
+
+    let width = availableWidth;
+    let height = width * 9 / 16;
+    if (height > availableHeight) {
+      height = availableHeight;
+      width = height * 16 / 9;
+    }
+
+    setDashboardStyle({
+      width: Math.max(100, Math.round(width)),
+      height: Math.max(100, Math.round(height))
+    });
+  };
+
   useEffect(() => {
-    const handleResize = () => {
-      const topBarHeight = 42;
-      const sidebarWidth = isSidebarCollapsed ? 0 : 260;
-      const gap = isSidebarCollapsed ? 0 : 8;
-      const horizontalPadding = 32;
-      const verticalPadding = 24;
-
-      const availableWidth = Math.max(100, window.innerWidth - sidebarWidth - gap - horizontalPadding);
-      const availableHeight = Math.max(100, window.innerHeight - topBarHeight - verticalPadding);
-
-      let width = availableWidth;
-      let height = width * 9 / 16;
-      if (height > availableHeight) {
-        height = availableHeight;
-        width = height * 16 / 9;
-      }
-
-      setDashboardStyle({
-        width: Math.max(100, Math.round(width)),
-        height: Math.max(100, Math.round(height))
-      });
-    };
-
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Synchronize dynamic recalculations during the 350ms sidebar slide to completely eliminate vertical jumping
+  useEffect(() => {
+    let start = null;
+    let animationFrameId;
+    const step = (timestamp) => {
+        if (!start) start = timestamp;
+        handleResize();
+        if (timestamp - start < 360) {
+            animationFrameId = requestAnimationFrame(step);
+        }
+    };
+    animationFrameId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animationFrameId);
   }, [isSidebarCollapsed]);
 
   useEffect(() => {
@@ -479,7 +522,6 @@ function App() {
             </div>
           </div>
 
-          {/* Fullscreen Toggle Button */}
           <button 
             className="top-bar-btn"
             onClick={toggleFullscreen}
@@ -559,7 +601,7 @@ export default App;
 === FILE: src/index.css === 
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.58)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.60)
  * =========================================================================
  */
 
@@ -582,6 +624,7 @@ export default App;
     --red:#ea4335;
     --orange:#e67e22;
     --orange-hl:#ff9436;
+    --yellow-hl:#f1c40f;
     
     /* Muted Pastel Tones matching Devices Dropdown Palette */
     --red-muted: #8a4b48;
@@ -624,20 +667,20 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 
 .app-top-bar { height: 42px; min-height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: transparent; z-index: 1000; position: relative; }
 .top-bar-left { display: flex; align-items: center; gap: 12px; }
-.top-bar-right { display: flex; align-items: center; gap: 12px; }
+.top-bar-right { display: flex; align-items: center; gap: 12px; height: 100%; }
 .app-title { font-size: 14px; font-weight: 700; color: var(--header-color); letter-spacing: 0.5px; }
 .app-title.centered { position: absolute; left: 50%; transform: translateX(-50%); }
 
-.top-bar-btn { background: transparent; border: none; color: var(--muted); cursor: pointer; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.15s, color 0.15s; }
+.top-bar-btn { background: transparent; border: none; color: var(--muted); cursor: pointer; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: background 0.15s, color 0.15s; padding: 0; }
 .top-bar-btn:hover { background: rgba(150,150,150,0.15); color: var(--text); }
-.top-bar-btn svg { width: 18px; height: 18px; fill: currentColor; }
+.top-bar-btn svg { width: 18px; height: 18px; fill: currentColor; display: block; }
 
 .top-bar-version { font-size: 12px; font-weight: 500; color: var(--muted); cursor: pointer; user-select: none; transition: color 0.15s, opacity 0.3s ease; opacity: 1; }
 .top-bar-version.faded { opacity: 0; }
 .top-bar-version:hover { color: var(--text); }
 .top-bar-version.faded:hover { opacity: 0.35; }
 
-.apple-theme-switch { width: 36px; height: 20px; border-radius: 10px; background: #222; border: 1px solid #444; display: flex; align-items: center; padding: 2px; cursor: pointer; transition: background 0.25s ease, border-color 0.25s ease; position: relative; }
+.apple-theme-switch { width: 36px; height: 20px; border-radius: 10px; background: #222; border: 1px solid #444; display: flex; align-items: center; padding: 2px; cursor: pointer; transition: background 0.25s ease, border-color 0.25s ease; position: relative; box-sizing: border-box; }
 .apple-switch-thumb { width: 14px; height: 14px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; color: #000000; transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); transform: translateX(0); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
 .apple-switch-thumb svg { width: 10px; height: 10px; display: block; }
 .apple-theme-switch.active { background: #383838; border-color: #666; }
@@ -646,16 +689,17 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .dashboard{ flex: 1; width: 100%; display: flex; justify-content: flex-start; align-items: center; gap: var(--gap); padding: 8px 16px 16px 16px; box-sizing: border-box; overflow: hidden; position: relative; }
 .dashboard.sidebar-collapsed { justify-content: center; }
 
-/* Pure horizontal sliding transition with no opacity fade */
+/* Pure horizontal sliding transition with explicit fixed children */
 .sidebar{ 
     width: 260px; min-width: 260px; background: var(--panel); border-radius: var(--panel-radius); 
-    display: flex; flex-direction: column; overflow: hidden;
+    display: flex; flex-direction: column; overflow: hidden; height: 100%;
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
                 width 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
                 min-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
                 margin 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     transform: translateX(0);
     flex-shrink: 0;
+    box-sizing: border-box;
 }
 .sidebar > * {
     width: 260px;
@@ -670,7 +714,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     margin-left: 0 !important; 
     transform: translateX(-100%) !important;
     pointer-events: none !important; 
-    overflow: hidden !important; 
+    visibility: hidden !important; 
 }
 
 .search-container{ padding: 8px 8px 4px 8px; }
@@ -842,52 +886,96 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .sidebar.variant-classic { background: var(--panel); }
 .sidebar.variant-floating { background: rgba(31, 31, 31, 0.5); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5); }
 
-/* ATEM SWITCHER BUS CSS (QUADRANT 3) */
+/* =========================================================================
+   MEDIA POOL PANEL (QUADRANT 2)
+   ========================================================================= */
+.media-pool-panel {
+    width: 100%; height: 100%; display: flex; flex-direction: column;
+    padding: 8px 12px; background: var(--panel); box-sizing: border-box;
+    position: relative; user-select: none; overflow: hidden;
+}
+.media-pool-header {
+    display: flex; align-items: center; justify-content: flex-start;
+    padding: 0 4px 2px 4px; min-height: 28px; height: 28px;
+    border-bottom: none; flex-shrink: 0;
+}
+.media-pool-title { font-family: var(--le-font-family); font-size: 14px; font-weight: 700; color: var(--text); opacity: 0.8; letter-spacing: 0.5px; }
+
+/* =========================================================================
+   ATEM SWITCHER BUS CSS (QUADRANT 3)
+   ========================================================================= */
 .atem-constellation-panel { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 8px 12px; background: var(--panel); box-sizing: border-box; font-family: var(--le-font-family); color: var(--text); user-select: none; overflow: hidden; }
 
-/* Unified Header Bar matching exact Macros panel vertical geometry */
+/* Unified Header Bar */
 .atem-bus-header { display: flex; justify-content: space-between; align-items: center; border-bottom: none; padding: 0 4px 2px 4px; min-height: 28px; height: 28px; flex-shrink: 0; }
 .atem-bus-title { font-family: var(--le-font-family); font-size: 14px; font-weight: 700; color: var(--text); opacity: 0.8; letter-spacing: 0.5px; }
-.atem-bus-status { display: flex; align-items: center; gap: 6px; }
-.atem-bus-online-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
-.atem-bus-online-dot.offline { background: var(--red); }
 .atem-bus-ip { font-size: 11px; color: var(--muted); font-family: var(--le-font-family); font-weight: 500; }
+.atem-bus-online-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; flex-shrink: 0; margin-right: 6px; }
+.atem-bus-online-dot.offline { background: var(--red); }
 
-.atem-bus-matrix { display: flex; flex-direction: column; gap: 6px; margin: 2px 0; flex: 1; justify-content: center; }
-.atem-bus-row-group { display: flex; align-items: center; gap: 8px; }
-.atem-bus-row-label { width: 34px; font-size: var(--le-font-size); font-weight: 600; text-align: right; letter-spacing: 0.5px; font-family: var(--le-font-family); flex-shrink: 0; }
-.pgm-label { color: var(--red); }
-.pvw-label { color: var(--green); }
+/* Content Layout (Buses Left, Controls Right) */
+.atem-bus-content-layout { display: flex; gap: 16px; flex: 1; min-height: 0; margin-top: 4px; }
+
+/* Left Buses Column */
+.atem-buses-col { flex: 2.2; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
+
+.atem-section-box {
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--ui-radius);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.transparent-box { background: transparent; border: none; padding: 0; }
+
+.atem-section-title { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
 .router-label { color: var(--orange-hl); font-weight: 700; }
-.outs-label { color: var(--muted); font-weight: 700; }
-.spacer-label { visibility: hidden; }
 
-/* Full Width Grid with 10 Inputs + Gap Divider + 6 Internal Sources */
-.atem-bus-full-grid { flex: 1; display: flex; align-items: center; gap: 4px; }
-.inputs-subgrid { flex: 10; display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
-.bus-gap-divider { width: 4px; height: 22px; background: rgba(255, 255, 255, 0.08); border-radius: 1px; flex-shrink: 0; }
-.internals-subgrid { flex: 6; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.atem-bus-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
 
-.atem-switcher-btn { height: 30px; background: var(--panel2); border: 1px solid var(--atem-border); border-radius: var(--ui-radius); color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.12s ease; padding: 1px 0; }
+.atem-switcher-btn { height: 32px; background: var(--panel2); border: 1px solid var(--atem-border); border-radius: var(--ui-radius); color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.12s ease; padding: 1px 0; }
 .atem-switcher-btn:hover { background: rgba(150,150,150,0.2); color: var(--text); }
 .atem-switcher-btn .btn-number { font-size: var(--le-font-size); font-weight: var(--device-font-weight); line-height: 1; font-family: var(--le-font-family); white-space: nowrap; }
-.aux-source-btn .btn-number { font-size: 11px; }
 
 .atem-switcher-btn.tally-red { background: #d32f2f !important; border-color: #ff5252 !important; color: #fff !important; box-shadow: none !important; }
 .atem-switcher-btn.tally-green { background: #2e7d32 !important; border-color: #4caf50 !important; color: #fff !important; box-shadow: none !important; }
 .atem-switcher-btn.tally-orange { background: var(--orange) !important; border-color: var(--orange-hl) !important; color: #fff !important; box-shadow: none !important; }
+.atem-switcher-btn.tally-yellow { background: var(--yellow-hl) !important; border-color: #f39c12 !important; color: #000 !important; box-shadow: none !important; }
+.dummy-btn { cursor: default; }
+.dummy-btn:hover { background: var(--panel2); color: var(--muted); }
 
-/* Transitions row aligned under inputs 9 & 10 */
-.atem-transition-row { margin-top: 4px; }
+/* Right Controls Column */
+.atem-trans-col { flex: 1.2; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
+.atem-dsk-col { flex: 0.6; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
+
+.trans-nxt-grid { display: grid; gap: 4px; }
+.trans-nxt-grid.top-row { grid-template-columns: repeat(4, 1fr); margin-bottom: 4px; }
+.trans-nxt-grid.bottom-row { grid-template-columns: repeat(5, 1fr); }
+.trans-nxt-grid .btn-number { font-size: 10px; font-weight: 700; }
+
+.trans-style-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-bottom: 4px; }
+.trans-style-grid .btn-number { font-size: 10px; font-weight: 700; }
+.trans-action-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.trans-action-grid .btn-number { font-size: 10px; font-weight: 800; }
+
+.dsk-grid { display: flex; flex-direction: column; gap: 4px; }
+.dsk-grid .btn-number { font-size: 10px; font-weight: 800; }
+.ftb-grid { display: flex; flex-direction: column; gap: 4px; }
+.ftb-grid .btn-number { font-size: 12px; font-weight: 800; }
+
+.rate-box { background: #000; border: 1px solid rgba(255,255,255,0.05); border-radius: 3px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 32px; padding: 2px; }
+.rate-box span { font-size: 9px; color: var(--muted); line-height: 1; }
+.rate-box input { width: 100%; background: transparent; border: none; color: var(--orange-hl); text-align: center; font-size: 11px; font-weight: 700; outline: none; }
+
 .cut-btn:active { background: var(--panel) !important; color: var(--text) !important; }
 .auto-btn.trans-active { background: var(--orange-hl) !important; color: #000000 !important; border-color: var(--orange-hl) !important; }
 
-/* 6 Router Outputs Row */
-.atem-outs-row { margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 6px; }
-.atem-outs-grid { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
-.out-btn { height: 26px; }
-.out-btn .btn-number { font-size: 11px; font-weight: 600; }
-.out-btn.out-active { background: var(--orange-pastel) !important; border-color: var(--orange-hl) !important; color: #ffffff !important; }
+/* Bottom Router Outs */
+.atem-outs-bar { display: flex; gap: 4px; margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; flex-shrink: 0; }
+.atem-outs-bar .atem-switcher-btn { width: 60px; }
+.out-active { background: var(--orange-pastel) !important; border-color: var(--orange-hl) !important; color: #ffffff !important; }
 
 .atem-bus-locked-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; padding: 24px; text-align: center; }
 .atem-bus-lock-badge { background: rgba(234, 67, 53, 0.15); border: 1px solid rgba(234, 67, 53, 0.4); color: var(--red); font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 4px; letter-spacing: 0.8px; }
@@ -895,310 +983,62 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-bus-lock-desc strong { color: var(--text); font-family: monospace; }
 
 /* =========================================================================
-   MEDIA POOL PANEL (QUADRANT 2)
-   ========================================================================= */
-.media-pool-panel {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    padding: 8px 12px;
-    background: var(--panel);
-    box-sizing: border-box;
-    position: relative;
-    user-select: none;
-    overflow: hidden;
-}
-
-.media-pool-header {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    padding: 0 4px 2px 4px;
-    min-height: 28px;
-    height: 28px;
-    border-bottom: none;
-    flex-shrink: 0;
-}
-
-.media-pool-title {
-    font-family: var(--le-font-family);
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text);
-    opacity: 0.8;
-    letter-spacing: 0.5px;
-}
-
-/* =========================================================================
    ATEM MACROS PANEL (QUADRANT 4)
    ========================================================================= */
 .atem-macros-panel {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 8px 12px;
-    background: var(--panel);
-    box-sizing: border-box;
-    font-family: var(--le-font-family);
-    color: var(--text);
-    user-select: none;
-    overflow: hidden;
+    width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between;
+    padding: 8px 12px; background: var(--panel); box-sizing: border-box;
+    font-family: var(--le-font-family); color: var(--text); user-select: none; overflow: hidden;
 }
 
 .macro-header-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 4px 2px 4px;
-    min-height: 28px;
-    height: 28px;
-    border-bottom: none;
-    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 4px 2px 4px; min-height: 28px; height: 28px;
+    border-bottom: none; flex-shrink: 0;
 }
 
-.macro-header-title {
-    font-family: var(--le-font-family);
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text);
-    opacity: 0.8;
-    letter-spacing: 0.5px;
-}
+.macro-header-title { font-family: var(--le-font-family); font-size: 14px; font-weight: 700; color: var(--text); opacity: 0.8; letter-spacing: 0.5px; }
+.macro-actions-group { display: flex; align-items: center; gap: 8px; }
 
-.macro-actions-group {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
+.macro-action-btn { width: 28px; height: 28px; border-radius: 50%; background: transparent; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--muted); transition: all 0.15s ease; padding: 0; }
+.macro-action-btn svg { width: 17px; height: 17px; fill: currentColor; }
+.macro-action-btn:hover:not(:disabled) { background: rgba(150, 150, 150, 0.15); }
+.macro-action-btn.active-orange { color: var(--orange-hl) !important; }
+.macro-action-btn.ready-orange { color: var(--orange-hl) !important; }
+.macro-action-btn.disabled { opacity: 0.25; cursor: default !important; pointer-events: none; }
 
-.macro-action-btn {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: transparent;
-    border: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: var(--muted);
-    transition: all 0.15s ease;
-    padding: 0;
-}
+.macro-matrix-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(10, 1fr); grid-auto-flow: column; gap: 4px 8px; padding: 6px 0; overflow: hidden; }
 
-.macro-action-btn svg {
-    width: 17px;
-    height: 17px;
-    fill: currentColor;
-}
+.macro-slot-btn { background: var(--panel2); border: none !important; outline: none !important; box-shadow: none !important; border-radius: var(--ui-radius); display: flex; align-items: center; padding: 0 8px; cursor: pointer; transition: background 0.12s ease; height: 100%; width: 100%; position: relative; }
+.macro-slot-content { display: flex; align-items: center; width: 100%; gap: 8px; position: relative; }
 
-.macro-action-btn:hover:not(:disabled) {
-    background: rgba(150, 150, 150, 0.15);
-}
+.macro-slot-num { font-family: var(--le-font-family); font-weight: 800; font-style: normal; font-size: 15px; color: rgba(255, 255, 255, 0.12); text-shadow: none !important; min-width: 26px; text-align: left; flex-shrink: 0; transition: color 0.15s ease; }
+[data-theme="light"] .macro-slot-num { color: rgba(0, 0, 0, 0.15); }
+.macro-slot-btn:hover .macro-slot-num { color: rgba(255, 255, 255, 0.25); }
 
-.macro-action-btn.active-orange {
-    color: var(--orange-hl) !important;
-}
+.macro-slot-text { font-family: var(--le-font-family); font-size: var(--le-font-size); font-weight: var(--device-font-weight); color: var(--text); opacity: 0.8; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; flex: 1; transition: opacity 0.15s ease, color 0.15s ease; }
+.macro-slot-btn:hover { background: rgba(150, 150, 150, 0.15); }
+.macro-slot-btn:hover .macro-slot-text { opacity: 1; }
 
-.macro-action-btn.ready-orange {
-    color: var(--orange-hl) !important;
-}
+.macro-slot-btn.selected { background: #404040 !important; border: none !important; outline: none !important; box-shadow: none !important; animation: none !important; }
+.macro-slot-btn.selected .macro-slot-text { color: #ffffff !important; opacity: 1 !important; }
+.macro-slot-btn.selected .macro-slot-num { color: rgba(255, 255, 255, 0.6) !important; }
 
-.macro-action-btn.disabled {
-    opacity: 0.25;
-    cursor: default !important;
-    pointer-events: none;
-}
+.macro-slot-btn.running { background: var(--red-muted) !important; border: none !important; outline: none !important; box-shadow: none !important; animation: none !important; }
+.macro-slot-btn.running .macro-slot-text { color: #ffffff !important; opacity: 1 !important; }
+.macro-slot-btn.running .macro-slot-num { color: rgba(255, 255, 255, 0.6) !important; }
 
-/* 20-Button Matrix Grid (Column 1: 1-10; Column 2: 11-20) */
-.macro-matrix-grid {
-    flex: 1;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: repeat(10, 1fr);
-    grid-auto-flow: column;
-    gap: 4px 8px;
-    padding: 6px 0;
-    overflow: hidden;
-}
+.macro-pagination-footer { display: flex; align-items: center; justify-content: center; padding-top: 6px; flex-shrink: 0; }
+.macro-pagination-wrapper { display: flex; align-items: center; gap: 8px; }
+.macro-page-nav-btn { background: transparent; border: none; color: var(--muted); cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.15s ease; }
+.macro-page-nav-btn svg { width: 16px; height: 16px; }
+.macro-page-nav-btn:hover:not(:disabled) { color: var(--text); background: rgba(150, 150, 150, 0.15); }
+.macro-page-nav-btn:disabled { opacity: 0.15; cursor: default !important; pointer-events: none; }
 
-.macro-slot-btn {
-    background: var(--panel2);
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-    border-radius: var(--ui-radius);
-    display: flex;
-    align-items: center;
-    padding: 0 8px;
-    cursor: pointer;
-    transition: background 0.12s ease;
-    height: 100%;
-    width: 100%;
-    position: relative;
-}
-
-.macro-slot-content {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    gap: 8px;
-    position: relative;
-}
-
-.macro-slot-num {
-    font-family: var(--le-font-family);
-    font-weight: 800;
-    font-style: normal;
-    font-size: 15px;
-    color: rgba(255, 255, 255, 0.12);
-    text-shadow: none !important;
-    min-width: 26px;
-    text-align: left;
-    flex-shrink: 0;
-    transition: color 0.15s ease;
-}
-
-[data-theme="light"] .macro-slot-num {
-    color: rgba(0, 0, 0, 0.15);
-}
-
-.macro-slot-btn:hover .macro-slot-num {
-    color: rgba(255, 255, 255, 0.25);
-}
-
-.macro-slot-text {
-    font-family: var(--le-font-family);
-    font-size: var(--le-font-size);
-    font-weight: var(--device-font-weight);
-    color: var(--text);
-    opacity: 0.8;
-    text-transform: uppercase;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    text-align: left;
-    flex: 1;
-    transition: opacity 0.15s ease, color 0.15s ease;
-}
-
-.macro-slot-btn:hover {
-    background: rgba(150, 150, 150, 0.15);
-}
-
-.macro-slot-btn:hover .macro-slot-text {
-    opacity: 1;
-}
-
-.macro-slot-btn.selected {
-    background: #404040 !important;
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-    animation: none !important;
-}
-
-.macro-slot-btn.selected .macro-slot-text {
-    color: #ffffff !important;
-    opacity: 1 !important;
-}
-
-.macro-slot-btn.selected .macro-slot-num {
-    color: rgba(255, 255, 255, 0.6) !important;
-}
-
-.macro-slot-btn.running {
-    background: var(--red-muted) !important;
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-    animation: none !important;
-}
-
-.macro-slot-btn.running .macro-slot-text {
-    color: #ffffff !important;
-    opacity: 1 !important;
-}
-
-.macro-slot-btn.running .macro-slot-num {
-    color: rgba(255, 255, 255, 0.6) !important;
-}
-
-.macro-pagination-footer {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding-top: 6px;
-    flex-shrink: 0;
-}
-
-.macro-pagination-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.macro-page-nav-btn {
-    background: transparent;
-    border: none;
-    color: var(--muted);
-    cursor: pointer;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    transition: all 0.15s ease;
-}
-
-.macro-page-nav-btn svg {
-    width: 16px;
-    height: 16px;
-}
-
-.macro-page-nav-btn:hover:not(:disabled) {
-    color: var(--text);
-    background: rgba(150, 150, 150, 0.15);
-}
-
-.macro-page-nav-btn:disabled {
-    opacity: 0.15;
-    cursor: default !important;
-    pointer-events: none;
-}
-
-.macro-page-dots-container {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    cursor: pointer;
-    padding: 4px 6px;
-    user-select: none;
-}
-
-.macro-page-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #444;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.macro-page-dot:hover {
-    background: #888;
-}
-
-.macro-page-dot.active {
-    background: #ffffff;
-    transform: scale(1.2);
-}
+.macro-page-dots-container { display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 4px 6px; user-select: none; }
+.macro-page-dot { width: 6px; height: 6px; border-radius: 50%; background: #444; border: none; padding: 0; cursor: pointer; transition: all 0.2s ease; }
+.macro-page-dot:hover { background: #888; }
+.macro-page-dot.active { background: #ffffff; transform: scale(1.2); }
  
 === FILE: src/main.jsx === 
 import React from 'react';
@@ -1219,10 +1059,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
  
 === FILE: src/version.js === 
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.58)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.60)
 // =========================================================================
 
-export const APP_VERSION = 'v2.58';
+export const APP_VERSION = 'v2.60';
  
 === FILE: src/components/Multiview/Panel.jsx === 
 import React, { useState } from 'react';
@@ -1403,7 +1243,7 @@ export default QuadrantGrid;
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.58)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.60)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -1424,9 +1264,19 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     const [pgmInput, setPgmInput] = useState(1);
     const [pvwInput, setPvwInput] = useState(2);
     const [inTransition, setInTransition] = useState(false);
-    const [bridgeStatus, setBridgeStatus] = useState('connecting'); // 'linked' | 'standby' | 'offline' | 'connecting'
+    const [bridgeStatus, setBridgeStatus] = useState('connecting');
     
-    // Router Mode: Selected Aux Output (null = Bus mode; 0..5 = Aux 1..6)
+    // Hardware State Features
+    const [transitionRate, setTransitionRate] = useState(30);
+    const [ftb, setFtb] = useState({ inTransition: false, isFullyBlack: false, rate: 30 });
+    const [dsk, setDsk] = useState({ onAir: false, inTransition: false, autoOnAir: false, tie: false, rate: 30 });
+    
+    // Local Inputs for blur-syncing rates without cursor jumps
+    const [localTransRate, setLocalTransRate] = useState(30);
+    const [localFtbRate, setLocalFtbRate] = useState(30);
+    const [localDskRate, setLocalDskRate] = useState(30);
+
+    // Router Mode
     const [selectedOut, setSelectedOut] = useState(null);
     const [auxSources, setAuxSources] = useState([1, 2, 3, 4, 5, 6]);
 
@@ -1446,65 +1296,50 @@ const AtemConstellationBus = ({ connectedDevice }) => {
             wsRef.current.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.hardwareConnected !== undefined) {
-                        setBridgeStatus(data.hardwareConnected ? 'linked' : 'standby');
-                    }
-                    if (data.pgm !== undefined) {
-                        setPgmInput(Number(data.pgm));
-                    }
-                    if (data.pvw !== undefined) {
-                        setPvwInput(Number(data.pvw));
-                    }
-                    if (data.inTransition !== undefined) {
-                        setInTransition(Boolean(data.inTransition));
-                    }
-                    if (data.auxSources && Array.isArray(data.auxSources)) {
-                        setAuxSources(data.auxSources.map(Number));
-                    }
+                    if (data.hardwareConnected !== undefined) setBridgeStatus(data.hardwareConnected ? 'linked' : 'standby');
+                    if (data.pgm !== undefined) setPgmInput(Number(data.pgm));
+                    if (data.pvw !== undefined) setPvwInput(Number(data.pvw));
+                    if (data.inTransition !== undefined) setInTransition(Boolean(data.inTransition));
+                    if (data.auxSources && Array.isArray(data.auxSources)) setAuxSources(data.auxSources.map(Number));
+                    if (data.transitionRate !== undefined) setTransitionRate(data.transitionRate);
+                    if (data.ftb) setFtb(data.ftb);
+                    if (data.dsk) setDsk(data.dsk);
                 } catch (err) {
                     console.error("[AtemBus UI] Data Parse Error:", err);
                 }
             };
 
-            wsRef.current.onerror = () => {
-                setBridgeStatus('offline');
-            };
-
+            wsRef.current.onerror = () => setBridgeStatus('offline');
             wsRef.current.onclose = () => {
                 setBridgeStatus('offline');
                 if (!reconnectTimerRef.current) {
-                    reconnectTimerRef.current = setTimeout(() => {
-                        reconnectTimerRef.current = null;
-                        initWebSocket();
-                    }, 2500);
+                    reconnectTimerRef.current = setTimeout(() => { reconnectTimerRef.current = null; initWebSocket(); }, 2500);
                 }
             };
         } catch (e) {
             setBridgeStatus('offline');
             if (!reconnectTimerRef.current) {
-                reconnectTimerRef.current = setTimeout(() => {
-                    reconnectTimerRef.current = null;
-                    initWebSocket();
-                }, 2500);
+                reconnectTimerRef.current = setTimeout(() => { reconnectTimerRef.current = null; initWebSocket(); }, 2500);
             }
         }
     };
 
     useEffect(() => {
         initWebSocket();
-
         return () => {
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-            if (wsRef.current) {
-                try { wsRef.current.close(); } catch(err) {}
-            }
+            if (wsRef.current) { try { wsRef.current.close(); } catch(err) {} }
         };
     }, []);
+
+    // Sync remote hardware rates to local input components
+    useEffect(() => { setLocalTransRate(transitionRate); }, [transitionRate]);
+    useEffect(() => { setLocalFtbRate(ftb.rate); }, [ftb.rate]);
+    useEffect(() => { setLocalDskRate(dsk.rate); }, [dsk.rate]);
 
     const sendAtemCommand = (commandType, payload = {}) => {
         if (commandType === 'SET_PGM') {
             if (selectedOut !== null) {
-                // Route Aux Output
                 const updated = [...auxSources];
                 updated[selectedOut] = payload.input;
                 setAuxSources(updated);
@@ -1512,39 +1347,25 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                 return;
             }
             setPgmInput(payload.input);
-            sendCommand('SET_PGM', payload);
-            return;
-        }
-
-        if (commandType === 'SET_PVW') {
+        } else if (commandType === 'SET_PVW') {
             setPvwInput(payload.input);
-            sendCommand('SET_PVW', payload);
-            return;
         }
 
-        if (commandType === 'CUT') {
-            if (bridgeStatus !== 'linked') {
+        // Hardware executes transitions cleanly; remove client-side faking when linked
+        if (commandType === 'CUT' && bridgeStatus !== 'linked') {
+            const temp = pgmInput;
+            setPgmInput(pvwInput);
+            setPvwInput(temp);
+        }
+
+        if (commandType === 'AUTO' && bridgeStatus !== 'linked') {
+            setInTransition(true);
+            setTimeout(() => {
                 const temp = pgmInput;
                 setPgmInput(pvwInput);
                 setPvwInput(temp);
-            }
-            sendCommand('CUT');
-            return;
-        }
-
-        if (commandType === 'AUTO') {
-            // Hardware controls state transitions; only run simulation if offline
-            if (bridgeStatus !== 'linked') {
-                setInTransition(true);
-                setTimeout(() => {
-                    const temp = pgmInput;
-                    setPgmInput(pvwInput);
-                    setPvwInput(temp);
-                    setInTransition(false);
-                }, 600);
-            }
-            sendCommand('AUTO');
-            return;
+                setInTransition(false);
+            }, 600);
         }
 
         sendCommand(commandType, payload);
@@ -1552,176 +1373,153 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
     const sendCommand = (action, payload = {}) => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            try {
-                wsRef.current.send(JSON.stringify({ 
-                    action, 
-                    ip: LOCKED_ATEM_IP, 
-                    ...payload 
-                }));
-            } catch (err) {
-                console.warn("[AtemBus UI] Dispatch failed.");
-            }
+            try { wsRef.current.send(JSON.stringify({ action, ip: LOCKED_ATEM_IP, ...payload })); } 
+            catch (err) { console.warn("[AtemBus UI] Dispatch failed."); }
         }
     };
 
-    // Sources specification
     const inputSources = [
-        { id: 1, label: '1' }, { id: 2, label: '2' }, { id: 3, label: '3' }, { id: 4, label: '4' },
-        { id: 5, label: '5' }, { id: 6, label: '6' }, { id: 7, label: '7' }, { id: 8, label: '8' },
-        { id: 9, label: '9' }, { id: 10, label: '10' }
+        { id: 1, label: '1' }, { id: 2, label: '2' }, { id: 3, label: '3' }, { id: 4, label: '4' }, { id: 5, label: '5' }, 
+        { id: 6, label: '6' }, { id: 7, label: '7' }, { id: 8, label: '8' }, { id: 9, label: '9' }, { id: 10, label: '10' }
     ];
 
     const internalSources = [
-        { id: 0, label: 'BLK' },
-        { id: 1000, label: 'BARS' },
-        { id: 2001, label: 'COL 1' },
-        { id: 2002, label: 'COL 2' },
-        { id: 3010, label: 'MP 1' },
-        { id: 3020, label: 'MP 2' }
+        { id: 0, label: 'BLK' }, { id: 1000, label: 'BARS' }, { id: 2001, label: 'COL 1' }, 
+        { id: 2002, label: 'COL 2' }, { id: 3010, label: 'MP 1' }, { id: 3020, label: 'MP 2' }
     ];
 
     const auxOutputsList = [1, 2, 3, 4, 5, 6];
 
-    const handleOutClick = (outIdx) => {
-        // Toggle selection: pressing an active out deselects it, reverting to bus mode
-        setSelectedOut(prev => prev === outIdx ? null : outIdx);
-    };
-
-    // Active source determination
-    const getIsActivePgm = (sourceId) => {
-        if (selectedOut !== null) {
-            return auxSources[selectedOut] === sourceId;
-        }
-        return pgmInput === sourceId;
-    };
-
-    const getIsActivePvw = (sourceId) => {
-        if (selectedOut !== null) return false;
-        return pvwInput === sourceId;
-    };
+    const getIsActivePgm = (sourceId) => selectedOut !== null ? (auxSources[selectedOut] === sourceId) : (pgmInput === sourceId);
+    const getIsActivePvw = (sourceId) => selectedOut !== null ? false : (pvwInput === sourceId);
 
     return (
         <div className="atem-constellation-panel">
-            {/* Header matching exact Macros vertical alignment */}
+            {/* Header aligned exactly with Macros panel */}
             <div className="atem-bus-header">
                 <span className="atem-bus-title">ATEM 1 M/E CONSTELLATION HD</span>
-                <div className="atem-bus-status">
-                    <span className={`atem-bus-online-dot ${bridgeStatus === 'linked' ? '' : 'offline'}`} />
-                    <span className="atem-bus-ip">{LOCKED_ATEM_IP}</span>
+                <span className="atem-bus-ip">{LOCKED_ATEM_IP}</span>
+            </div>
+
+            {/* Main ATEM Software Layout Replica */}
+            <div className="atem-bus-content-layout">
+                {/* LEFT: PGM & PVW BUSES */}
+                <div className="atem-buses-col">
+                    <div className="atem-section-box transparent-box">
+                        <div className={`atem-section-title ${selectedOut !== null ? 'router-label' : ''}`}>
+                            {selectedOut !== null ? `OUTPUT ${selectedOut + 1}` : 'Program'}
+                        </div>
+                        <div className="atem-bus-grid">
+                            {inputSources.map((s) => (
+                                <button key={`pgm-${s.id}`} className={`atem-switcher-btn ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`} onClick={() => sendAtemCommand('SET_PGM', { input: s.id })} data-description={`Input ${s.label}`}>
+                                    <span className="btn-number">{s.label}</span>
+                                </button>
+                            ))}
+                            {internalSources.map((s) => (
+                                <button key={`pgm-int-${s.id}`} className={`atem-switcher-btn aux-source-btn ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`} onClick={() => sendAtemCommand('SET_PGM', { input: s.id })} data-description={`Source ${s.label}`}>
+                                    <span className="btn-number">{s.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="atem-section-box transparent-box" style={{ opacity: selectedOut !== null ? 0.35 : 1, pointerEvents: selectedOut !== null ? 'none' : 'auto', marginTop: 'auto' }}>
+                        <div className="atem-section-title">Preview</div>
+                        <div className="atem-bus-grid">
+                            {inputSources.map((s) => (
+                                <button key={`pvw-${s.id}`} className={`atem-switcher-btn ${getIsActivePvw(s.id) ? 'tally-green' : ''}`} onClick={() => sendAtemCommand('SET_PVW', { input: s.id })} data-description={`Preview Input ${s.label}`}>
+                                    <span className="btn-number">{s.label}</span>
+                                </button>
+                            ))}
+                            {internalSources.map((s) => (
+                                <button key={`pvw-int-${s.id}`} className={`atem-switcher-btn aux-source-btn ${getIsActivePvw(s.id) ? 'tally-green' : ''}`} onClick={() => sendAtemCommand('SET_PVW', { input: s.id })} data-description={`Preview Source ${s.label}`}>
+                                    <span className="btn-number">{s.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* MIDDLE: TRANSITIONS */}
+                <div className="atem-trans-col">
+                    <div className="atem-section-box">
+                        <div className="atem-section-title">Next Transition</div>
+                        <div className="trans-nxt-grid top-row">
+                            <button className="atem-switcher-btn dummy-btn" data-description="Next Transition Key 1 On Air"><span className="btn-number">ON AIR</span></button>
+                            <button className="atem-switcher-btn dummy-btn" data-description="Next Transition Key 2 On Air"><span className="btn-number">ON AIR</span></button>
+                            <button className="atem-switcher-btn dummy-btn" data-description="Next Transition Key 3 On Air"><span className="btn-number">ON AIR</span></button>
+                            <button className="atem-switcher-btn dummy-btn" data-description="Next Transition Key 4 On Air"><span className="btn-number">ON AIR</span></button>
+                        </div>
+                        <div className="trans-nxt-grid bottom-row">
+                            <button className="atem-switcher-btn tally-yellow dummy-btn" data-description="Next Transition Background"><span className="btn-number">BKGD</span></button>
+                            <button className="atem-switcher-btn dummy-btn" data-description="Next Transition Key 1"><span className="btn-number">KEY 1</span></button>
+                            <button className="atem-switcher-btn dummy-btn" data-description="Next Transition Key 2"><span className="btn-number">KEY 2</span></button>
+                            <button className="atem-switcher-btn dummy-btn" data-description="Next Transition Key 3"><span className="btn-number">KEY 3</span></button>
+                            <button className="atem-switcher-btn dummy-btn" data-description="Next Transition Key 4"><span className="btn-number">KEY 4</span></button>
+                        </div>
+                    </div>
+
+                    <div className="atem-section-box" style={{ marginTop: 'auto' }}>
+                        <div className="atem-section-title">Transition Style</div>
+                        <div className="trans-style-grid">
+                            <button className="atem-switcher-btn tally-yellow dummy-btn" data-description="Mix Transition"><span className="btn-number">MIX</span></button>
+                            <button className="atem-switcher-btn dummy-btn" data-description="Dip Transition"><span className="btn-number">DIP</span></button>
+                            <button className="atem-switcher-btn dummy-btn" data-description="Wipe Transition"><span className="btn-number">WIPE</span></button>
+                            <button className="atem-switcher-btn dummy-btn" data-description="Sting Transition"><span className="btn-number">STING</span></button>
+                            <button className="atem-switcher-btn dummy-btn" data-description="DVE Transition"><span className="btn-number">DVE</span></button>
+                        </div>
+                        <div className="trans-action-grid">
+                            <button className="atem-switcher-btn dummy-btn" data-description="Preview Transition"><span className="btn-number">PREV TRANS</span></button>
+                            <button className="atem-switcher-btn cut-btn" onClick={() => sendAtemCommand('CUT')} data-description="Cut Transition"><span className="btn-number">CUT</span></button>
+                            <button className={`atem-switcher-btn auto-btn ${inTransition ? 'trans-active' : ''}`} onClick={() => sendAtemCommand('AUTO')} data-description="Auto Transition"><span className="btn-number">AUTO</span></button>
+                            <div className="rate-box" data-description="Transition Rate (Frames)">
+                                <span>Rate</span>
+                                <input type="number" value={localTransRate} onChange={e => setLocalTransRate(e.target.value)} onBlur={() => sendAtemCommand('SET_TRANSITION_RATE', { rate: parseInt(localTransRate, 10) || 30 })} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* RIGHT: DSK & FTB */}
+                <div className="atem-dsk-col">
+                    <div className="atem-section-box">
+                        <div className="atem-section-title">DSK 1</div>
+                        <div className="dsk-grid">
+                            <button className={`atem-switcher-btn ${dsk.tie ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_DSK_TIE', { tie: !dsk.tie })} data-description="Tie Downstream Key 1"><span className="btn-number">TIE</span></button>
+                            <div className="rate-box" data-description="DSK 1 Rate (Frames)">
+                                <span>Rate</span>
+                                <input type="number" value={localDskRate} onChange={e => setLocalDskRate(e.target.value)} onBlur={() => sendAtemCommand('SET_DSK_RATE', { rate: parseInt(localDskRate, 10) || 30 })} />
+                            </div>
+                            <button className={`atem-switcher-btn ${dsk.onAir ? 'tally-red' : ''}`} onClick={() => sendAtemCommand('TOGGLE_DSK_ONAIR', { onAir: !dsk.onAir })} data-description="Downstream Key 1 On Air"><span className="btn-number">ON AIR</span></button>
+                            <button className={`atem-switcher-btn ${dsk.inTransition ? 'tally-orange' : ''}`} onClick={() => sendAtemCommand('EXECUTE_DSK_AUTO')} data-description="Auto Downstream Key 1"><span className="btn-number">AUTO</span></button>
+                        </div>
+                    </div>
+
+                    <div className="atem-section-box ftb-box" style={{ marginTop: 'auto' }}>
+                        <div className="atem-section-title">Fade to Black</div>
+                        <div className="ftb-grid">
+                            <div className="rate-box" data-description="FTB Rate (Frames)">
+                                <span>Rate</span>
+                                <input type="number" value={localFtbRate} onChange={e => setLocalFtbRate(e.target.value)} onBlur={() => sendAtemCommand('SET_FTB_RATE', { rate: parseInt(localFtbRate, 10) || 30 })} />
+                            </div>
+                            <button className={`atem-switcher-btn ${ftb.isFullyBlack ? 'tally-red' : (ftb.inTransition ? 'tally-orange' : '')}`} onClick={() => sendAtemCommand('EXECUTE_FTB')} data-description="Execute Fade to Black"><span className="btn-number">FTB</span></button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Matrix Section */}
-            <div className="atem-bus-matrix">
-                {/* 1. PROGRAM / ROUTER BUS */}
-                <div className="atem-bus-row-group">
-                    <div className={`atem-bus-row-label ${selectedOut !== null ? 'router-label' : 'pgm-label'}`}>
-                        {selectedOut !== null ? `OUT ${selectedOut + 1}` : 'PGM'}
-                    </div>
-                    <div className="atem-bus-full-grid">
-                        <div className="inputs-subgrid">
-                            {inputSources.map((s) => (
-                                <button
-                                    key={`pgm-${s.id}`}
-                                    className={`atem-switcher-btn ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
-                                    onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}
-                                    data-description={`Input ${s.label}`}
-                                >
-                                    <span className="btn-number">{s.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                        <div className="bus-gap-divider" />
-                        <div className="internals-subgrid">
-                            {internalSources.map((s) => (
-                                <button
-                                    key={`pgm-${s.id}`}
-                                    className={`atem-switcher-btn aux-source-btn ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
-                                    onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}
-                                    data-description={`Source ${s.label}`}
-                                >
-                                    <span className="btn-number">{s.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* 2. PREVIEW BUS */}
-                <div className="atem-bus-row-group">
-                    <div className="atem-bus-row-label pvw-label">PVW</div>
-                    <div className="atem-bus-full-grid">
-                        <div className="inputs-subgrid">
-                            {inputSources.map((s) => (
-                                <button
-                                    key={`pvw-${s.id}`}
-                                    className={`atem-switcher-btn ${getIsActivePvw(s.id) ? 'tally-green' : ''}`}
-                                    onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}
-                                    data-description={`Preview Input ${s.label}`}
-                                >
-                                    <span className="btn-number">{s.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                        <div className="bus-gap-divider" />
-                        <div className="internals-subgrid">
-                            {internalSources.map((s) => (
-                                <button
-                                    key={`pvw-${s.id}`}
-                                    className={`atem-switcher-btn aux-source-btn ${getIsActivePvw(s.id) ? 'tally-green' : ''}`}
-                                    onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}
-                                    data-description={`Preview Source ${s.label}`}
-                                >
-                                    <span className="btn-number">{s.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* 3. TRANSITION ACTIONS (Placed under inputs 9 & 10) */}
-                <div className="atem-bus-row-group atem-transition-row">
-                    <div className="atem-bus-row-label spacer-label" />
-                    <div className="atem-bus-full-grid">
-                        <div className="inputs-subgrid">
-                            <div style={{ gridColumn: 'span 8' }} />
-                            <button 
-                                className="atem-switcher-btn cut-btn" 
-                                onClick={() => sendAtemCommand('CUT')}
-                                data-description="CUT Transition"
-                            >
-                                <span className="btn-number">CUT</span>
-                            </button>
-                            <button 
-                                className={`atem-switcher-btn auto-btn ${inTransition ? 'trans-active' : ''}`} 
-                                onClick={() => sendAtemCommand('AUTO')}
-                                data-description="AUTO Transition"
-                            >
-                                <span className="btn-number">AUTO</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 4. 6 ROUTER OUTPUTS */}
-                <div className="atem-bus-row-group atem-outs-row">
-                    <div className="atem-bus-row-label outs-label">OUTS</div>
-                    <div className="atem-outs-grid">
-                        {auxOutputsList.map((num, idx) => {
-                            const isSelected = selectedOut === idx;
-                            return (
-                                <button
-                                    key={`out-${num}`}
-                                    className={`atem-switcher-btn out-btn ${isSelected ? 'out-active' : ''}`}
-                                    onClick={() => handleOutClick(idx)}
-                                    data-description={`Aux Output ${num} (Click to route)`}
-                                >
-                                    <span className="btn-number">OUT {num}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
+            {/* BOTTOM: ROUTER OUTS */}
+            <div className="atem-outs-bar">
+                {auxOutputsList.map((num, idx) => (
+                    <button
+                        key={`out-${num}`}
+                        className={`atem-switcher-btn ${selectedOut === idx ? 'out-active' : ''}`}
+                        onClick={() => setSelectedOut(prev => prev === idx ? null : idx)}
+                        data-description={`Route Aux Output ${num}`}
+                    >
+                        <span className="btn-number">OUT {num}</span>
+                    </button>
+                ))}
             </div>
         </div>
     );
@@ -1731,9 +1529,10 @@ export default AtemConstellationBus;
  
 === FILE: src/components/Panels/AtemMacros.jsx === 
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.56)
+// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.60)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -1975,7 +1774,7 @@ const AtemMacros = ({ connectedDevice }) => {
                         </svg>
                     </button>
 
-                    {/* 2. Auto-Run Icon (Repositioned between Loop and Play) */}
+                    {/* 2. Auto-Run Circular Chase-Play Glyph */}
                     <button 
                         className={`macro-action-btn ${autoRun ? 'active-orange' : ''}`}
                         onClick={() => setAutoRun(prev => !prev)}
@@ -3081,10 +2880,10 @@ export default ErrorBoundary;
 import React, { useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - GLOBAL TOOLTIP (v2.56)
+// ATEM WEB MANAGER - GLOBAL TOOLTIP (v2.60)
 // =========================================================================
-// Google AI Studio replica: Anchored below element, horizontally centered,
-// with left/right boundary clamping.
+// Google AI Studio replica: Anchored directly below the mouse/element, horizontally centered,
+// with left/right boundary clamping to prevent screen edge overflow.
 
 export default function GlobalTooltip() {
     const tooltipRef = useRef(null);
@@ -3097,9 +2896,9 @@ export default function GlobalTooltip() {
             const rect = target.getBoundingClientRect();
             const tipWidth = tip.offsetWidth || 120;
             const tipHeight = tip.offsetHeight || 26;
-            const margin = 8;
+            const margin = 12;
 
-            // Horizontally center under element
+            // Horizontally center directly beneath the hovered element
             let left = rect.left + (rect.width / 2) - (tipWidth / 2);
 
             // Left/Right boundary clamping
@@ -3109,10 +2908,12 @@ export default function GlobalTooltip() {
                 left = window.innerWidth - tipWidth - margin;
             }
 
-            // Position below element, or flip above if hitting bottom
-            let top = rect.bottom + 6;
+            // Anchor exactly below the element
+            let top = rect.bottom + 8;
+            
+            // Flip above if hitting the bottom edge
             if (top + tipHeight > window.innerHeight - margin) {
-                top = rect.top - tipHeight - 6;
+                top = rect.top - tipHeight - 8;
             }
 
             tip.style.left = `${Math.round(left)}px`;
@@ -3124,7 +2925,7 @@ export default function GlobalTooltip() {
             if (target && target.dataset.description && tooltipRef.current) {
                 tooltipRef.current.textContent = target.dataset.description;
                 tooltipRef.current.style.display = 'block';
-                // Trigger layout pass before measuring dimensions
+                // Trigger layout pass before measuring actual dimensions
                 requestAnimationFrame(() => {
                     updatePosition(target);
                 });

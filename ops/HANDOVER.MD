@@ -1,5 +1,5 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-**Current Version:** v2.58
+**Current Version:** v2.59
 **Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Pure Sliding Animations, Fullscreen Toggle, ATEM Macro Matrix (Quadrant 4), Aux Output Routing Bar, Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Modular Runtime-Synced Changelogs, Streamlined 4-Action Master CLI Suite.
 
 ---

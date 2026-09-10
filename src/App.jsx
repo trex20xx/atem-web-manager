@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Sidebar from './components/Sidebar/Sidebar';
 import QuadrantGrid from './components/Multiview/QuadrantGrid';
 import SettingsModal from './components/Settings/SettingsModal';
@@ -9,7 +9,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { APP_VERSION } from './version';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v2.58)
+// ATEM WEB MANAGER - MASTER LAYOUT (v2.60)
 // =========================================================================
 
 function App() {
@@ -43,33 +43,50 @@ function App() {
   const connectedDevice = deviceState.devices.find(d => d.status === 'online');
   const isConnected = !!connectedDevice;
 
+  // Real-time aspect ratio lock syncing during CSS sliding transitions
+  const handleResize = () => {
+    const topBarHeight = 42;
+    const sidebarEl = document.querySelector('.sidebar');
+    const sidebarWidth = sidebarEl ? sidebarEl.getBoundingClientRect().width : (isSidebarCollapsed ? 0 : 260);
+    const gap = isSidebarCollapsed ? 0 : 8;
+    const horizontalPadding = 32;
+    const verticalPadding = 24;
+
+    const availableWidth = Math.max(100, window.innerWidth - sidebarWidth - gap - horizontalPadding);
+    const availableHeight = Math.max(100, window.innerHeight - topBarHeight - verticalPadding);
+
+    let width = availableWidth;
+    let height = width * 9 / 16;
+    if (height > availableHeight) {
+      height = availableHeight;
+      width = height * 16 / 9;
+    }
+
+    setDashboardStyle({
+      width: Math.max(100, Math.round(width)),
+      height: Math.max(100, Math.round(height))
+    });
+  };
+
   useEffect(() => {
-    const handleResize = () => {
-      const topBarHeight = 42;
-      const sidebarWidth = isSidebarCollapsed ? 0 : 260;
-      const gap = isSidebarCollapsed ? 0 : 8;
-      const horizontalPadding = 32;
-      const verticalPadding = 24;
-
-      const availableWidth = Math.max(100, window.innerWidth - sidebarWidth - gap - horizontalPadding);
-      const availableHeight = Math.max(100, window.innerHeight - topBarHeight - verticalPadding);
-
-      let width = availableWidth;
-      let height = width * 9 / 16;
-      if (height > availableHeight) {
-        height = availableHeight;
-        width = height * 16 / 9;
-      }
-
-      setDashboardStyle({
-        width: Math.max(100, Math.round(width)),
-        height: Math.max(100, Math.round(height))
-      });
-    };
-
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Synchronize dynamic recalculations during the 350ms sidebar slide to completely eliminate vertical jumping
+  useEffect(() => {
+    let start = null;
+    let animationFrameId;
+    const step = (timestamp) => {
+        if (!start) start = timestamp;
+        handleResize();
+        if (timestamp - start < 360) {
+            animationFrameId = requestAnimationFrame(step);
+        }
+    };
+    animationFrameId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animationFrameId);
   }, [isSidebarCollapsed]);
 
   useEffect(() => {
@@ -178,7 +195,6 @@ function App() {
             </div>
           </div>
 
-          {/* Fullscreen Toggle Button */}
           <button 
             className="top-bar-btn"
             onClick={toggleFullscreen}
