@@ -1,5 +1,11 @@
 # ATEM WEB MANAGER - Complete Version History
 
+## [v2.43.0] - Decoupled Versioning Module & Streamlined 4-Option CLI Suite
+- Extracted application version string out of `src/App.jsx` into dedicated `src/version.js` module, permanently preventing full layout re-renders on version increments.
+- Streamlined `ops/OPS.SH` and `ops/OPS.BAT` into a clean 4-option interface (`Run & Evaluate`, `Wipe`, `Export`, `Exit`), removing redundant stop and individual git actions.
+- Configured automatic codebase serialization (`codebase.txt`) on every execution of `[1] RUN & EVALUATE`.
+- Updated engagement rules: discontinued mandatory git push command outputs at end of responses.
+
 ## [v2.42.0] - Descriptive Evaluation Menu & Protocol Optimization
 - Added comprehensive, plain-English descriptions to options [1–4] in the Post-Vite Evaluation menu across `ops/OPS.SH` and `ops/OPS.BAT`.
 - Optimized delivery protocol: decoupled unchanged component re-rendering (e.g. `App.jsx`) from operational and documentation updates, preserving prompt efficiency.

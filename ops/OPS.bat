@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableDelayedExpansion
-title ATEM WEB MANAGER - OPERATIONS SUITE (v2.42.0)
+title ATEM WEB MANAGER - OPERATIONS SUITE (v2.43.0)
 
 set "REPO_URL=https://github.com/trex20xx/atem-web-manager.git"
 set "EXPECTED_KEY=ATEM_MANAGER_SECURE_WIPE_KEY_2026"
@@ -15,31 +15,44 @@ for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set "CURR
 if "!CURRENT_BRANCH!"=="" set "CURRENT_BRANCH=not-cloned"
 
 echo =========================================================================
-echo         ATEM WEB MANAGER - OPERATIONS SUITE (v2.42.0)                    
+echo         ATEM WEB MANAGER - OPERATIONS SUITE (v2.43.0)                    
 echo         Active Branch: [!CURRENT_BRANCH!]                                
 echo =========================================================================
-echo   [1] RUN ^& EVALUATE  - Start bridge + UI, then Merge or Revert on exit 
-echo   [2] STOP            - Terminate background ATEM bridge daemon         
-echo   [3] PUSH            - Stage all files, commit, and push active branch 
-echo   [4] PULL            - Pull latest changes from remote for active branch
-echo   [5] START ITERATION - Create ^& switch to a new feature branch from main
-echo   [6] FINISH ^& MERGE  - Merge active feature branch into main ^& cleanup 
-echo   [7] WIPE            - Secure token check ^& workspace erasure          
-echo   [8] EXPORT          - Package full codebase into codebase.txt for AI  
-echo   [9] EXIT                                                               
+echo   [1] RUN ^& EVALUATE - Auto-export codebase, start bridge + UI, evaluate 
+echo   [2] WIPE           - Secure token check ^& workspace erasure           
+echo   [3] EXPORT         - Package full codebase into codebase.txt for AI   
+echo   [4] EXIT                                                               
 echo =========================================================================
-set /p "CHOICE=Select an option [1-9]: "
+set /p "CHOICE=Select an option [1-4]: "
 
 if "%CHOICE%"=="1" goto DO_INIT
-if "%CHOICE%"=="2" goto DO_STOP
-if "%CHOICE%"=="3" goto DO_PUSH
-if "%CHOICE%"=="4" goto DO_PULL
-if "%CHOICE%"=="5" goto DO_START_ITERATION
-if "%CHOICE%"=="6" goto DO_FINISH_ITERATION
-if "%CHOICE%"=="7" goto DO_WIPE
-if "%CHOICE%"=="8" goto DO_EXPORT
-if "%CHOICE%"=="9" exit /b 0
+if "%CHOICE%"=="2" goto DO_WIPE
+if "%CHOICE%"=="3" goto DO_EXPORT
+if "%CHOICE%"=="4" exit /b 0
 goto MENU
+
+:DO_EXPORT_SILENT
+set "OUT_FILE=%PROJECT_ROOT%\codebase.txt"
+break > "%OUT_FILE%"
+
+for %%F in (index.html vite.config.js package.json bridge\package.json bridge\server.js) do (
+    if exist "%PROJECT_ROOT%\%%F" (
+        echo === FILE: %%F === >> "%OUT_FILE%"
+        type "%PROJECT_ROOT%\%%F" >> "%OUT_FILE%"
+        echo. >> "%OUT_FILE%"
+        echo. >> "%OUT_FILE%"
+    )
+)
+
+for /r "%PROJECT_ROOT%\src" %%F in (*.js *.jsx *.css) do (
+    set "FULL_PATH=%%F"
+    set "REL_PATH=!FULL_PATH:%PROJECT_ROOT%\=!"
+    echo === FILE: !REL_PATH! === >> "%OUT_FILE%"
+    type "%%F" >> "%OUT_FILE%"
+    echo. >> "%OUT_FILE%"
+    echo. >> "%OUT_FILE%"
+)
+exit /b 0
 
 :DO_INIT
 echo.
@@ -85,6 +98,10 @@ if not exist "node_modules\ws\" (
 )
 cd ..
 
+:: Auto-export codebase on every run
+echo [INFO] Auto-exporting latest codebase to codebase.txt...
+call :DO_EXPORT_SILENT
+
 set "VBS_SCRIPT=%TEMP%\atem_bridge_launcher.vbs"
 echo Set WshShell = CreateObject("WScript.Shell") > "!VBS_SCRIPT!"
 echo WshShell.CurrentDirectory = "!PROJECT_ROOT!\bridge" >> "!VBS_SCRIPT!"
@@ -128,8 +145,45 @@ echo          pushing, or reverting, and returns to the operations menu.
 echo =========================================================================
 set /p "EV_CHOICE=Choose an evaluation action [1-4]: "
 
-if "%EV_CHOICE%"=="1" goto DO_FINISH_ITERATION
-if "%EV_CHOICE%"=="2" goto DO_PUSH
+if "%EV_CHOICE%"=="1" (
+    for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD') do set "CURRENT_BRANCH=%%b"
+    set /p "COMMIT_DESC=Enter commit description: "
+    if "!COMMIT_DESC!"=="" set "COMMIT_DESC=feat: update iteration changes"
+
+    if "!CURRENT_BRANCH!"=="main" (
+        git add -A
+        git commit -m "!COMMIT_DESC!"
+        git push origin main
+        echo [SUCCESS] Pushed directly to main.
+        pause
+        goto MENU
+    )
+
+    git add -A
+    git commit -m "!COMMIT_DESC!" >nul 2>nul
+    git checkout main
+    git pull origin main
+    git merge !CURRENT_BRANCH! -m "merge: fold verified !CURRENT_BRANCH! into main"
+    git push origin main
+    git branch -d !CURRENT_BRANCH! >nul 2>nul
+    git push origin --delete !CURRENT_BRANCH! >nul 2>nul
+    echo [SUCCESS] Iteration complete! Main updated and branch pruned.
+    pause
+    goto MENU
+)
+
+if "%EV_CHOICE%"=="2" (
+    set /p "COMMIT_MSG=Enter your commit message: "
+    if "!COMMIT_MSG!"=="" set "COMMIT_MSG=chore: save progress"
+    for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD') do set "CURRENT_BRANCH=%%b"
+    git add -A
+    git commit -m "!COMMIT_MSG!"
+    git push -u origin !CURRENT_BRANCH!
+    echo [SUCCESS] Code pushed to origin/!CURRENT_BRANCH!.
+    pause
+    goto MENU
+)
+
 if "%EV_CHOICE%"=="3" (
     echo.
     set /p "REV_CONFIRM=Are you sure you want to DISCARD all changes and revert? [y/N]: "
@@ -143,92 +197,9 @@ if "%EV_CHOICE%"=="3" (
     pause
     goto MENU
 )
+
 if "%EV_CHOICE%"=="4" goto MENU
 goto DO_EVALUATE
-
-:DO_STOP
-echo.
-echo [INFO] Stopping background daemon on Port 8080...
-for /f "tokens=5" %%a in ('netstat -aon ^| find ":8080" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
-echo [SUCCESS] Daemon stopped.
-pause
-goto MENU
-
-:DO_PUSH
-echo.
-set /p "COMMIT_MSG=Enter your commit message: "
-if "!COMMIT_MSG!"=="" (
-    echo [ABORT] Commit message required.
-    pause
-    goto MENU
-)
-for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD') do set "CURRENT_BRANCH=%%b"
-git add -A
-git commit -m "!COMMIT_MSG!"
-git push -u origin !CURRENT_BRANCH!
-echo [SUCCESS] Code pushed to origin/!CURRENT_BRANCH!.
-pause
-goto MENU
-
-:DO_PULL
-echo.
-for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD') do set "CURRENT_BRANCH=%%b"
-git pull origin !CURRENT_BRANCH!
-pause
-goto MENU
-
-:DO_START_ITERATION
-echo.
-set /p "NEW_BRANCH=Enter new iteration branch name (e.g. feature/v2.42-next): "
-if "!NEW_BRANCH!"=="" goto MENU
-echo [1/3] Switching to 'main' branch...
-git checkout main
-echo [2/3] Pulling latest updates from GitHub...
-git pull origin main
-echo [3/3] Creating and switching to branch '!NEW_BRANCH!'...
-git checkout -b !NEW_BRANCH!
-echo [SUCCESS] You are now safely working on branch [!NEW_BRANCH!]!
-pause
-goto MENU
-
-:DO_FINISH_ITERATION
-echo.
-for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD') do set "CURRENT_BRANCH=%%b"
-set /p "COMMIT_DESC=Enter commit description: "
-if "!COMMIT_DESC!"=="" set "COMMIT_DESC=feat: update iteration changes"
-
-if "!CURRENT_BRANCH!"=="main" (
-    git add -A
-    git commit -m "!COMMIT_DESC!"
-    git push origin main
-    echo [SUCCESS] Pushed directly to main.
-    pause
-    goto MENU
-)
-
-echo [1/5] Staging work on !CURRENT_BRANCH!...
-git add -A
-git commit -m "!COMMIT_DESC!" >nul 2>nul
-
-echo [2/5] Switching to 'main'...
-git checkout main
-
-echo [3/5] Pulling latest main...
-git pull origin main
-
-echo [4/5] Merging '!CURRENT_BRANCH!' into 'main'...
-git merge !CURRENT_BRANCH! -m "merge: fold verified !CURRENT_BRANCH! into main"
-
-echo [5/5] Pushing updated 'main' to GitHub...
-git push origin main
-
-echo [INFO] Cleaning up finished branch '!CURRENT_BRANCH!'...
-git branch -d !CURRENT_BRANCH! >nul 2>nul
-git push origin --delete !CURRENT_BRANCH! >nul 2>nul
-
-echo [SUCCESS] Iteration complete! Main is updated and feature branch pruned.
-pause
-goto MENU
 
 :DO_WIPE
 echo.
@@ -268,27 +239,7 @@ exit
 :DO_EXPORT
 echo.
 echo [INFO] Packaging complete codebase into codebase.txt...
-set "OUT_FILE=%PROJECT_ROOT%\codebase.txt"
-break > "%OUT_FILE%"
-
-for %%F in (index.html vite.config.js package.json bridge\package.json bridge\server.js) do (
-    if exist "%PROJECT_ROOT%\%%F" (
-        echo === FILE: %%F === >> "%OUT_FILE%"
-        type "%PROJECT_ROOT%\%%F" >> "%OUT_FILE%"
-        echo. >> "%OUT_FILE%"
-        echo. >> "%OUT_FILE%"
-    )
-)
-
-for /r "%PROJECT_ROOT%\src" %%F in (*.js *.jsx *.css) do (
-    set "FULL_PATH=%%F"
-    set "REL_PATH=!FULL_PATH:%PROJECT_ROOT%\=!"
-    echo === FILE: !REL_PATH! === >> "%OUT_FILE%"
-    type "%%F" >> "%OUT_FILE%"
-    echo. >> "%OUT_FILE%"
-    echo. >> "%OUT_FILE%"
-)
-
+call :DO_EXPORT_SILENT
 echo [SUCCESS] Complete codebase saved to: codebase.txt
 echo [INFO] Ready to upload directly to any AI chat session.
 pause

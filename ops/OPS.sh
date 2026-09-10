@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # =========================================================================
-# ATEM WEB MANAGER - MASTER OPERATIONS SUITE (v2.42.0)
+# ATEM WEB MANAGER - MASTER OPERATIONS SUITE (v2.43.0)
 # =========================================================================
-# Interactive CLI with Descriptive Post-Vite Evaluation, Merge & Revert.
+# Streamlined 4-action CLI: Auto-export on run, Evaluation pipeline, Wipe.
 
 REPO_URL="https://github.com/trex20xx/atem-web-manager.git"
 TOKEN_KEY="ATEM_MANAGER_SECURE_WIPE_KEY_2026"
@@ -22,20 +22,15 @@ show_menu() {
     clear
     CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "not-cloned")
     echo "========================================================================="
-    echo "        ATEM WEB MANAGER - OPERATIONS SUITE (v2.42.0)                   "
+    echo "        ATEM WEB MANAGER - OPERATIONS SUITE (v2.43.0)                   "
     echo "        Active Branch: [$CURRENT_BRANCH]                                "
     echo "========================================================================="
-    echo "  [1] RUN & EVALUATE  - Start bridge + UI, then Merge or Revert on exit "
-    echo "  [2] STOP            - Terminate background ATEM bridge daemon         "
-    echo "  [3] PUSH            - Stage all files, commit, and push active branch "
-    echo "  [4] PULL            - Pull latest changes from remote for active branch"
-    echo "  [5] START ITERATION - Create & switch to a new feature branch from main"
-    echo "  [6] FINISH & MERGE  - Merge active feature branch into main & cleanup "
-    echo "  [7] WIPE            - Secure token check & workspace erasure          "
-    echo "  [8] EXPORT          - Package full codebase into codebase.txt for AI  "
-    echo "  [9] EXIT                                                              "
+    echo "  [1] RUN & EVALUATE - Auto-export codebase, start bridge + UI, evaluate "
+    echo "  [2] WIPE           - Secure token check & workspace erasure           "
+    echo "  [3] EXPORT         - Package full codebase into codebase.txt for AI   "
+    echo "  [4] EXIT                                                              "
     echo "========================================================================="
-    read -p "Select an option [1-9]: " OPTION
+    read -p "Select an option [1-4]: " OPTION
 }
 
 cleanup_bridge() {
@@ -43,6 +38,36 @@ cleanup_bridge() {
     if [ -n "$BRIDGE_PIDS" ]; then
         kill -9 $BRIDGE_PIDS 2>/dev/null
         echo "[INFO] Background bridge daemon terminated cleanly."
+    fi
+}
+
+do_export_silent() {
+    OUTPUT_FILE="$PROJECT_ROOT/codebase.txt"
+    > "$OUTPUT_FILE"
+
+    for f in "index.html" "vite.config.js" "package.json"; do
+        if [ -f "$PROJECT_ROOT/$f" ]; then
+            echo "=== FILE: $f ===" >> "$OUTPUT_FILE"
+            cat "$PROJECT_ROOT/$f" >> "$OUTPUT_FILE"
+            echo -e "\n" >> "$OUTPUT_FILE"
+        fi
+    done
+
+    for f in "bridge/package.json" "bridge/server.js"; do
+        if [ -f "$PROJECT_ROOT/$f" ]; then
+            echo "=== FILE: $f ===" >> "$OUTPUT_FILE"
+            cat "$PROJECT_ROOT/$f" >> "$OUTPUT_FILE"
+            echo -e "\n" >> "$OUTPUT_FILE"
+        fi
+    done
+
+    if [ -d "$PROJECT_ROOT/src" ]; then
+        find "$PROJECT_ROOT/src" -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.css" \) | sort | while read -r file; do
+            rel_path="${file#$PROJECT_ROOT/}"
+            echo "=== FILE: $rel_path ===" >> "$OUTPUT_FILE"
+            cat "$file" >> "$OUTPUT_FILE"
+            echo -e "\n" >> "$OUTPUT_FILE"
+        done
     fi
 }
 
@@ -75,16 +100,44 @@ do_evaluate() {
 
     case "$EVAL_CHOICE" in
         1)
-            do_finish_iteration
+            CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+            read -p "Enter commit description: " COMMIT_DESC
+            COMMIT_DESC="${COMMIT_DESC:-feat: update iteration changes}"
+
+            if [ "$CURRENT_BRANCH" = "main" ]; then
+                git add -A
+                git commit -m "$COMMIT_DESC"
+                git push origin main
+                echo "[SUCCESS] Pushed to main."
+                read -p "Press Enter to continue..."
+                return
+            fi
+
+            git add -A
+            git commit -m "$COMMIT_DESC" 2>/dev/null
+            git checkout main
+            git pull origin main
+            git merge "$CURRENT_BRANCH" -m "merge: fold verified $CURRENT_BRANCH into main"
+            git push origin main
+            git branch -d "$CURRENT_BRANCH" 2>/dev/null
+            git push origin --delete "$CURRENT_BRANCH" 2>/dev/null
+            echo "[SUCCESS] Iteration merged cleanly into 'main' and branch pruned."
+            read -p "Press Enter to continue..."
             ;;
         2)
-            do_push
+            read -p "Enter commit message: " COMMIT_MSG
+            COMMIT_MSG="${COMMIT_MSG:-chore: save progress}"
+            CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+            git add -A
+            git commit -m "$COMMIT_MSG"
+            git push -u origin "$CURRENT_BRANCH"
+            echo "[SUCCESS] Pushed to origin/$CURRENT_BRANCH."
+            read -p "Press Enter to continue..."
             ;;
         3)
             echo ""
             read -p "Are you sure you want to DISCARD all changes and revert? [y/N]: " REVERT_CONFIRM
             if [[ "$REVERT_CONFIRM" =~ ^[Yy]$ ]]; then
-                echo "[INFO] Reverting all modified files and cleaning untracked files..."
                 git reset --hard HEAD
                 git clean -fd
                 echo "[SUCCESS] Workspace reverted to clean state."
@@ -141,6 +194,10 @@ do_init() {
         cd "$PROJECT_ROOT" || exit 1
     fi
 
+    # Auto-export codebase on every run
+    echo "[INFO] Auto-exporting latest codebase to codebase.txt..."
+    do_export_silent
+
     PIDS=$(lsof -t -i:8080 2>/dev/null)
     if [ -n "$PIDS" ]; then
         kill -9 $PIDS 2>/dev/null
@@ -161,97 +218,6 @@ do_init() {
 
     cleanup_bridge
     do_evaluate
-}
-
-do_stop() {
-    echo ""
-    echo "[INFO] Hunting for running ATEM bridge processes on Port 8080..."
-    cleanup_bridge
-    read -p "Press Enter to continue..."
-}
-
-do_push() {
-    echo ""
-    read -p "Enter your commit message: " COMMIT_MSG
-    if [ -z "$COMMIT_MSG" ]; then
-        echo "[ABORT] Commit message cannot be empty."
-        read -p "Press Enter to continue..."
-        return
-    fi
-    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-    git add -A
-    git commit -m "$COMMIT_MSG"
-    git push -u origin "$CURRENT_BRANCH"
-    echo "[SUCCESS] Pushed changes to origin/$CURRENT_BRANCH."
-    read -p "Press Enter to continue..."
-}
-
-do_pull() {
-    echo ""
-    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-    echo "[INFO] Pulling latest changes from origin/$CURRENT_BRANCH..."
-    git pull origin "$CURRENT_BRANCH"
-    read -p "Press Enter to continue..."
-}
-
-do_start_iteration() {
-    echo ""
-    echo "[INFO] Starting a new isolated feature iteration..."
-    read -p "Enter new iteration branch name (e.g. feature/v2.42-next): " BRANCH_NAME
-    if [ -z "$BRANCH_NAME" ]; then
-        echo "[ABORT] Branch name cannot be empty."
-        read -p "Press Enter to continue..."
-        return
-    fi
-
-    echo "[1/3] Switching to 'main' branch..."
-    git checkout main
-    echo "[2/3] Pulling latest updates from GitHub..."
-    git pull origin main
-    echo "[3/3] Creating and switching to branch '$BRANCH_NAME'..."
-    git checkout -b "$BRANCH_NAME"
-    echo "[SUCCESS] You are now safely working on branch [$BRANCH_NAME]!"
-    read -p "Press Enter to continue..."
-}
-
-do_finish_iteration() {
-    echo ""
-    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-    read -p "Enter commit description: " COMMIT_DESC
-    COMMIT_DESC="${COMMIT_DESC:-feat: update iteration changes}"
-
-    if [ "$CURRENT_BRANCH" = "main" ]; then
-        echo "[INFO] Committing and pushing directly to 'main'..."
-        git add -A
-        git commit -m "$COMMIT_DESC"
-        git push origin main
-        echo "[SUCCESS] Pushed to main."
-        read -p "Press Enter to continue..."
-        return
-    fi
-
-    echo "[1/5] Staging work on $CURRENT_BRANCH..."
-    git add -A
-    git commit -m "$COMMIT_DESC" 2>/dev/null
-
-    echo "[2/5] Switching to 'main'..."
-    git checkout main
-
-    echo "[3/5] Pulling latest main..."
-    git pull origin main
-
-    echo "[4/5] Merging '$CURRENT_BRANCH' into 'main'..."
-    git merge "$CURRENT_BRANCH" -m "merge: fold verified $CURRENT_BRANCH into main"
-
-    echo "[5/5] Pushing updated 'main' to GitHub..."
-    git push origin main
-
-    echo "[INFO] Cleaning up finished branch '$CURRENT_BRANCH'..."
-    git branch -d "$CURRENT_BRANCH" 2>/dev/null
-    git push origin --delete "$CURRENT_BRANCH" 2>/dev/null
-
-    echo "[SUCCESS] Iteration merged cleanly into 'main' and branch pruned."
-    read -p "Press Enter to continue..."
 }
 
 do_wipe() {
@@ -291,35 +257,8 @@ do_wipe() {
 do_export() {
     echo ""
     echo "[INFO] Packaging complete codebase into codebase.txt..."
-    OUTPUT_FILE="$PROJECT_ROOT/codebase.txt"
-    > "$OUTPUT_FILE"
-
-    for f in "index.html" "vite.config.js" "package.json"; do
-        if [ -f "$PROJECT_ROOT/$f" ]; then
-            echo "=== FILE: $f ===" >> "$OUTPUT_FILE"
-            cat "$PROJECT_ROOT/$f" >> "$OUTPUT_FILE"
-            echo -e "\n" >> "$OUTPUT_FILE"
-        fi
-    done
-
-    for f in "bridge/package.json" "bridge/server.js"; do
-        if [ -f "$PROJECT_ROOT/$f" ]; then
-            echo "=== FILE: $f ===" >> "$OUTPUT_FILE"
-            cat "$PROJECT_ROOT/$f" >> "$OUTPUT_FILE"
-            echo -e "\n" >> "$OUTPUT_FILE"
-        fi
-    done
-
-    if [ -d "$PROJECT_ROOT/src" ]; then
-        find "$PROJECT_ROOT/src" -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.css" \) | sort | while read -r file; do
-            rel_path="${file#$PROJECT_ROOT/}"
-            echo "=== FILE: $rel_path ===" >> "$OUTPUT_FILE"
-            cat "$file" >> "$OUTPUT_FILE"
-            echo -e "\n" >> "$OUTPUT_FILE"
-        done
-    fi
-
-    FILE_SIZE=$(ls -lh "$OUTPUT_FILE" | awk '{print $5}')
+    do_export_silent
+    FILE_SIZE=$(ls -lh "$PROJECT_ROOT/codebase.txt" | awk '{print $5}')
     echo "[SUCCESS] Complete codebase saved to: codebase.txt ($FILE_SIZE)"
     echo "[INFO] Ready to upload directly to any AI chat session."
     read -p "Press Enter to continue..."
@@ -329,14 +268,9 @@ while true; do
     show_menu
     case "$OPTION" in
         1) do_init ;;
-        2) do_stop ;;
-        3) do_push ;;
-        4) do_pull ;;
-        5) do_start_iteration ;;
-        6) do_finish_iteration ;;
-        7) do_wipe ;;
-        8) do_export ;;
-        9) exit 0 ;;
-        *) echo "Invalid option. Select 1-9."; sleep 1 ;;
+        2) do_wipe ;;
+        3) do_export ;;
+        4) exit 0 ;;
+        *) echo "Invalid option. Select 1-4."; sleep 1 ;;
     esac
 done

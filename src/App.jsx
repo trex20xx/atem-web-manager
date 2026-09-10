@@ -6,9 +6,10 @@ import GlobalTooltip from './components/UI/GlobalTooltip';
 import { useDevices } from './hooks/useDevices';
 import { useDragDrop } from './hooks/useDragDrop';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { APP_VERSION } from './version';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v2.41.0)
+// ATEM WEB MANAGER - MASTER LAYOUT
 // =========================================================================
 
 function App() {
@@ -133,7 +134,7 @@ function App() {
             onClick={() => setShowVersion(prev => !prev)}
             title={showVersion ? "Click to hide" : "Click to reveal"}
           >
-            v2.41.0
+            {APP_VERSION}
           </span>
 
           <div 
