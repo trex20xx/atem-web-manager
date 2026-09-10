@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableDelayedExpansion
-title ATEM WEB MANAGER - OPERATIONS SUITE (v2.37.0)
+title ATEM WEB MANAGER - OPERATIONS SUITE (v2.39.0)
 
 set "REPO_URL=https://github.com/trex20xx/atem-web-manager.git"
 set "EXPECTED_KEY=ATEM_MANAGER_SECURE_WIPE_KEY_2026"
@@ -15,7 +15,7 @@ for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set "CURR
 if "!CURRENT_BRANCH!"=="" set "CURRENT_BRANCH=not-cloned"
 
 echo =========================================================================
-echo         ATEM WEB MANAGER - OPERATIONS SUITE (v2.37.0)                    
+echo         ATEM WEB MANAGER - OPERATIONS SUITE (v2.39.0)                    
 echo         Active Branch: [!CURRENT_BRANCH!]                                
 echo =========================================================================
 echo   [1] INIT    - Install dependencies, start bridge, and launch UI        
@@ -45,7 +45,7 @@ goto MENU
 echo.
 echo [INFO] Verifying workspace...
 
-:: Auto-clone if missing
+:: 1. Auto-clone if missing
 if not exist "%PROJECT_ROOT%\package.json" (
     echo [INFO] Project files not found in current directory.
     set /p "USER_DIR=Enter installation path: "
@@ -55,42 +55,54 @@ if not exist "%PROJECT_ROOT%\package.json" (
     cd /d "!PROJECT_ROOT!"
 )
 
-:: Portable Node check
+:: 2. Portable Node check & Session PATH Injection
 set "NODE_EXE=node"
 set "NPM_EXE=npm"
 call node -v >nul 2>&1
 if !ERRORLEVEL! NEQ 0 (
     if exist "%PROJECT_ROOT%\.atem_node_path" (
         set /p CUSTOM_NODE_PATH=<"%PROJECT_ROOT%\.atem_node_path"
-        set "NODE_EXE=!CUSTOM_NODE_PATH!\node.exe"
-        set "NPM_EXE=!CUSTOM_NODE_PATH!\npm.cmd"
     ) else (
+        echo [WARNING] Node.js is not globally installed in your system PATH.
         set /p CUSTOM_NODE_PATH="Enter portable Node.js directory path: "
-        set "NODE_EXE=!CUSTOM_NODE_PATH!\node.exe"
-        set "NPM_EXE=!CUSTOM_NODE_PATH!\npm.cmd"
         echo !CUSTOM_NODE_PATH!> "%PROJECT_ROOT%\.atem_node_path"
     )
+    
+    :: Crucial: Inject portable path into active session PATH so npm child processes inherit it
+    set "PATH=!CUSTOM_NODE_PATH!;!PATH!"
+    set "NODE_EXE=!CUSTOM_NODE_PATH!\node.exe"
+    set "NPM_EXE=!CUSTOM_NODE_PATH!\npm.cmd"
 )
 
-if not exist "node_modules\" call "!NPM_EXE!" install
+:: 3. Clear port locks and stale node processes holding EPERM file handles
+for /f "tokens=5" %%a in ('netstat -aon ^| find ":8080" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
+for /f "tokens=5" %%a in ('netstat -aon ^| find ":3000" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
+for /f "tokens=5" %%a in ('netstat -aon ^| find ":5173" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
+
+:: 4. Install dependencies (validate core packages to avoid broken half-installs)
+if not exist "node_modules\vite\" (
+    echo [INFO] Installing frontend dependencies...
+    call "!NPM_EXE!" install
+)
+
 cd bridge
-if not exist "node_modules\" call "!NPM_EXE!" install
+if not exist "node_modules\ws\" (
+    echo [INFO] Installing hardware bridge dependencies...
+    call "!NPM_EXE!" install
+)
 cd ..
 
-:: Clean lingering bridge port
-for /f "tokens=5" %%a in ('netstat -aon ^| find ":8080" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
-
-:: Launch hidden VBS daemon
+:: 5. Launch hidden VBS daemon
 set "VBS_SCRIPT=%TEMP%\atem_bridge_launcher.vbs"
 echo Set WshShell = CreateObject("WScript.Shell") > "!VBS_SCRIPT!"
 echo WshShell.CurrentDirectory = "!PROJECT_ROOT!\bridge" >> "!VBS_SCRIPT!"
 echo WshShell.Run """!NODE_EXE!"" server.js", 0, False >> "!VBS_SCRIPT!"
 cscript //nologo "!VBS_SCRIPT!"
 
-:: Launch Vite UI
+:: 6. Launch Vite UI
 call "!NPM_EXE!" run dev
 
-:: Automatic Bridge Termination on Vite Exit
+:: 7. Automatic Bridge Termination on Vite Exit
 echo.
 echo [INFO] Vite UI stopped. Terminating background bridge daemon...
 for /f "tokens=5" %%a in ('netstat -aon ^| find ":8080" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
@@ -172,6 +184,7 @@ if "!CONFIRM!" NEQ "DELETE" (
 
 for /f "tokens=5" %%a in ('netstat -aon ^| find ":8080" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
 for /f "tokens=5" %%a in ('netstat -aon ^| find ":5173" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
+for /f "tokens=5" %%a in ('netstat -aon ^| find ":3000" ^| find "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
 
 set "GHOST=%TEMP%\atem_wiper.bat"
 echo @echo off > "%GHOST%"

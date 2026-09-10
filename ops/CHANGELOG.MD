@@ -1,5 +1,15 @@
 # ATEM WEB MANAGER - Complete Version History
 
+## [v2.39.0] - Windows Portable Node Session PATH Injection & Install Integrity Validation
+- Fixed npm child process failure (`node install.js`) by injecting `CUSTOM_NODE_PATH` directly into the active session `%PATH%` in `ops/OPS.BAT`.
+- Upgraded dependency checking to inspect core packages (`node_modules\vite\` and `bridge\node_modules\ws\`) rather than mere folder existence, preventing skipped recovery on corrupted/partial installs.
+- Added pre-install port termination on 8080, 3000, and 5173 to clear stale file handles causing `EPERM` directory cleanup locks.
+- Synchronized master application version tag to v2.39.0 across layout and documentation.
+
+## [v2.38.0] - Windows Environment Parity & One-Liner Launcher
+- Established verified one-liner Git invocation for Windows environments bypassing private repository curl limitations.
+- Synchronized master application version tag to v2.38.0 across layout and documentation.
+
 ## [v2.37.0] - Markdown Code Fence Formatting & Package Lockfile Clarification
 - Fortified code block fence formatting across AI delivery artifacts to eliminate nested block parser errors.
 - Clarified lockfile lifecycle: validated `package-lock.json` retention in repository while intentionally excluding lockfile hashes from AI codebase exports.

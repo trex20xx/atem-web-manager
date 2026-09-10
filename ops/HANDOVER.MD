@@ -1,6 +1,6 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-**Current Version:** v2.37.0
-**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Unified Operations Suite with Codebase Exporter.
+**Current Version:** v2.39.0
+**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Unified Operations Suite with Portable Node Session PATH Injection.
 
 ---
 
@@ -35,8 +35,8 @@ ATEM_WEB_MANAGER/
 ├── ops/                           # Operations & Documentation
 │   ├── CHANGELOG.MD               # Complete history archive (v1.72+)
 │   ├── HANDOVER.MD                # Master documentation and spec (THIS FILE)
-│   ├── OPS.BAT                    # Master Windows CLI (Init, Stop, Push, Pull, Branch, Merge, Wipe, Export)
-│   └── OPS.SH                     # Master macOS/Linux CLI (Init, Stop, Push, Pull, Branch, Merge, Wipe, Export)
+│   ├── OPS.BAT                    # Master Windows CLI with Session PATH Injection & Port Cleanup
+│   └── OPS.SH                     # Master macOS/Linux CLI with Signal Trap & Self-Bootstrap
 │
 ├── bridge/                        # Node.js Hardware Bridge
 │   ├── package-lock.json          # Bridge deterministic lockfile
@@ -48,7 +48,7 @@ ATEM_WEB_MANAGER/
     ├── App.jsx                    # Master Layout, Top Control Bar, Synchronized Collapse
     ├── index.css                  # Global styles, Apple Switch, Pill Context Menu, Macro Grid
     ├── components/            
-    │   ├── UI/                    # Skeleton, GlobalTooltip, ErrorBoundary, QuadrantContextMenu
+    │   ├── UI/                # Skeleton, GlobalTooltip, ErrorBoundary, QuadrantContextMenu
     │   ├── Sidebar/           # Sidebar, SearchBar, DeviceList, DeviceRow, ColorDropdown, BottomActionBtn
     │   ├── Multiview/         # QuadrantGrid, Panel (Routes Q1 Player, Q2 Macros, Q3 Switcher)
     │   ├── Panels/            # AtemConstellationBus.jsx, AtemMacros.jsx (Hardware-locked to 192.168.10.240)
@@ -64,11 +64,5 @@ Execute directly from inside your project directory:
 - **macOS / Linux:** `bash ops/OPS.SH`
 - **Windows:** `ops\OPS.BAT`
 
-### Zero-Backup One-Liner Bootstrapper (macOS / Linux)
-Because the repository is private, clone and launch using Git authentication:
-```bash
-git clone https://github.com/trex20xx/atem-web-manager.git ATEM_WEB_MANAGER && cd ATEM_WEB_MANAGER && bash ops/OPS.SH
-```
-
-### Signal Trap & Process Lifecycle
-When you launch the Vite UI using option `[1] INIT`, the scripts attach an automatic exit trap. Pressing `Ctrl + C` to stop the Vite server automatically searches for and kills the background Node.js bridge daemon on port 8080.
+### Portable Node Session PATH Injection (Windows)
+When using a standalone/portable Node.js binary, `OPS.BAT` prepends `CUSTOM_NODE_PATH` into the batch session's active `%PATH%`. This ensures child processes launched during `npm install` (such as `esbuild`'s `node install.js`) inherit `node` in their command path.
