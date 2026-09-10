@@ -278,10 +278,10 @@ wss.on('connection', (ws) => {
  
 === FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\version.js === 
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.44.0)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.45.0)
 // =========================================================================
 
-export const APP_VERSION = 'v2.44.0'; 
+export const APP_VERSION = 'v2.45.0'; 
  
 === FILE: c:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER\src\App.jsx === 
 import React, { useEffect, useState } from 'react';

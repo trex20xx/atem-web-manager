@@ -1,5 +1,5 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-**Current Version:** v2.44.0
+**Current Version:** v2.45.0
 **Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Streamlined 4-Action Master CLI Suite.
 
 ---
@@ -8,7 +8,7 @@
 1. **INCREMENT VERSION:** Increment the version number in file headers, documentation, and `src/version.js` with EVERY single iteration.
 2. **NO UNREQUESTED CHANGES:** Never modify existing functionality, logic, or design unless explicitly requested.
 3. **MAINTAIN ALL COMMENTS & COMPLETE HISTORY:** Never trim, truncate, or delete historical changelog entries or architectural comments. Retain all records from v1.72 onwards inside `ops/CHANGELOG.MD`.
-4. **FULL FILES ONLY FOR MODIFIED FILES:** Always provide 100% complete files ready to copy-paste directly in each reply. Never output code snippets or partial diffs. Do not re-output unmodified components (such as `App.jsx`) unless their internal layout, component, or state logic is actively modified.
+4. **FULL FILES ONLY FOR MODIFIED FILES:** Always provide 100% complete files ready to copy-paste directly in each reply. Never output code snippets or partial diffs. Do not re-output unmodified components (such as `App.jsx` or `main.jsx`) unless their internal layout, component, or state logic is actively modified.
 5. **DOCUMENTATION CONSOLIDATION IN /OPS:** All project documentation lives exclusively within `ops/` as two core files: `ops/CHANGELOG.MD` (history) and `ops/HANDOVER.MD` (master spec).
 6. **ITERATION DESCRIPTOR:** Always provide a clear, concise descriptor text at the end of every response summarizing the iteration's changes.
 7. **NO WAITING FOR CONFIRMATION:** Provide full files immediately without holding back for intermediate confirmation.
@@ -45,7 +45,7 @@ ATEM_WEB_MANAGER/
 │
 └── src/                           # React Application Source
     ├── version.js                 # Isolated application version module
-    ├── main.jsx
+    ├── main.jsx                   # React DOM bootstrap engine (CRITICAL: Do not delete)
     ├── App.jsx                    # Master Layout, Top Control Bar, Synchronized Collapse
     ├── index.css                  # Global styles, Apple Switch, Pill Context Menu, Macro Grid
     ├── components/            
@@ -74,3 +74,11 @@ Execute directly from inside your project directory:
 2. **`[2] WIPE`**: Enforces security token verification (`ATEM_MANAGER_SECURE_WIPE_KEY_2026`) and completely deletes the directory safely.
 3. **`[3] EXPORT`**: Manual export of `codebase.txt` for AI sessions on demand.
 4. **`[4] EXIT`**: Clean exit.
+
+---
+
+## 4. MASTER AI HANDOVER PROTOCOL (FOR NEW SESSIONS)
+When initiating a new session, provide:
+1. `ops/HANDOVER.MD` (This file)
+2. `codebase.txt` (Generated via option `[8]` or `[1]` in `OPS.SH` / `OPS.BAT`)
+3. `ops/CHANGELOG.MD` (Historical archive)
