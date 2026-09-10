@@ -1,14 +1,15 @@
 import React, { useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - QUADRANT CONTEXT MENU (v2.56)
+// ATEM WEB MANAGER - QUADRANT CONTEXT MENU (v2.58)
 // =========================================================================
 
 const QUAD_OPTIONS = [
     { id: 1, name: '1. STREAM' },
     { id: 2, name: '2. MEDIA POOL' },
     { id: 3, name: '3. MIXER' },
-    { id: 4, name: '4. MACROS' }
+    { id: 4, name: '4. MACROS' },
+    { id: 0, name: 'SELECT NONE' }
 ];
 
 export default function QuadrantContextMenu({ x, y, currentQuad, onClose, onSelectQuadrant }) {

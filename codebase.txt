@@ -67,9 +67,9 @@ export default defineConfig({
  
 === FILE: bridge/server.js === 
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.20.0)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.58)
 // =========================================================================
-// Bidirectional switcher bus & macro execution sync over WebSocket (8080).
+// Bidirectional switcher bus, macro execution & aux router sync over WebSocket (8080).
 
 const { Atem } = require('atem-connection');
 const WebSocket = require('ws');
@@ -77,8 +77,8 @@ const WebSocket = require('ws');
 const ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
 
-console.log(`[ATEM Bridge v2.20.0] Starting bridge service...`);
-console.log(`[ATEM Bridge v2.20.0] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v2.58] Starting bridge service...`);
+console.log(`[ATEM Bridge v2.58] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 const atem = new Atem();
 let isAtemConnected = false;
@@ -87,6 +87,7 @@ let isAtemConnected = false;
 let currentPgm = 1;
 let currentPvw = 2;
 let currentInTransition = false;
+let currentAux = [1, 2, 3, 4, 5, 6];
 
 function broadcastState(targetWs = null) {
     try {
@@ -107,6 +108,15 @@ function broadcastState(targetWs = null) {
             }
         }
 
+        // Extract Auxiliaries (Outputs 1 to 6)
+        if (atem && atem.state && atem.state.video && atem.state.video.auxiliaries) {
+            const auxObj = atem.state.video.auxiliaries;
+            currentAux = [0, 1, 2, 3, 4, 5].map(idx => {
+                const val = auxObj[idx];
+                return typeof val === 'number' ? val : (currentAux[idx] || 1);
+            });
+        }
+
         // Extract Macro state if available
         let macroPlayer = { isRunning: false, isWaiting: false, loop: false, macroIndex: -1 };
         let macroProperties = [];
@@ -125,6 +135,7 @@ function broadcastState(targetWs = null) {
             pgm: currentPgm,
             pvw: currentPvw,
             inTransition: currentInTransition,
+            auxSources: currentAux,
             macroPlayer,
             macroProperties
         });
@@ -170,7 +181,15 @@ function handleHardwareCommand(cmd) {
             currentInTransition = !!props.inTransition;
             changed = true;
         }
-    } else if (raw === 'MRPr' || raw === 'MRPr' || raw.includes('Macro')) {
+    } else if (raw === 'AuxS' || raw.includes('AuxSource')) {
+        const auxId = props.id !== undefined ? props.id : props.auxiliaryId;
+        const src = props.source !== undefined ? props.source : props.input;
+        if (typeof auxId === 'number' && typeof src === 'number' && auxId >= 0 && auxId < 6) {
+            currentAux[auxId] = src;
+            changed = true;
+            console.log(`[ATEM Bridge â¬… Physical Switcher Event] Aux ${auxId + 1} routed to Source ${src}`);
+        }
+    } else if (raw === 'MRPr' || raw.includes('Macro')) {
         changed = true;
     }
 
@@ -242,13 +261,16 @@ wss.on('connection', (ws) => {
                 atem.changePreviewInput(inputNum, 0).catch((e) => console.error('[ATEM Bridge] PVW Error:', e.message || e));
                 broadcastState();
             } else if (data.action === 'CUT') {
-                const temp = currentPgm;
-                currentPgm = currentPvw;
-                currentPvw = temp;
                 atem.cut(0).catch((e) => console.error('[ATEM Bridge] CUT Error:', e.message || e));
-                broadcastState();
             } else if (data.action === 'AUTO') {
                 atem.autoTransition(0).catch((e) => console.error('[ATEM Bridge] AUTO Error:', e.message || e));
+            } else if (data.action === 'SET_AUX' && data.aux !== undefined && data.source !== undefined) {
+                const auxIdx = parseInt(data.aux, 10);
+                const src = parseInt(data.source, 10);
+                console.log(`[ATEM Bridge âž” Routing Aux] Output ${auxIdx + 1} to Source ${src}`);
+                if (typeof atem.setAuxSource === 'function') {
+                    atem.setAuxSource(src, auxIdx).catch(e => console.error('[ATEM Bridge] Aux Error:', e.message || e));
+                }
             } else if (data.action === 'MACRO_RUN' && data.index !== undefined) {
                 const mIdx = parseInt(data.index, 10);
                 console.log(`[ATEM Bridge âž” Executing Macro] Index: ${mIdx}`);
@@ -288,7 +310,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { APP_VERSION } from './version';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT
+// ATEM WEB MANAGER - MASTER LAYOUT (v2.58)
 // =========================================================================
 
 function App() {
@@ -309,6 +331,7 @@ function App() {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   const [dashboardStyle, setDashboardStyle] = useState({ width: '100%', height: '100%' });
 
@@ -351,6 +374,20 @@ function App() {
   }, [isSidebarCollapsed]);
 
   useEffect(() => {
+    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+
+  useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === ',') {
         e.preventDefault();
@@ -387,7 +424,7 @@ function App() {
           <button 
             className="top-bar-btn"
             onClick={() => setIsSidebarCollapsed(prev => !prev)}
-            title="Toggle Navigation Menu"
+            data-description="Collapse navigation menu"
           >
             <svg viewBox="0 0 24 24">
               <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
@@ -411,7 +448,7 @@ function App() {
           <span 
             className={`top-bar-version ${showVersion ? 'visible' : 'faded'}`}
             onClick={() => setShowVersion(prev => !prev)}
-            title={showVersion ? "Click to hide" : "Click to reveal"}
+            data-description={showVersion ? "Click to hide version" : "Click to reveal version"}
           >
             {APP_VERSION}
           </span>
@@ -419,7 +456,7 @@ function App() {
           <div 
             className={`apple-theme-switch ${theme === 'light' ? 'active' : ''}`}
             onClick={toggleLightMode}
-            title={theme === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
+            data-description={theme === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
           >
             <div className="apple-switch-thumb">
               {theme === 'light' ? (
@@ -442,10 +479,27 @@ function App() {
             </div>
           </div>
 
+          {/* Fullscreen Toggle Button */}
+          <button 
+            className="top-bar-btn"
+            onClick={toggleFullscreen}
+            data-description={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+          >
+            {isFullscreen ? (
+              <svg viewBox="0 0 24 24">
+                <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24">
+                <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+              </svg>
+            )}
+          </button>
+
           <button 
             className="top-bar-btn"
             onClick={() => setIsSettingsOpen(true)}
-            title="Settings (Cmd/Ctrl + ,)"
+            data-description="Settings (Cmd/Ctrl + ,)"
           >
             <svg viewBox="0 0 24 24">
               <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.05-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22l-1.92 3.32c-.12.22-.07.49.12.61l2.03 1.58c-.04.3-.06.61-.06.94s.02.64.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.49-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6S13.98,15.6,12,15.6z"/>
@@ -505,7 +559,7 @@ export default App;
 === FILE: src/index.css === 
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.56)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.58)
  * =========================================================================
  */
 
@@ -592,16 +646,34 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .dashboard{ flex: 1; width: 100%; display: flex; justify-content: flex-start; align-items: center; gap: var(--gap); padding: 8px 16px 16px 16px; box-sizing: border-box; overflow: hidden; position: relative; }
 .dashboard.sidebar-collapsed { justify-content: center; }
 
+/* Pure horizontal sliding transition with no opacity fade */
 .sidebar{ 
     width: 260px; min-width: 260px; background: var(--panel); border-radius: var(--panel-radius); 
-    display: flex; flex-direction: column; overflow: hidden; opacity: 1; transform: translateX(0);
-    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), width 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
-                min-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), margin 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
-                height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease; flex-shrink: 0;
+    display: flex; flex-direction: column; overflow: hidden;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+                width 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+                min-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+                margin 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateX(0);
+    flex-shrink: 0;
 }
-.sidebar.collapsed { width: 0 !important; min-width: 0 !important; margin-right: calc(-1 * var(--gap)) !important; margin-left: 0 !important; opacity: 0 !important; transform: translateX(-100%) !important; pointer-events: none !important; overflow: hidden !important; }
+.sidebar > * {
+    width: 260px;
+    min-width: 260px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
+.sidebar.collapsed { 
+    width: 0 !important; 
+    min-width: 0 !important; 
+    margin-right: calc(-1 * var(--gap)) !important; 
+    margin-left: 0 !important; 
+    transform: translateX(-100%) !important;
+    pointer-events: none !important; 
+    overflow: hidden !important; 
+}
 
-.search-container{ padding: 8px 8px 4px 8px; width: 100%; }
+.search-container{ padding: 8px 8px 4px 8px; }
 .device-list{ flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
 .action-container{ max-height:0; overflow:visible; opacity:0; transform:translateY(10px); transition:max-height .28s ease, opacity .2s ease, transform .28s ease, padding .28s ease; padding:0 12px; display:flex; flex-direction:column; gap:6px; position:relative; }
 .action-container.visible { max-height:60px; opacity:1; transform:translateY(0); padding:12px; }
@@ -770,38 +842,93 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .sidebar.variant-classic { background: var(--panel); }
 .sidebar.variant-floating { background: rgba(31, 31, 31, 0.5); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5); }
 
-/* ATEM SWITCHER BUS CSS */
-.atem-constellation-panel { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 12px; background: var(--panel); box-sizing: border-box; font-family: var(--le-font-family); color: var(--text); user-select: none; overflow: hidden; }
-.atem-bus-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(150,150,150,0.15); padding-bottom: 4px; flex-shrink: 0; }
-.atem-bus-title-group { display: flex; align-items: center; gap: 6px; }
-.atem-bus-title { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; color: var(--text); opacity: 0.8; }
-.atem-bus-badge { background: rgba(150,150,150,0.1); border: 1px solid rgba(150,150,150,0.2); font-size: 8px; padding: 1px 4px; border-radius: 3px; color: var(--muted); font-weight: 600; }
-.atem-bus-status { display: flex; align-items: center; gap: 4px; }
+/* ATEM SWITCHER BUS CSS (QUADRANT 3) */
+.atem-constellation-panel { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 8px 12px; background: var(--panel); box-sizing: border-box; font-family: var(--le-font-family); color: var(--text); user-select: none; overflow: hidden; }
+
+/* Unified Header Bar matching exact Macros panel vertical geometry */
+.atem-bus-header { display: flex; justify-content: space-between; align-items: center; border-bottom: none; padding: 0 4px 2px 4px; min-height: 28px; height: 28px; flex-shrink: 0; }
+.atem-bus-title { font-family: var(--le-font-family); font-size: 14px; font-weight: 700; color: var(--text); opacity: 0.8; letter-spacing: 0.5px; }
+.atem-bus-status { display: flex; align-items: center; gap: 6px; }
 .atem-bus-online-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
 .atem-bus-online-dot.offline { background: var(--red); }
-.atem-bus-ip { font-size: 10px; color: var(--muted); font-family: monospace; }
-.atem-bus-matrix { display: flex; flex-direction: column; gap: 6px; margin: 4px 0; flex: 1; justify-content: center; }
+.atem-bus-ip { font-size: 11px; color: var(--muted); font-family: var(--le-font-family); font-weight: 500; }
+
+.atem-bus-matrix { display: flex; flex-direction: column; gap: 6px; margin: 2px 0; flex: 1; justify-content: center; }
 .atem-bus-row-group { display: flex; align-items: center; gap: 8px; }
-.atem-bus-row-label { width: 28px; font-size: 10px; font-weight: 800; text-align: right; letter-spacing: 0.5px; }
+.atem-bus-row-label { width: 34px; font-size: var(--le-font-size); font-weight: 600; text-align: right; letter-spacing: 0.5px; font-family: var(--le-font-family); flex-shrink: 0; }
 .pgm-label { color: var(--red); }
 .pvw-label { color: var(--green); }
-.atem-bus-buttons-grid { flex: 1; display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
-.atem-switcher-btn { height: 32px; background: var(--panel2); border: 1px solid var(--atem-border); border-radius: 3px; color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.12s ease; padding: 1px 0; }
+.router-label { color: var(--orange-hl); font-weight: 700; }
+.outs-label { color: var(--muted); font-weight: 700; }
+.spacer-label { visibility: hidden; }
+
+/* Full Width Grid with 10 Inputs + Gap Divider + 6 Internal Sources */
+.atem-bus-full-grid { flex: 1; display: flex; align-items: center; gap: 4px; }
+.inputs-subgrid { flex: 10; display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+.bus-gap-divider { width: 4px; height: 22px; background: rgba(255, 255, 255, 0.08); border-radius: 1px; flex-shrink: 0; }
+.internals-subgrid { flex: 6; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+
+.atem-switcher-btn { height: 30px; background: var(--panel2); border: 1px solid var(--atem-border); border-radius: var(--ui-radius); color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.12s ease; padding: 1px 0; }
 .atem-switcher-btn:hover { background: rgba(150,150,150,0.2); color: var(--text); }
-.atem-switcher-btn .btn-number { font-size: 11px; font-weight: 800; line-height: 1; font-family: var(--le-font-family); }
+.atem-switcher-btn .btn-number { font-size: var(--le-font-size); font-weight: var(--device-font-weight); line-height: 1; font-family: var(--le-font-family); white-space: nowrap; }
+.aux-source-btn .btn-number { font-size: 11px; }
+
 .atem-switcher-btn.tally-red { background: #d32f2f !important; border-color: #ff5252 !important; color: #fff !important; box-shadow: none !important; }
 .atem-switcher-btn.tally-green { background: #2e7d32 !important; border-color: #4caf50 !important; color: #fff !important; box-shadow: none !important; }
-.atem-bus-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(150,150,150,0.15); padding-top: 4px; flex-shrink: 0; }
-.atem-bus-me-label { font-size: 9px; color: var(--muted); font-weight: 700; letter-spacing: 0.5px; }
-.atem-transition-actions { display: flex; gap: 6px; }
-.atem-trans-btn { height: 26px; padding: 0 14px; background: var(--panel2); border: 1px solid var(--atem-border); border-radius: 3px; color: var(--text); font-size: 10px; font-weight: 800; cursor: pointer; transition: background 0.12s ease; }
-.atem-trans-btn:hover { background: rgba(150,150,150,0.2); }
-.cut-btn:active { background: #ff9800; color: #000; }
-.auto-btn.trans-active { background: #ff9800 !important; color: #000 !important; }
+.atem-switcher-btn.tally-orange { background: var(--orange) !important; border-color: var(--orange-hl) !important; color: #fff !important; box-shadow: none !important; }
+
+/* Transitions row aligned under inputs 9 & 10 */
+.atem-transition-row { margin-top: 4px; }
+.cut-btn:active { background: var(--panel) !important; color: var(--text) !important; }
+.auto-btn.trans-active { background: var(--orange-hl) !important; color: #000000 !important; border-color: var(--orange-hl) !important; }
+
+/* 6 Router Outputs Row */
+.atem-outs-row { margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 6px; }
+.atem-outs-grid { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.out-btn { height: 26px; }
+.out-btn .btn-number { font-size: 11px; font-weight: 600; }
+.out-btn.out-active { background: var(--orange-pastel) !important; border-color: var(--orange-hl) !important; color: #ffffff !important; }
+
 .atem-bus-locked-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; padding: 24px; text-align: center; }
 .atem-bus-lock-badge { background: rgba(234, 67, 53, 0.15); border: 1px solid rgba(234, 67, 53, 0.4); color: var(--red); font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 4px; letter-spacing: 0.8px; }
 .atem-bus-lock-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
 .atem-bus-lock-desc strong { color: var(--text); font-family: monospace; }
+
+/* =========================================================================
+   MEDIA POOL PANEL (QUADRANT 2)
+   ========================================================================= */
+.media-pool-panel {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 12px;
+    background: var(--panel);
+    box-sizing: border-box;
+    position: relative;
+    user-select: none;
+    overflow: hidden;
+}
+
+.media-pool-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0 4px 2px 4px;
+    min-height: 28px;
+    height: 28px;
+    border-bottom: none;
+    flex-shrink: 0;
+}
+
+.media-pool-title {
+    font-family: var(--le-font-family);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    opacity: 0.8;
+    letter-spacing: 0.5px;
+}
 
 /* =========================================================================
    ATEM MACROS PANEL (QUADRANT 4)
@@ -821,12 +948,13 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     overflow: hidden;
 }
 
-/* In-line Header without divider line */
 .macro-header-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 4px 2px 4px;
+    min-height: 28px;
+    height: 28px;
     border-bottom: none;
     flex-shrink: 0;
 }
@@ -921,7 +1049,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     position: relative;
 }
 
-/* Discretely blended slot numbers matching quadrant backdrop color relationship */
 .macro-slot-num {
     font-family: var(--le-font-family);
     font-weight: 800;
@@ -943,7 +1070,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     color: rgba(255, 255, 255, 0.25);
 }
 
-/* Slot labels sharing exact sidebar device row typography */
 .macro-slot-text {
     font-family: var(--le-font-family);
     font-size: var(--le-font-size);
@@ -967,7 +1093,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     opacity: 1;
 }
 
-/* Selected: Distinct flat grey highlight */
 .macro-slot-btn.selected {
     background: #404040 !important;
     border: none !important;
@@ -985,7 +1110,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     color: rgba(255, 255, 255, 0.6) !important;
 }
 
-/* Running: Muted Red (#8a4b48) matching device dropdown */
 .macro-slot-btn.running {
     background: var(--red-muted) !important;
     border: none !important;
@@ -1003,7 +1127,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     color: rgba(255, 255, 255, 0.6) !important;
 }
 
-/* Pagination Footer with Bold Navigation Arrows */
 .macro-pagination-footer {
     display: flex;
     align-items: center;
@@ -1096,10 +1219,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
  
 === FILE: src/version.js === 
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.56)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.58)
 // =========================================================================
 
-export const APP_VERSION = 'v2.56';
+export const APP_VERSION = 'v2.58';
  
 === FILE: src/components/Multiview/Panel.jsx === 
 import React, { useState } from 'react';
@@ -1111,9 +1234,9 @@ import Skeleton from '../UI/Skeleton';
 import QuadrantContextMenu from '../UI/QuadrantContextMenu';
 
 // =========================================================================
-// ATEM WEB MANAGER - PANEL COMPONENT (v2.56)
+// ATEM WEB MANAGER - PANEL COMPONENT (v2.58)
 // =========================================================================
-// 1: Stream | 2: Media Pool | 3: Mixer | 4: Macros
+// 1: Stream | 2: Media Pool | 3: Mixer | 4: Macros | 0: None
 
 const Panel = ({ 
     panelId, positionIndex, currentVideoSource, isConnected, connectedDevice, isLoading,
@@ -1139,16 +1262,24 @@ const Panel = ({
             );
         }
 
+        // None / Empty slot
+        if (panelId === 0) {
+            return null;
+        }
+
         // 1. STREAM
         if (panelId === 1 && isConnected) {
             return <Player currentVideoSource={currentVideoSource} />;
         }
 
-        // 2. MEDIA POOL (Placeholder view)
+        // 2. MEDIA POOL (Matching title style & centered backdrop number)
         if (panelId === 2 && isConnected) {
             return (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '8px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.6px', color: 'var(--muted)' }}>MEDIA POOL</div>
+                <div className="media-pool-panel">
+                    <div className="media-pool-header">
+                        <span className="media-pool-title">MEDIA POOL</span>
+                    </div>
+                    <div className="panel-muted-num">2</div>
                 </div>
             );
         }
@@ -1179,8 +1310,10 @@ const Panel = ({
                 onDrop={(e) => handleDrop(e, positionIndex)}
                 onContextMenu={handleContextMenu}
             >
-                {/* Auto-hide background number when content is mounted */}
-                {!content && <div className="panel-muted-num">{panelId}</div>}
+                {/* Display centered backdrop number when unpopulated or when SELECT NONE is active */}
+                {(!content || panelId === 0) && (
+                    <div className="panel-muted-num">{panelId === 0 ? positionIndex + 1 : panelId}</div>
+                )}
                 
                 <div className="panel-content">
                     <ErrorBoundary>
@@ -1270,7 +1403,7 @@ export default QuadrantGrid;
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.13.0)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.58)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -1292,6 +1425,11 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     const [pvwInput, setPvwInput] = useState(2);
     const [inTransition, setInTransition] = useState(false);
     const [bridgeStatus, setBridgeStatus] = useState('connecting'); // 'linked' | 'standby' | 'offline' | 'connecting'
+    
+    // Router Mode: Selected Aux Output (null = Bus mode; 0..5 = Aux 1..6)
+    const [selectedOut, setSelectedOut] = useState(null);
+    const [auxSources, setAuxSources] = useState([1, 2, 3, 4, 5, 6]);
+
     const wsRef = useRef(null);
     const reconnectTimerRef = useRef(null);
 
@@ -1301,16 +1439,13 @@ const AtemConstellationBus = ({ connectedDevice }) => {
             wsRef.current = new WebSocket(wsUrl);
 
             wsRef.current.onopen = () => {
-                console.log('[AtemBus UI] WebSocket link opened with bridge server.');
                 setBridgeStatus('standby');
-                // Request live state synchronization immediately upon handshake
                 wsRef.current.send(JSON.stringify({ action: 'CONNECT', ip: LOCKED_ATEM_IP }));
             };
 
             wsRef.current.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    console.log('[AtemBus UI] Inbound switcher payload:', data);
                     if (data.hardwareConnected !== undefined) {
                         setBridgeStatus(data.hardwareConnected ? 'linked' : 'standby');
                     }
@@ -1323,6 +1458,9 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                     if (data.inTransition !== undefined) {
                         setInTransition(Boolean(data.inTransition));
                     }
+                    if (data.auxSources && Array.isArray(data.auxSources)) {
+                        setAuxSources(data.auxSources.map(Number));
+                    }
                 } catch (err) {
                     console.error("[AtemBus UI] Data Parse Error:", err);
                 }
@@ -1333,7 +1471,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
             };
 
             wsRef.current.onclose = () => {
-                console.warn('[AtemBus UI] WebSocket link closed. Scheduling reconnect...');
                 setBridgeStatus('offline');
                 if (!reconnectTimerRef.current) {
                     reconnectTimerRef.current = setTimeout(() => {
@@ -1357,136 +1494,233 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         initWebSocket();
 
         return () => {
-            if (reconnectTimerRef.current) {
-                clearTimeout(reconnectTimerRef.current);
-            }
+            if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
             if (wsRef.current) {
-                try { 
-                    wsRef.current.close(); 
-                } catch(err) {}
+                try { wsRef.current.close(); } catch(err) {}
             }
         };
     }, []);
 
     const sendAtemCommand = (commandType, payload = {}) => {
-        console.log(`[AtemBus UI] Outbound command dispatch: ${commandType}`, payload);
-
-        // Optimistic local UI feedback for immediate responsiveness
-        if (commandType === 'SET_PGM') setPgmInput(payload.input);
-        if (commandType === 'SET_PVW') setPvwInput(payload.input);
-        if (commandType === 'CUT') {
-            const temp = pgmInput;
-            setPgmInput(pvwInput);
-            setPvwInput(temp);
+        if (commandType === 'SET_PGM') {
+            if (selectedOut !== null) {
+                // Route Aux Output
+                const updated = [...auxSources];
+                updated[selectedOut] = payload.input;
+                setAuxSources(updated);
+                sendCommand('SET_AUX', { aux: selectedOut, source: payload.input });
+                return;
+            }
+            setPgmInput(payload.input);
+            sendCommand('SET_PGM', payload);
+            return;
         }
-        if (commandType === 'AUTO') {
-            setInTransition(true);
-            setTimeout(() => {
+
+        if (commandType === 'SET_PVW') {
+            setPvwInput(payload.input);
+            sendCommand('SET_PVW', payload);
+            return;
+        }
+
+        if (commandType === 'CUT') {
+            if (bridgeStatus !== 'linked') {
                 const temp = pgmInput;
                 setPgmInput(pvwInput);
                 setPvwInput(temp);
-                setInTransition(false);
-            }, 350);
+            }
+            sendCommand('CUT');
+            return;
         }
 
-        // Two-way dispatch to Node.js Hardware Bridge
+        if (commandType === 'AUTO') {
+            // Hardware controls state transitions; only run simulation if offline
+            if (bridgeStatus !== 'linked') {
+                setInTransition(true);
+                setTimeout(() => {
+                    const temp = pgmInput;
+                    setPgmInput(pvwInput);
+                    setPvwInput(temp);
+                    setInTransition(false);
+                }, 600);
+            }
+            sendCommand('AUTO');
+            return;
+        }
+
+        sendCommand(commandType, payload);
+    };
+
+    const sendCommand = (action, payload = {}) => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             try {
                 wsRef.current.send(JSON.stringify({ 
-                    action: commandType, 
+                    action, 
                     ip: LOCKED_ATEM_IP, 
                     ...payload 
                 }));
             } catch (err) {
-                console.warn("[AtemBus UI] WebSocket command dispatch failed.");
+                console.warn("[AtemBus UI] Dispatch failed.");
             }
         }
     };
 
-    const inputs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    // Sources specification
+    const inputSources = [
+        { id: 1, label: '1' }, { id: 2, label: '2' }, { id: 3, label: '3' }, { id: 4, label: '4' },
+        { id: 5, label: '5' }, { id: 6, label: '6' }, { id: 7, label: '7' }, { id: 8, label: '8' },
+        { id: 9, label: '9' }, { id: 10, label: '10' }
+    ];
 
-    const getStatusLabel = () => {
-        if (bridgeStatus === 'linked') return `${LOCKED_ATEM_IP} (LIVE)`;
-        if (bridgeStatus === 'standby') return `${LOCKED_ATEM_IP} (STANDBY / HARDWARE OFFLINE)`;
-        return `${LOCKED_ATEM_IP} (BRIDGE OFFLINE)`;
+    const internalSources = [
+        { id: 0, label: 'BLK' },
+        { id: 1000, label: 'BARS' },
+        { id: 2001, label: 'COL 1' },
+        { id: 2002, label: 'COL 2' },
+        { id: 3010, label: 'MP 1' },
+        { id: 3020, label: 'MP 2' }
+    ];
+
+    const auxOutputsList = [1, 2, 3, 4, 5, 6];
+
+    const handleOutClick = (outIdx) => {
+        // Toggle selection: pressing an active out deselects it, reverting to bus mode
+        setSelectedOut(prev => prev === outIdx ? null : outIdx);
     };
 
-    const getBadgeLabel = () => {
-        if (bridgeStatus === 'linked') return 'HARDWARE LINKED';
-        if (bridgeStatus === 'standby') return 'BRIDGE CONNECTED (OFFLINE ATEM)';
-        return 'SIMULATION MODE';
+    // Active source determination
+    const getIsActivePgm = (sourceId) => {
+        if (selectedOut !== null) {
+            return auxSources[selectedOut] === sourceId;
+        }
+        return pgmInput === sourceId;
+    };
+
+    const getIsActivePvw = (sourceId) => {
+        if (selectedOut !== null) return false;
+        return pvwInput === sourceId;
     };
 
     return (
         <div className="atem-constellation-panel">
+            {/* Header matching exact Macros vertical alignment */}
             <div className="atem-bus-header">
-                <div className="atem-bus-title-group">
-                    <span className="atem-bus-title">ATEM 1 M/E CONSTELLATION HD</span>
-                    <span className="atem-bus-badge">
-                        {getBadgeLabel()}
-                    </span>
-                </div>
+                <span className="atem-bus-title">ATEM 1 M/E CONSTELLATION HD</span>
                 <div className="atem-bus-status">
-                    <span className={`atem-bus-online-dot ${bridgeStatus === 'linked' ? '' : 'offline'}`}></span>
-                    <span className="atem-bus-ip">
-                        {getStatusLabel()}
-                    </span>
+                    <span className={`atem-bus-online-dot ${bridgeStatus === 'linked' ? '' : 'offline'}`} />
+                    <span className="atem-bus-ip">{LOCKED_ATEM_IP}</span>
                 </div>
             </div>
 
+            {/* Matrix Section */}
             <div className="atem-bus-matrix">
-                {/* 1. PROGRAM BUS */}
+                {/* 1. PROGRAM / ROUTER BUS */}
                 <div className="atem-bus-row-group">
-                    <div className="atem-bus-row-label pgm-label">PGM</div>
-                    <div className="atem-bus-buttons-grid">
-                        {inputs.map((num) => {
-                            const isActive = pgmInput === num;
-                            return (
+                    <div className={`atem-bus-row-label ${selectedOut !== null ? 'router-label' : 'pgm-label'}`}>
+                        {selectedOut !== null ? `OUT ${selectedOut + 1}` : 'PGM'}
+                    </div>
+                    <div className="atem-bus-full-grid">
+                        <div className="inputs-subgrid">
+                            {inputSources.map((s) => (
                                 <button
-                                    key={`pgm-${num}`}
-                                    className={`atem-switcher-btn pgm-btn ${isActive ? 'tally-red' : ''}`}
-                                    onClick={() => sendAtemCommand('SET_PGM', { input: num })}
-                                    title={`Program Input ${num}`}
+                                    key={`pgm-${s.id}`}
+                                    className={`atem-switcher-btn ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
+                                    onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}
+                                    data-description={`Input ${s.label}`}
                                 >
-                                    <span className="btn-number">{num}</span>
+                                    <span className="btn-number">{s.label}</span>
                                 </button>
-                            );
-                        })}
+                            ))}
+                        </div>
+                        <div className="bus-gap-divider" />
+                        <div className="internals-subgrid">
+                            {internalSources.map((s) => (
+                                <button
+                                    key={`pgm-${s.id}`}
+                                    className={`atem-switcher-btn aux-source-btn ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
+                                    onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}
+                                    data-description={`Source ${s.label}`}
+                                >
+                                    <span className="btn-number">{s.label}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
                 {/* 2. PREVIEW BUS */}
                 <div className="atem-bus-row-group">
                     <div className="atem-bus-row-label pvw-label">PVW</div>
-                    <div className="atem-bus-buttons-grid">
-                        {inputs.map((num) => {
-                            const isActive = pvwInput === num;
+                    <div className="atem-bus-full-grid">
+                        <div className="inputs-subgrid">
+                            {inputSources.map((s) => (
+                                <button
+                                    key={`pvw-${s.id}`}
+                                    className={`atem-switcher-btn ${getIsActivePvw(s.id) ? 'tally-green' : ''}`}
+                                    onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}
+                                    data-description={`Preview Input ${s.label}`}
+                                >
+                                    <span className="btn-number">{s.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                        <div className="bus-gap-divider" />
+                        <div className="internals-subgrid">
+                            {internalSources.map((s) => (
+                                <button
+                                    key={`pvw-${s.id}`}
+                                    className={`atem-switcher-btn aux-source-btn ${getIsActivePvw(s.id) ? 'tally-green' : ''}`}
+                                    onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}
+                                    data-description={`Preview Source ${s.label}`}
+                                >
+                                    <span className="btn-number">{s.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* 3. TRANSITION ACTIONS (Placed under inputs 9 & 10) */}
+                <div className="atem-bus-row-group atem-transition-row">
+                    <div className="atem-bus-row-label spacer-label" />
+                    <div className="atem-bus-full-grid">
+                        <div className="inputs-subgrid">
+                            <div style={{ gridColumn: 'span 8' }} />
+                            <button 
+                                className="atem-switcher-btn cut-btn" 
+                                onClick={() => sendAtemCommand('CUT')}
+                                data-description="CUT Transition"
+                            >
+                                <span className="btn-number">CUT</span>
+                            </button>
+                            <button 
+                                className={`atem-switcher-btn auto-btn ${inTransition ? 'trans-active' : ''}`} 
+                                onClick={() => sendAtemCommand('AUTO')}
+                                data-description="AUTO Transition"
+                            >
+                                <span className="btn-number">AUTO</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 4. 6 ROUTER OUTPUTS */}
+                <div className="atem-bus-row-group atem-outs-row">
+                    <div className="atem-bus-row-label outs-label">OUTS</div>
+                    <div className="atem-outs-grid">
+                        {auxOutputsList.map((num, idx) => {
+                            const isSelected = selectedOut === idx;
                             return (
                                 <button
-                                    key={`pvw-${num}`}
-                                    className={`atem-switcher-btn pvw-btn ${isActive ? 'tally-green' : ''}`}
-                                    onClick={() => sendAtemCommand('SET_PVW', { input: num })}
-                                    title={`Preview Input ${num}`}
+                                    key={`out-${num}`}
+                                    className={`atem-switcher-btn out-btn ${isSelected ? 'out-active' : ''}`}
+                                    onClick={() => handleOutClick(idx)}
+                                    data-description={`Aux Output ${num} (Click to route)`}
                                 >
-                                    <span className="btn-number">{num}</span>
+                                    <span className="btn-number">OUT {num}</span>
                                 </button>
                             );
                         })}
                     </div>
-                </div>
-            </div>
-
-            <div className="atem-bus-footer">
-                <div className="atem-bus-me-label">
-                    {bridgeStatus === 'linked' ? 'M/E 1 TRANSITION (HARDWARE ACTIVE)' : 'M/E 1 TRANSITION (LOCAL UI SIMULATION)'}
-                </div>
-                <div className="atem-transition-actions">
-                    <button className="atem-trans-btn cut-btn" onClick={() => sendAtemCommand('CUT')}>
-                        CUT
-                    </button>
-                    <button className={`atem-trans-btn auto-btn ${inTransition ? 'trans-active' : ''}`} onClick={() => sendAtemCommand('AUTO')}>
-                        AUTO
-                    </button>
                 </div>
             </div>
         </div>
@@ -2919,14 +3153,15 @@ export default function GlobalTooltip() {
 import React, { useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - QUADRANT CONTEXT MENU (v2.56)
+// ATEM WEB MANAGER - QUADRANT CONTEXT MENU (v2.58)
 // =========================================================================
 
 const QUAD_OPTIONS = [
     { id: 1, name: '1. STREAM' },
     { id: 2, name: '2. MEDIA POOL' },
     { id: 3, name: '3. MIXER' },
-    { id: 4, name: '4. MACROS' }
+    { id: 4, name: '4. MACROS' },
+    { id: 0, name: 'SELECT NONE' }
 ];
 
 export default function QuadrantContextMenu({ x, y, currentQuad, onClose, onSelectQuadrant }) {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.13.0)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.58)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -23,6 +23,11 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     const [pvwInput, setPvwInput] = useState(2);
     const [inTransition, setInTransition] = useState(false);
     const [bridgeStatus, setBridgeStatus] = useState('connecting'); // 'linked' | 'standby' | 'offline' | 'connecting'
+    
+    // Router Mode: Selected Aux Output (null = Bus mode; 0..5 = Aux 1..6)
+    const [selectedOut, setSelectedOut] = useState(null);
+    const [auxSources, setAuxSources] = useState([1, 2, 3, 4, 5, 6]);
+
     const wsRef = useRef(null);
     const reconnectTimerRef = useRef(null);
 
@@ -32,16 +37,13 @@ const AtemConstellationBus = ({ connectedDevice }) => {
             wsRef.current = new WebSocket(wsUrl);
 
             wsRef.current.onopen = () => {
-                console.log('[AtemBus UI] WebSocket link opened with bridge server.');
                 setBridgeStatus('standby');
-                // Request live state synchronization immediately upon handshake
                 wsRef.current.send(JSON.stringify({ action: 'CONNECT', ip: LOCKED_ATEM_IP }));
             };
 
             wsRef.current.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    console.log('[AtemBus UI] Inbound switcher payload:', data);
                     if (data.hardwareConnected !== undefined) {
                         setBridgeStatus(data.hardwareConnected ? 'linked' : 'standby');
                     }
@@ -54,6 +56,9 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                     if (data.inTransition !== undefined) {
                         setInTransition(Boolean(data.inTransition));
                     }
+                    if (data.auxSources && Array.isArray(data.auxSources)) {
+                        setAuxSources(data.auxSources.map(Number));
+                    }
                 } catch (err) {
                     console.error("[AtemBus UI] Data Parse Error:", err);
                 }
@@ -64,7 +69,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
             };
 
             wsRef.current.onclose = () => {
-                console.warn('[AtemBus UI] WebSocket link closed. Scheduling reconnect...');
                 setBridgeStatus('offline');
                 if (!reconnectTimerRef.current) {
                     reconnectTimerRef.current = setTimeout(() => {
@@ -88,136 +92,233 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         initWebSocket();
 
         return () => {
-            if (reconnectTimerRef.current) {
-                clearTimeout(reconnectTimerRef.current);
-            }
+            if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
             if (wsRef.current) {
-                try { 
-                    wsRef.current.close(); 
-                } catch(err) {}
+                try { wsRef.current.close(); } catch(err) {}
             }
         };
     }, []);
 
     const sendAtemCommand = (commandType, payload = {}) => {
-        console.log(`[AtemBus UI] Outbound command dispatch: ${commandType}`, payload);
-
-        // Optimistic local UI feedback for immediate responsiveness
-        if (commandType === 'SET_PGM') setPgmInput(payload.input);
-        if (commandType === 'SET_PVW') setPvwInput(payload.input);
-        if (commandType === 'CUT') {
-            const temp = pgmInput;
-            setPgmInput(pvwInput);
-            setPvwInput(temp);
+        if (commandType === 'SET_PGM') {
+            if (selectedOut !== null) {
+                // Route Aux Output
+                const updated = [...auxSources];
+                updated[selectedOut] = payload.input;
+                setAuxSources(updated);
+                sendCommand('SET_AUX', { aux: selectedOut, source: payload.input });
+                return;
+            }
+            setPgmInput(payload.input);
+            sendCommand('SET_PGM', payload);
+            return;
         }
-        if (commandType === 'AUTO') {
-            setInTransition(true);
-            setTimeout(() => {
+
+        if (commandType === 'SET_PVW') {
+            setPvwInput(payload.input);
+            sendCommand('SET_PVW', payload);
+            return;
+        }
+
+        if (commandType === 'CUT') {
+            if (bridgeStatus !== 'linked') {
                 const temp = pgmInput;
                 setPgmInput(pvwInput);
                 setPvwInput(temp);
-                setInTransition(false);
-            }, 350);
+            }
+            sendCommand('CUT');
+            return;
         }
 
-        // Two-way dispatch to Node.js Hardware Bridge
+        if (commandType === 'AUTO') {
+            // Hardware controls state transitions; only run simulation if offline
+            if (bridgeStatus !== 'linked') {
+                setInTransition(true);
+                setTimeout(() => {
+                    const temp = pgmInput;
+                    setPgmInput(pvwInput);
+                    setPvwInput(temp);
+                    setInTransition(false);
+                }, 600);
+            }
+            sendCommand('AUTO');
+            return;
+        }
+
+        sendCommand(commandType, payload);
+    };
+
+    const sendCommand = (action, payload = {}) => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             try {
                 wsRef.current.send(JSON.stringify({ 
-                    action: commandType, 
+                    action, 
                     ip: LOCKED_ATEM_IP, 
                     ...payload 
                 }));
             } catch (err) {
-                console.warn("[AtemBus UI] WebSocket command dispatch failed.");
+                console.warn("[AtemBus UI] Dispatch failed.");
             }
         }
     };
 
-    const inputs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    // Sources specification
+    const inputSources = [
+        { id: 1, label: '1' }, { id: 2, label: '2' }, { id: 3, label: '3' }, { id: 4, label: '4' },
+        { id: 5, label: '5' }, { id: 6, label: '6' }, { id: 7, label: '7' }, { id: 8, label: '8' },
+        { id: 9, label: '9' }, { id: 10, label: '10' }
+    ];
 
-    const getStatusLabel = () => {
-        if (bridgeStatus === 'linked') return `${LOCKED_ATEM_IP} (LIVE)`;
-        if (bridgeStatus === 'standby') return `${LOCKED_ATEM_IP} (STANDBY / HARDWARE OFFLINE)`;
-        return `${LOCKED_ATEM_IP} (BRIDGE OFFLINE)`;
+    const internalSources = [
+        { id: 0, label: 'BLK' },
+        { id: 1000, label: 'BARS' },
+        { id: 2001, label: 'COL 1' },
+        { id: 2002, label: 'COL 2' },
+        { id: 3010, label: 'MP 1' },
+        { id: 3020, label: 'MP 2' }
+    ];
+
+    const auxOutputsList = [1, 2, 3, 4, 5, 6];
+
+    const handleOutClick = (outIdx) => {
+        // Toggle selection: pressing an active out deselects it, reverting to bus mode
+        setSelectedOut(prev => prev === outIdx ? null : outIdx);
     };
 
-    const getBadgeLabel = () => {
-        if (bridgeStatus === 'linked') return 'HARDWARE LINKED';
-        if (bridgeStatus === 'standby') return 'BRIDGE CONNECTED (OFFLINE ATEM)';
-        return 'SIMULATION MODE';
+    // Active source determination
+    const getIsActivePgm = (sourceId) => {
+        if (selectedOut !== null) {
+            return auxSources[selectedOut] === sourceId;
+        }
+        return pgmInput === sourceId;
+    };
+
+    const getIsActivePvw = (sourceId) => {
+        if (selectedOut !== null) return false;
+        return pvwInput === sourceId;
     };
 
     return (
         <div className="atem-constellation-panel">
+            {/* Header matching exact Macros vertical alignment */}
             <div className="atem-bus-header">
-                <div className="atem-bus-title-group">
-                    <span className="atem-bus-title">ATEM 1 M/E CONSTELLATION HD</span>
-                    <span className="atem-bus-badge">
-                        {getBadgeLabel()}
-                    </span>
-                </div>
+                <span className="atem-bus-title">ATEM 1 M/E CONSTELLATION HD</span>
                 <div className="atem-bus-status">
-                    <span className={`atem-bus-online-dot ${bridgeStatus === 'linked' ? '' : 'offline'}`}></span>
-                    <span className="atem-bus-ip">
-                        {getStatusLabel()}
-                    </span>
+                    <span className={`atem-bus-online-dot ${bridgeStatus === 'linked' ? '' : 'offline'}`} />
+                    <span className="atem-bus-ip">{LOCKED_ATEM_IP}</span>
                 </div>
             </div>
 
+            {/* Matrix Section */}
             <div className="atem-bus-matrix">
-                {/* 1. PROGRAM BUS */}
+                {/* 1. PROGRAM / ROUTER BUS */}
                 <div className="atem-bus-row-group">
-                    <div className="atem-bus-row-label pgm-label">PGM</div>
-                    <div className="atem-bus-buttons-grid">
-                        {inputs.map((num) => {
-                            const isActive = pgmInput === num;
-                            return (
+                    <div className={`atem-bus-row-label ${selectedOut !== null ? 'router-label' : 'pgm-label'}`}>
+                        {selectedOut !== null ? `OUT ${selectedOut + 1}` : 'PGM'}
+                    </div>
+                    <div className="atem-bus-full-grid">
+                        <div className="inputs-subgrid">
+                            {inputSources.map((s) => (
                                 <button
-                                    key={`pgm-${num}`}
-                                    className={`atem-switcher-btn pgm-btn ${isActive ? 'tally-red' : ''}`}
-                                    onClick={() => sendAtemCommand('SET_PGM', { input: num })}
-                                    title={`Program Input ${num}`}
+                                    key={`pgm-${s.id}`}
+                                    className={`atem-switcher-btn ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
+                                    onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}
+                                    data-description={`Input ${s.label}`}
                                 >
-                                    <span className="btn-number">{num}</span>
+                                    <span className="btn-number">{s.label}</span>
                                 </button>
-                            );
-                        })}
+                            ))}
+                        </div>
+                        <div className="bus-gap-divider" />
+                        <div className="internals-subgrid">
+                            {internalSources.map((s) => (
+                                <button
+                                    key={`pgm-${s.id}`}
+                                    className={`atem-switcher-btn aux-source-btn ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
+                                    onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}
+                                    data-description={`Source ${s.label}`}
+                                >
+                                    <span className="btn-number">{s.label}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
                 {/* 2. PREVIEW BUS */}
                 <div className="atem-bus-row-group">
                     <div className="atem-bus-row-label pvw-label">PVW</div>
-                    <div className="atem-bus-buttons-grid">
-                        {inputs.map((num) => {
-                            const isActive = pvwInput === num;
+                    <div className="atem-bus-full-grid">
+                        <div className="inputs-subgrid">
+                            {inputSources.map((s) => (
+                                <button
+                                    key={`pvw-${s.id}`}
+                                    className={`atem-switcher-btn ${getIsActivePvw(s.id) ? 'tally-green' : ''}`}
+                                    onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}
+                                    data-description={`Preview Input ${s.label}`}
+                                >
+                                    <span className="btn-number">{s.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                        <div className="bus-gap-divider" />
+                        <div className="internals-subgrid">
+                            {internalSources.map((s) => (
+                                <button
+                                    key={`pvw-${s.id}`}
+                                    className={`atem-switcher-btn aux-source-btn ${getIsActivePvw(s.id) ? 'tally-green' : ''}`}
+                                    onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}
+                                    data-description={`Preview Source ${s.label}`}
+                                >
+                                    <span className="btn-number">{s.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* 3. TRANSITION ACTIONS (Placed under inputs 9 & 10) */}
+                <div className="atem-bus-row-group atem-transition-row">
+                    <div className="atem-bus-row-label spacer-label" />
+                    <div className="atem-bus-full-grid">
+                        <div className="inputs-subgrid">
+                            <div style={{ gridColumn: 'span 8' }} />
+                            <button 
+                                className="atem-switcher-btn cut-btn" 
+                                onClick={() => sendAtemCommand('CUT')}
+                                data-description="CUT Transition"
+                            >
+                                <span className="btn-number">CUT</span>
+                            </button>
+                            <button 
+                                className={`atem-switcher-btn auto-btn ${inTransition ? 'trans-active' : ''}`} 
+                                onClick={() => sendAtemCommand('AUTO')}
+                                data-description="AUTO Transition"
+                            >
+                                <span className="btn-number">AUTO</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 4. 6 ROUTER OUTPUTS */}
+                <div className="atem-bus-row-group atem-outs-row">
+                    <div className="atem-bus-row-label outs-label">OUTS</div>
+                    <div className="atem-outs-grid">
+                        {auxOutputsList.map((num, idx) => {
+                            const isSelected = selectedOut === idx;
                             return (
                                 <button
-                                    key={`pvw-${num}`}
-                                    className={`atem-switcher-btn pvw-btn ${isActive ? 'tally-green' : ''}`}
-                                    onClick={() => sendAtemCommand('SET_PVW', { input: num })}
-                                    title={`Preview Input ${num}`}
+                                    key={`out-${num}`}
+                                    className={`atem-switcher-btn out-btn ${isSelected ? 'out-active' : ''}`}
+                                    onClick={() => handleOutClick(idx)}
+                                    data-description={`Aux Output ${num} (Click to route)`}
                                 >
-                                    <span className="btn-number">{num}</span>
+                                    <span className="btn-number">OUT {num}</span>
                                 </button>
                             );
                         })}
                     </div>
-                </div>
-            </div>
-
-            <div className="atem-bus-footer">
-                <div className="atem-bus-me-label">
-                    {bridgeStatus === 'linked' ? 'M/E 1 TRANSITION (HARDWARE ACTIVE)' : 'M/E 1 TRANSITION (LOCAL UI SIMULATION)'}
-                </div>
-                <div className="atem-transition-actions">
-                    <button className="atem-trans-btn cut-btn" onClick={() => sendAtemCommand('CUT')}>
-                        CUT
-                    </button>
-                    <button className={`atem-trans-btn auto-btn ${inTransition ? 'trans-active' : ''}`} onClick={() => sendAtemCommand('AUTO')}>
-                        AUTO
-                    </button>
                 </div>
             </div>
         </div>

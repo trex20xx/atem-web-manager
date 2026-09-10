@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.56)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.58)
  * =========================================================================
  */
 
@@ -87,16 +87,34 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .dashboard{ flex: 1; width: 100%; display: flex; justify-content: flex-start; align-items: center; gap: var(--gap); padding: 8px 16px 16px 16px; box-sizing: border-box; overflow: hidden; position: relative; }
 .dashboard.sidebar-collapsed { justify-content: center; }
 
+/* Pure horizontal sliding transition with no opacity fade */
 .sidebar{ 
     width: 260px; min-width: 260px; background: var(--panel); border-radius: var(--panel-radius); 
-    display: flex; flex-direction: column; overflow: hidden; opacity: 1; transform: translateX(0);
-    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), width 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
-                min-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), margin 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
-                height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease; flex-shrink: 0;
+    display: flex; flex-direction: column; overflow: hidden;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+                width 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+                min-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+                margin 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateX(0);
+    flex-shrink: 0;
 }
-.sidebar.collapsed { width: 0 !important; min-width: 0 !important; margin-right: calc(-1 * var(--gap)) !important; margin-left: 0 !important; opacity: 0 !important; transform: translateX(-100%) !important; pointer-events: none !important; overflow: hidden !important; }
+.sidebar > * {
+    width: 260px;
+    min-width: 260px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
+.sidebar.collapsed { 
+    width: 0 !important; 
+    min-width: 0 !important; 
+    margin-right: calc(-1 * var(--gap)) !important; 
+    margin-left: 0 !important; 
+    transform: translateX(-100%) !important;
+    pointer-events: none !important; 
+    overflow: hidden !important; 
+}
 
-.search-container{ padding: 8px 8px 4px 8px; width: 100%; }
+.search-container{ padding: 8px 8px 4px 8px; }
 .device-list{ flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
 .action-container{ max-height:0; overflow:visible; opacity:0; transform:translateY(10px); transition:max-height .28s ease, opacity .2s ease, transform .28s ease, padding .28s ease; padding:0 12px; display:flex; flex-direction:column; gap:6px; position:relative; }
 .action-container.visible { max-height:60px; opacity:1; transform:translateY(0); padding:12px; }
@@ -265,38 +283,93 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .sidebar.variant-classic { background: var(--panel); }
 .sidebar.variant-floating { background: rgba(31, 31, 31, 0.5); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5); }
 
-/* ATEM SWITCHER BUS CSS */
-.atem-constellation-panel { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 12px; background: var(--panel); box-sizing: border-box; font-family: var(--le-font-family); color: var(--text); user-select: none; overflow: hidden; }
-.atem-bus-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(150,150,150,0.15); padding-bottom: 4px; flex-shrink: 0; }
-.atem-bus-title-group { display: flex; align-items: center; gap: 6px; }
-.atem-bus-title { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; color: var(--text); opacity: 0.8; }
-.atem-bus-badge { background: rgba(150,150,150,0.1); border: 1px solid rgba(150,150,150,0.2); font-size: 8px; padding: 1px 4px; border-radius: 3px; color: var(--muted); font-weight: 600; }
-.atem-bus-status { display: flex; align-items: center; gap: 4px; }
+/* ATEM SWITCHER BUS CSS (QUADRANT 3) */
+.atem-constellation-panel { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 8px 12px; background: var(--panel); box-sizing: border-box; font-family: var(--le-font-family); color: var(--text); user-select: none; overflow: hidden; }
+
+/* Unified Header Bar matching exact Macros panel vertical geometry */
+.atem-bus-header { display: flex; justify-content: space-between; align-items: center; border-bottom: none; padding: 0 4px 2px 4px; min-height: 28px; height: 28px; flex-shrink: 0; }
+.atem-bus-title { font-family: var(--le-font-family); font-size: 14px; font-weight: 700; color: var(--text); opacity: 0.8; letter-spacing: 0.5px; }
+.atem-bus-status { display: flex; align-items: center; gap: 6px; }
 .atem-bus-online-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
 .atem-bus-online-dot.offline { background: var(--red); }
-.atem-bus-ip { font-size: 10px; color: var(--muted); font-family: monospace; }
-.atem-bus-matrix { display: flex; flex-direction: column; gap: 6px; margin: 4px 0; flex: 1; justify-content: center; }
+.atem-bus-ip { font-size: 11px; color: var(--muted); font-family: var(--le-font-family); font-weight: 500; }
+
+.atem-bus-matrix { display: flex; flex-direction: column; gap: 6px; margin: 2px 0; flex: 1; justify-content: center; }
 .atem-bus-row-group { display: flex; align-items: center; gap: 8px; }
-.atem-bus-row-label { width: 28px; font-size: 10px; font-weight: 800; text-align: right; letter-spacing: 0.5px; }
+.atem-bus-row-label { width: 34px; font-size: var(--le-font-size); font-weight: 600; text-align: right; letter-spacing: 0.5px; font-family: var(--le-font-family); flex-shrink: 0; }
 .pgm-label { color: var(--red); }
 .pvw-label { color: var(--green); }
-.atem-bus-buttons-grid { flex: 1; display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
-.atem-switcher-btn { height: 32px; background: var(--panel2); border: 1px solid var(--atem-border); border-radius: 3px; color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.12s ease; padding: 1px 0; }
+.router-label { color: var(--orange-hl); font-weight: 700; }
+.outs-label { color: var(--muted); font-weight: 700; }
+.spacer-label { visibility: hidden; }
+
+/* Full Width Grid with 10 Inputs + Gap Divider + 6 Internal Sources */
+.atem-bus-full-grid { flex: 1; display: flex; align-items: center; gap: 4px; }
+.inputs-subgrid { flex: 10; display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+.bus-gap-divider { width: 4px; height: 22px; background: rgba(255, 255, 255, 0.08); border-radius: 1px; flex-shrink: 0; }
+.internals-subgrid { flex: 6; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+
+.atem-switcher-btn { height: 30px; background: var(--panel2); border: 1px solid var(--atem-border); border-radius: var(--ui-radius); color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.12s ease; padding: 1px 0; }
 .atem-switcher-btn:hover { background: rgba(150,150,150,0.2); color: var(--text); }
-.atem-switcher-btn .btn-number { font-size: 11px; font-weight: 800; line-height: 1; font-family: var(--le-font-family); }
+.atem-switcher-btn .btn-number { font-size: var(--le-font-size); font-weight: var(--device-font-weight); line-height: 1; font-family: var(--le-font-family); white-space: nowrap; }
+.aux-source-btn .btn-number { font-size: 11px; }
+
 .atem-switcher-btn.tally-red { background: #d32f2f !important; border-color: #ff5252 !important; color: #fff !important; box-shadow: none !important; }
 .atem-switcher-btn.tally-green { background: #2e7d32 !important; border-color: #4caf50 !important; color: #fff !important; box-shadow: none !important; }
-.atem-bus-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(150,150,150,0.15); padding-top: 4px; flex-shrink: 0; }
-.atem-bus-me-label { font-size: 9px; color: var(--muted); font-weight: 700; letter-spacing: 0.5px; }
-.atem-transition-actions { display: flex; gap: 6px; }
-.atem-trans-btn { height: 26px; padding: 0 14px; background: var(--panel2); border: 1px solid var(--atem-border); border-radius: 3px; color: var(--text); font-size: 10px; font-weight: 800; cursor: pointer; transition: background 0.12s ease; }
-.atem-trans-btn:hover { background: rgba(150,150,150,0.2); }
-.cut-btn:active { background: #ff9800; color: #000; }
-.auto-btn.trans-active { background: #ff9800 !important; color: #000 !important; }
+.atem-switcher-btn.tally-orange { background: var(--orange) !important; border-color: var(--orange-hl) !important; color: #fff !important; box-shadow: none !important; }
+
+/* Transitions row aligned under inputs 9 & 10 */
+.atem-transition-row { margin-top: 4px; }
+.cut-btn:active { background: var(--panel) !important; color: var(--text) !important; }
+.auto-btn.trans-active { background: var(--orange-hl) !important; color: #000000 !important; border-color: var(--orange-hl) !important; }
+
+/* 6 Router Outputs Row */
+.atem-outs-row { margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 6px; }
+.atem-outs-grid { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.out-btn { height: 26px; }
+.out-btn .btn-number { font-size: 11px; font-weight: 600; }
+.out-btn.out-active { background: var(--orange-pastel) !important; border-color: var(--orange-hl) !important; color: #ffffff !important; }
+
 .atem-bus-locked-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; padding: 24px; text-align: center; }
 .atem-bus-lock-badge { background: rgba(234, 67, 53, 0.15); border: 1px solid rgba(234, 67, 53, 0.4); color: var(--red); font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 4px; letter-spacing: 0.8px; }
 .atem-bus-lock-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
 .atem-bus-lock-desc strong { color: var(--text); font-family: monospace; }
+
+/* =========================================================================
+   MEDIA POOL PANEL (QUADRANT 2)
+   ========================================================================= */
+.media-pool-panel {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 12px;
+    background: var(--panel);
+    box-sizing: border-box;
+    position: relative;
+    user-select: none;
+    overflow: hidden;
+}
+
+.media-pool-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0 4px 2px 4px;
+    min-height: 28px;
+    height: 28px;
+    border-bottom: none;
+    flex-shrink: 0;
+}
+
+.media-pool-title {
+    font-family: var(--le-font-family);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    opacity: 0.8;
+    letter-spacing: 0.5px;
+}
 
 /* =========================================================================
    ATEM MACROS PANEL (QUADRANT 4)
@@ -316,12 +389,13 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     overflow: hidden;
 }
 
-/* In-line Header without divider line */
 .macro-header-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 4px 2px 4px;
+    min-height: 28px;
+    height: 28px;
     border-bottom: none;
     flex-shrink: 0;
 }
@@ -416,7 +490,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     position: relative;
 }
 
-/* Discretely blended slot numbers matching quadrant backdrop color relationship */
 .macro-slot-num {
     font-family: var(--le-font-family);
     font-weight: 800;
@@ -438,7 +511,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     color: rgba(255, 255, 255, 0.25);
 }
 
-/* Slot labels sharing exact sidebar device row typography */
 .macro-slot-text {
     font-family: var(--le-font-family);
     font-size: var(--le-font-size);
@@ -462,7 +534,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     opacity: 1;
 }
 
-/* Selected: Distinct flat grey highlight */
 .macro-slot-btn.selected {
     background: #404040 !important;
     border: none !important;
@@ -480,7 +551,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     color: rgba(255, 255, 255, 0.6) !important;
 }
 
-/* Running: Muted Red (#8a4b48) matching device dropdown */
 .macro-slot-btn.running {
     background: var(--red-muted) !important;
     border: none !important;
@@ -498,7 +568,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     color: rgba(255, 255, 255, 0.6) !important;
 }
 
-/* Pagination Footer with Bold Navigation Arrows */
 .macro-pagination-footer {
     display: flex;
     align-items: center;

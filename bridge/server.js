@@ -1,7 +1,7 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.20.0)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.58)
 // =========================================================================
-// Bidirectional switcher bus & macro execution sync over WebSocket (8080).
+// Bidirectional switcher bus, macro execution & aux router sync over WebSocket (8080).
 
 const { Atem } = require('atem-connection');
 const WebSocket = require('ws');
@@ -9,8 +9,8 @@ const WebSocket = require('ws');
 const ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
 
-console.log(`[ATEM Bridge v2.20.0] Starting bridge service...`);
-console.log(`[ATEM Bridge v2.20.0] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v2.58] Starting bridge service...`);
+console.log(`[ATEM Bridge v2.58] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 const atem = new Atem();
 let isAtemConnected = false;
@@ -19,6 +19,7 @@ let isAtemConnected = false;
 let currentPgm = 1;
 let currentPvw = 2;
 let currentInTransition = false;
+let currentAux = [1, 2, 3, 4, 5, 6];
 
 function broadcastState(targetWs = null) {
     try {
@@ -39,6 +40,15 @@ function broadcastState(targetWs = null) {
             }
         }
 
+        // Extract Auxiliaries (Outputs 1 to 6)
+        if (atem && atem.state && atem.state.video && atem.state.video.auxiliaries) {
+            const auxObj = atem.state.video.auxiliaries;
+            currentAux = [0, 1, 2, 3, 4, 5].map(idx => {
+                const val = auxObj[idx];
+                return typeof val === 'number' ? val : (currentAux[idx] || 1);
+            });
+        }
+
         // Extract Macro state if available
         let macroPlayer = { isRunning: false, isWaiting: false, loop: false, macroIndex: -1 };
         let macroProperties = [];
@@ -57,6 +67,7 @@ function broadcastState(targetWs = null) {
             pgm: currentPgm,
             pvw: currentPvw,
             inTransition: currentInTransition,
+            auxSources: currentAux,
             macroPlayer,
             macroProperties
         });
@@ -102,7 +113,15 @@ function handleHardwareCommand(cmd) {
             currentInTransition = !!props.inTransition;
             changed = true;
         }
-    } else if (raw === 'MRPr' || raw === 'MRPr' || raw.includes('Macro')) {
+    } else if (raw === 'AuxS' || raw.includes('AuxSource')) {
+        const auxId = props.id !== undefined ? props.id : props.auxiliaryId;
+        const src = props.source !== undefined ? props.source : props.input;
+        if (typeof auxId === 'number' && typeof src === 'number' && auxId >= 0 && auxId < 6) {
+            currentAux[auxId] = src;
+            changed = true;
+            console.log(`[ATEM Bridge ⬅ Physical Switcher Event] Aux ${auxId + 1} routed to Source ${src}`);
+        }
+    } else if (raw === 'MRPr' || raw.includes('Macro')) {
         changed = true;
     }
 
@@ -174,13 +193,16 @@ wss.on('connection', (ws) => {
                 atem.changePreviewInput(inputNum, 0).catch((e) => console.error('[ATEM Bridge] PVW Error:', e.message || e));
                 broadcastState();
             } else if (data.action === 'CUT') {
-                const temp = currentPgm;
-                currentPgm = currentPvw;
-                currentPvw = temp;
                 atem.cut(0).catch((e) => console.error('[ATEM Bridge] CUT Error:', e.message || e));
-                broadcastState();
             } else if (data.action === 'AUTO') {
                 atem.autoTransition(0).catch((e) => console.error('[ATEM Bridge] AUTO Error:', e.message || e));
+            } else if (data.action === 'SET_AUX' && data.aux !== undefined && data.source !== undefined) {
+                const auxIdx = parseInt(data.aux, 10);
+                const src = parseInt(data.source, 10);
+                console.log(`[ATEM Bridge ➔ Routing Aux] Output ${auxIdx + 1} to Source ${src}`);
+                if (typeof atem.setAuxSource === 'function') {
+                    atem.setAuxSource(src, auxIdx).catch(e => console.error('[ATEM Bridge] Aux Error:', e.message || e));
+                }
             } else if (data.action === 'MACRO_RUN' && data.index !== undefined) {
                 const mIdx = parseInt(data.index, 10);
                 console.log(`[ATEM Bridge ➔ Executing Macro] Index: ${mIdx}`);

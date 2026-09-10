@@ -1,5 +1,28 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v2.58] - Pure Sliding Sidebar, Hardware-Synced Transition & Aux Output Router
+- Removed premature opacity fade on sidebar collapse for pure horizontal sliding transitions.
+- Resolved AUTO transition tally glitch by delegating lifecycle state transitions directly to the authoritative hardware packet telemetry.
+- Standardized header vertical geometry (28px) across the ATEM, Macros, and Media Pool panels.
+- Added a `SELECT NONE` option to `QuadrantContextMenu.jsx`, rendering centered numbers when slots are unpopulated.
+- Embedded a Fullscreen toggle button in `App.jsx` top bar between theme and settings buttons.
+- Integrated official ATEM internal sources into PGM and PVW buses (`BLK`, `BARS`, `COL 1`, `COL 2`, `MP 1`, `MP 2`).
+- Implemented an Aux output router bar with 6 output buttons (`OUT 1`â€“`OUT 6`), enabling direct source routing through the PGM row.
+- Added bidirectional `SET_AUX` WebSocket command handling and auxiliary telemetry broadcasting in `bridge/server.js`.
+- Synchronized master application version tag to v2.58.
+
+
+## [v2.57] - ATEM Switcher Design Harmonization, Transition Relocation & Sidebar Reveal Fix
+- Restored the interactive commit message/iteration prompt in `ops/OPS.BAT` under `:MERGE_MAIN`.
+- Resolved sidebar expansion layout compression by locking child container widths and setting `visibility: hidden` when collapsed.
+- Unified ATEM switcher header typography (14px bold, `opacity: 0.8`) with the Macros panel and removed the header divider.
+- Removed the "HARDWARE LINKED" badge and bottom transition status bar.
+- Cleaned the switcher IP indicator to display strictly `192.168.10.240` without parenthetical status text.
+- Standardized PGM/PVW labels and switcher buttons to use the 13px device list font family and weights.
+- Restyled CUT and AUTO transition buttons to match switcher input pills, repositioning them directly beneath PVW inputs 9 and 10 with margin separation.
+- Synchronized master application version tag to v2.57.
+
+
 ## [v2.56] - Google AI Studio Tooltip Engine, Quadrant Routing & Transport Order
 - Redesigned Auto-Run icon with a circular chase-play vector glyph and reordered header transport buttons to: Loop, Auto-Run, Play, Stop.
 - Re-engineered `GlobalTooltip.jsx` to match Google AI Studio: anchored directly beneath target elements, horizontally centered, with edge-clamping and a dark pill container (`border-radius: 8px`).

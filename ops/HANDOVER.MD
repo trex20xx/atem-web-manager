@@ -1,6 +1,6 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-**Current Version:** v2.56
-**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 4), Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Modular Runtime-Synced Changelogs, Streamlined 4-Action Master CLI Suite.
+**Current Version:** v2.58
+**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Pure Sliding Animations, Fullscreen Toggle, ATEM Macro Matrix (Quadrant 4), Aux Output Routing Bar, Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Modular Runtime-Synced Changelogs, Streamlined 4-Action Master CLI Suite.
 
 ---
 
@@ -46,13 +46,13 @@ ATEM_WEB_MANAGER/
 ├── bridge/                        # Node.js Hardware Bridge
 │   ├── package-lock.json          # Bridge deterministic lockfile
 │   ├── package.json
-│   └── server.js                  # Live two-way ATEM polling, macro triggers & WebSocket broadcast
+│   └── server.js                  # Live two-way ATEM polling, macro triggers, aux routing & WebSocket broadcast
 │
 └── src/                           # React Application Source
     ├── version.js                 # Isolated application version module
     ├── main.jsx                   # React DOM bootstrap engine (CRITICAL: Do not delete)
-    ├── App.jsx                    # Master Layout, Top Control Bar, Synchronized Collapse
-    ├── index.css                  # Global styles, Apple Switch, Pill Context Menu, Macro Grid
+    ├── App.jsx                    # Master Layout, Top Control Bar, Fullscreen Toggle
+    ├── index.css                  # Global styles, Sliding Sidebar, Tooltips, Macro Grid
     ├── components/            
     │   ├── UI/                # Skeleton, GlobalTooltip, ErrorBoundary, QuadrantContextMenu
     │   ├── Sidebar/           # Sidebar, SearchBar, DeviceList, DeviceRow, ColorDropdown, BottomActionBtn

@@ -2,7 +2,7 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v2.55)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v2.57)
 :: =============================================================================
 
 :: Establish Project Root context
@@ -21,7 +21,7 @@ cd /d "%PROJECT_ROOT%"
 :MENU
 cls
 echo =================================================================
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v2.55)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v2.57)       
 echo =================================================================
 echo   [1] RUN ^& EVALUATE  (Vite + Daemon, Auto-Export ^& Evaluation)
 echo   [2] WIPE            (Token-Verified Complete Directory Erasure)
@@ -141,14 +141,18 @@ if "%EVAL_CHOICE%"=="3" goto REVERT_DISCARD
 goto MENU
 
 :MERGE_MAIN
+set "CMSG="
+set /p CMSG=" Enter iteration description / commit message: "
+if "%CMSG%"=="" set "CMSG=feat: iteration update"
+
 if "%CURRENT_BRANCH%"=="main" (
     git add -A
-    git commit -m "feat: iteration update"
+    git commit -m "%CMSG%"
     git push origin main
     echo ^>^>^> Main branch updated and pushed. ^<^<^<
 ) else (
     git add -A
-    git commit -m "feat: iteration complete on %CURRENT_BRANCH%"
+    git commit -m "%CMSG%"
     git push origin %CURRENT_BRANCH%
     git checkout main
     git pull origin main

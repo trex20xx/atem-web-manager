@@ -7,9 +7,9 @@ import Skeleton from '../UI/Skeleton';
 import QuadrantContextMenu from '../UI/QuadrantContextMenu';
 
 // =========================================================================
-// ATEM WEB MANAGER - PANEL COMPONENT (v2.56)
+// ATEM WEB MANAGER - PANEL COMPONENT (v2.58)
 // =========================================================================
-// 1: Stream | 2: Media Pool | 3: Mixer | 4: Macros
+// 1: Stream | 2: Media Pool | 3: Mixer | 4: Macros | 0: None
 
 const Panel = ({ 
     panelId, positionIndex, currentVideoSource, isConnected, connectedDevice, isLoading,
@@ -35,16 +35,24 @@ const Panel = ({
             );
         }
 
+        // None / Empty slot
+        if (panelId === 0) {
+            return null;
+        }
+
         // 1. STREAM
         if (panelId === 1 && isConnected) {
             return <Player currentVideoSource={currentVideoSource} />;
         }
 
-        // 2. MEDIA POOL (Placeholder view)
+        // 2. MEDIA POOL (Matching title style & centered backdrop number)
         if (panelId === 2 && isConnected) {
             return (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '8px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.6px', color: 'var(--muted)' }}>MEDIA POOL</div>
+                <div className="media-pool-panel">
+                    <div className="media-pool-header">
+                        <span className="media-pool-title">MEDIA POOL</span>
+                    </div>
+                    <div className="panel-muted-num">2</div>
                 </div>
             );
         }
@@ -75,8 +83,10 @@ const Panel = ({
                 onDrop={(e) => handleDrop(e, positionIndex)}
                 onContextMenu={handleContextMenu}
             >
-                {/* Auto-hide background number when content is mounted */}
-                {!content && <div className="panel-muted-num">{panelId}</div>}
+                {/* Display centered backdrop number when unpopulated or when SELECT NONE is active */}
+                {(!content || panelId === 0) && (
+                    <div className="panel-muted-num">{panelId === 0 ? positionIndex + 1 : panelId}</div>
+                )}
                 
                 <div className="panel-content">
                     <ErrorBoundary>
