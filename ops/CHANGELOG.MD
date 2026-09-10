@@ -1,5 +1,14 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v2.56] - Google AI Studio Tooltip Engine, Quadrant Routing & Transport Order
+- Redesigned Auto-Run icon with a circular chase-play vector glyph and reordered header transport buttons to: Loop, Auto-Run, Play, Stop.
+- Re-engineered `GlobalTooltip.jsx` to match Google AI Studio: anchored directly beneath target elements, horizontally centered, with edge-clamping and a dark pill container (`border-radius: 8px`).
+- Removed individual row hover mini-buttons from macro slots to preserve row minimalism and visual clarity.
+- Refactored macro button click handler to alternate between running and stopping when clicked while selected.
+- Renamed quadrant right-click context menu slots to `1. STREAM`, `2. MEDIA POOL`, `3. MIXER`, and `4. MACROS`, updating `Panel.jsx` component routing.
+- Synchronized master application version tag to v2.56 across all components.
+
+
 ## [v2.55] - Silent Background Daemon, Macro Hover Actions & Discrete Number Blending
 - Injected `-WindowStyle Hidden` into PowerShell `Start-Process` inside `ops/OPS.BAT`, permanently hiding the background bridge daemon console window.
 - Restored orange highlights (`#ff9436`) across active header transport buttons.

@@ -505,7 +505,7 @@ export default App;
 === FILE: src/index.css === 
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.55)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.56)
  * =========================================================================
  */
 
@@ -696,7 +696,26 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .quadrant-context-item:hover { background: var(--panel2); color: #fff; }
 
 .version-tag { position:fixed; bottom:16px; left:16px; font-size:13px; color:var(--muted); z-index:1000; font-weight: 500; cursor: pointer; pointer-events: auto; user-select: none; transition: opacity 0.2s ease; }
-.global-tooltip { position: fixed; display: none; background: var(--panel2); color: var(--text); padding: 6px 10px; border-radius: var(--ui-radius); z-index: 99999; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,0.6); max-width: 220px; white-space: pre-wrap; font-family: var(--le-font-family); font-size: var(--le-font-size); }
+
+/* Google AI Studio Replica Tooltip */
+.global-tooltip {
+    position: fixed;
+    display: none;
+    background: #1e1f20;
+    color: #ffffff;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 99999;
+    pointer-events: none;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+    white-space: nowrap;
+    font-family: var(--le-font-family);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+}
+
 .header{ position:fixed; z-index:1000; font-family:var(--le-font-family); font-size:16px; font-weight:700; color:var(--header-color); }
 
 .settings-overlay{ position:fixed; inset:0; display:none; justify-content:center; align-items:center; background:transparent; z-index:9999; padding:16px; pointer-events:none; }
@@ -785,7 +804,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-bus-lock-desc strong { color: var(--text); font-family: monospace; }
 
 /* =========================================================================
-   ATEM MACROS PANEL (QUADRANT 2)
+   ATEM MACROS PANEL (QUADRANT 4)
    ========================================================================= */
 .atem-macros-panel {
     width: 100%;
@@ -948,53 +967,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     opacity: 1;
 }
 
-/* Mini Transport Controls on Macro Row Hover */
-.macro-slot-actions {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    margin-left: auto;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.15s ease;
-    flex-shrink: 0;
-}
-
-.macro-slot-btn:hover .macro-slot-actions {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.macro-mini-action-btn {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: transparent;
-    border: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: var(--muted);
-    transition: background 0.12s ease, color 0.12s ease;
-    padding: 0;
-}
-
-.macro-mini-action-btn:hover {
-    background: rgba(150, 150, 150, 0.25);
-    color: var(--text);
-}
-
-.macro-mini-action-btn svg {
-    width: 12px;
-    height: 12px;
-    fill: currentColor;
-}
-
-.macro-mini-action-btn.active-orange {
-    color: var(--orange-hl) !important;
-}
-
 /* Selected: Distinct flat grey highlight */
 .macro-slot-btn.selected {
     background: #404040 !important;
@@ -1124,10 +1096,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
  
 === FILE: src/version.js === 
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.55)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.56)
 // =========================================================================
 
-export const APP_VERSION = 'v2.55';
+export const APP_VERSION = 'v2.56';
  
 === FILE: src/components/Multiview/Panel.jsx === 
 import React, { useState } from 'react';
@@ -1139,9 +1111,9 @@ import Skeleton from '../UI/Skeleton';
 import QuadrantContextMenu from '../UI/QuadrantContextMenu';
 
 // =========================================================================
-// ATEM WEB MANAGER - PANEL COMPONENT (v2.19.0)
+// ATEM WEB MANAGER - PANEL COMPONENT (v2.56)
 // =========================================================================
-// Quadrant 1: Player | Quadrant 2: ATEM Macros | Quadrant 3: Switcher Bus
+// 1: Stream | 2: Media Pool | 3: Mixer | 4: Macros
 
 const Panel = ({ 
     panelId, positionIndex, currentVideoSource, isConnected, connectedDevice, isLoading,
@@ -1167,16 +1139,28 @@ const Panel = ({
             );
         }
 
+        // 1. STREAM
         if (panelId === 1 && isConnected) {
             return <Player currentVideoSource={currentVideoSource} />;
         }
 
-        if (panelId === 2 && isConnected && connectedDevice?.ip === '192.168.10.240') {
-            return <AtemMacros connectedDevice={connectedDevice} />;
+        // 2. MEDIA POOL (Placeholder view)
+        if (panelId === 2 && isConnected) {
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '8px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.6px', color: 'var(--muted)' }}>MEDIA POOL</div>
+                </div>
+            );
         }
 
+        // 3. MIXER (ATEM Constellation HD Bus)
         if (panelId === 3 && isConnected && connectedDevice?.ip === '192.168.10.240') {
             return <AtemConstellationBus connectedDevice={connectedDevice} />;
+        }
+
+        // 4. MACROS
+        if (panelId === 4 && isConnected && connectedDevice?.ip === '192.168.10.240') {
+            return <AtemMacros connectedDevice={connectedDevice} />;
         }
 
         return null;
@@ -1515,7 +1499,7 @@ export default AtemConstellationBus;
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.55)
+// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.56)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -1696,13 +1680,19 @@ const AtemMacros = ({ connectedDevice }) => {
             return;
         }
 
-        // Clicking the same macro a second time executes a stop command
-        if (selectedMacroIndex === index) {
-            stopMacro();
-            setSelectedMacroIndex(null);
+        const isCurrentlyRunning = macroPlayer.isRunning && (macroPlayer.macroIndex === index || selectedMacroIndex === index);
+
+        // If macro is already selected or actively running, toggle run/stop state
+        if (selectedMacroIndex === index || isCurrentlyRunning) {
+            if (isCurrentlyRunning) {
+                stopMacro();
+            } else {
+                runMacro(index);
+            }
             return;
         }
 
+        // New macro selection
         setSelectedMacroIndex(index);
         if (autoRun) {
             runMacro(index);
@@ -1735,23 +1725,12 @@ const AtemMacros = ({ connectedDevice }) => {
 
     return (
         <div className="atem-macros-panel" onWheel={handlePanelWheel}>
-            {/* Header Bar without divider line */}
+            {/* Header Bar: Loop, Auto-Run, Play, Stop */}
             <div className="macro-header-bar">
                 <div className="macro-header-title">MACROS</div>
 
                 <div className="macro-actions-group">
-                    {/* Auto-Run Icon (Matched to play button dimensions) */}
-                    <button 
-                        className={`macro-action-btn ${autoRun ? 'active-orange' : ''}`}
-                        onClick={() => setAutoRun(prev => !prev)}
-                        data-description={autoRun ? "Auto-Run: ON" : "Auto-Run: OFF"}
-                    >
-                        <svg viewBox="0 0 24 24">
-                            <path d="M4.5 6.8v10.4c0 .8.87 1.28 1.54.85l6.46-4.14V17.2c0 .8.87 1.28 1.54.85l6.46-4.14a1 1 0 0 0 0-1.72l-6.46-4.14a1 1 0 0 0-1.54.85v3.3L6.04 5.95A1 1 0 0 0 4.5 6.8z" fill="currentColor"/>
-                        </svg>
-                    </button>
-
-                    {/* Loop icon */}
+                    {/* 1. Loop icon */}
                     <button 
                         className={`macro-action-btn ${macroPlayer.loop ? 'active-orange' : ''}`}
                         onClick={toggleLoop}
@@ -1762,7 +1741,19 @@ const AtemMacros = ({ connectedDevice }) => {
                         </svg>
                     </button>
 
-                    {/* Play button */}
+                    {/* 2. Auto-Run Icon (Repositioned between Loop and Play) */}
+                    <button 
+                        className={`macro-action-btn ${autoRun ? 'active-orange' : ''}`}
+                        onClick={() => setAutoRun(prev => !prev)}
+                        data-description={autoRun ? "Auto-Run: ON" : "Auto-Run: OFF"}
+                    >
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 2a10 10 0 0 0-7.07 2.93l1.41 1.41A8 8 0 1 1 4 12H2a10 10 0 1 0 10-10z" fill="currentColor"/>
+                            <path d="M10 8v8l6-4z" fill="currentColor"/>
+                        </svg>
+                    </button>
+
+                    {/* 3. Play button */}
                     <button 
                         className={`macro-action-btn play-btn ${selectedMacroIndex !== null ? 'ready-orange' : 'disabled'}`}
                         onClick={handlePlayClick}
@@ -1774,7 +1765,7 @@ const AtemMacros = ({ connectedDevice }) => {
                         </svg>
                     </button>
 
-                    {/* Stop button */}
+                    {/* 4. Stop button */}
                     <button 
                         className={`macro-action-btn stop-btn ${macroPlayer.isRunning ? 'active-orange' : ''}`}
                         onClick={stopMacro}
@@ -1805,33 +1796,6 @@ const AtemMacros = ({ connectedDevice }) => {
                             <div className="macro-slot-content">
                                 <span className="macro-slot-num">{macroIdx + 1}</span>
                                 <span className="macro-slot-text">{name ? name.toUpperCase() : ''}</span>
-
-                                {/* Mini Transport Controls on Macro Hover */}
-                                {name && (
-                                    <div className="macro-slot-actions">
-                                        <div 
-                                            className={`macro-mini-action-btn ${macroPlayer.loop ? 'active-orange' : ''}`}
-                                            onClick={(e) => { e.stopPropagation(); toggleLoop(); }}
-                                            data-description="Loop"
-                                        >
-                                            <svg viewBox="0 0 24 24"><path d="M17 17H7a4 4 0 0 1-4-4v-1h2v1a2 2 0 0 0 2 2h10v-3l4 4-4 4v-3zm-10-10h10a4 4 0 0 1 4 4v1h-2v-1a2 2 0 0 0-2-2H7v3L3 7l4-4v3z"/></svg>
-                                        </div>
-                                        <div 
-                                            className="macro-mini-action-btn"
-                                            onClick={(e) => { e.stopPropagation(); runMacro(macroIdx); }}
-                                            data-description="Run Macro"
-                                        >
-                                            <svg viewBox="0 0 24 24"><path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18c.62-.39.62-1.29 0-1.69L9.54 5.98C8.87 5.55 8 6.03 8 6.82z"/></svg>
-                                        </div>
-                                        <div 
-                                            className={`macro-mini-action-btn ${isRunning ? 'active-orange' : ''}`}
-                                            onClick={(e) => { e.stopPropagation(); stopMacro(); }}
-                                            data-description="Stop Macro"
-                                        >
-                                            <svg viewBox="0 0 24 24"><path d="M8 6h8c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2H8c-1.1 0-2-.9-2-2V8c0-1.1.9-2 2-2z"/></svg>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </button>
                     );
@@ -2883,26 +2847,56 @@ export default ErrorBoundary;
 import React, { useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - GLOBAL TOOLTIP (v1.79)
+// ATEM WEB MANAGER - GLOBAL TOOLTIP (v2.56)
 // =========================================================================
+// Google AI Studio replica: Anchored below element, horizontally centered,
+// with left/right boundary clamping.
 
 export default function GlobalTooltip() {
     const tooltipRef = useRef(null);
 
     useEffect(() => {
+        const updatePosition = (target) => {
+            const tip = tooltipRef.current;
+            if (!tip || !target) return;
+
+            const rect = target.getBoundingClientRect();
+            const tipWidth = tip.offsetWidth || 120;
+            const tipHeight = tip.offsetHeight || 26;
+            const margin = 8;
+
+            // Horizontally center under element
+            let left = rect.left + (rect.width / 2) - (tipWidth / 2);
+
+            // Left/Right boundary clamping
+            if (left < margin) {
+                left = margin;
+            } else if (left + tipWidth > window.innerWidth - margin) {
+                left = window.innerWidth - tipWidth - margin;
+            }
+
+            // Position below element, or flip above if hitting bottom
+            let top = rect.bottom + 6;
+            if (top + tipHeight > window.innerHeight - margin) {
+                top = rect.top - tipHeight - 6;
+            }
+
+            tip.style.left = `${Math.round(left)}px`;
+            tip.style.top = `${Math.round(top)}px`;
+        };
+
         const onMouseOver = (e) => {
-            const el = e.target.closest('[data-description]');
-            if (el && el.dataset.description && tooltipRef.current) {
-                tooltipRef.current.textContent = el.dataset.description;
+            const target = e.target.closest('[data-description]');
+            if (target && target.dataset.description && tooltipRef.current) {
+                tooltipRef.current.textContent = target.dataset.description;
                 tooltipRef.current.style.display = 'block';
+                // Trigger layout pass before measuring dimensions
+                requestAnimationFrame(() => {
+                    updatePosition(target);
+                });
             }
         };
-        const onMouseMove = (e) => {
-            if (tooltipRef.current && tooltipRef.current.style.display === 'block') {
-                tooltipRef.current.style.left = (e.clientX + 12) + 'px';
-                tooltipRef.current.style.top = (e.clientY + 12) + 'px';
-            }
-        };
+
         const onMouseOut = (e) => {
             if (e.target.closest('[data-description]') && tooltipRef.current) {
                 tooltipRef.current.style.display = 'none';
@@ -2910,12 +2904,10 @@ export default function GlobalTooltip() {
         };
 
         document.addEventListener('mouseover', onMouseOver);
-        document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseout', onMouseOut);
 
         return () => {
             document.removeEventListener('mouseover', onMouseOver);
-            document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseout', onMouseOut);
         };
     }, []);
@@ -2927,8 +2919,15 @@ export default function GlobalTooltip() {
 import React, { useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - QUADRANT CONTEXT MENU (v2.07)
+// ATEM WEB MANAGER - QUADRANT CONTEXT MENU (v2.56)
 // =========================================================================
+
+const QUAD_OPTIONS = [
+    { id: 1, name: '1. STREAM' },
+    { id: 2, name: '2. MEDIA POOL' },
+    { id: 3, name: '3. MIXER' },
+    { id: 4, name: '4. MACROS' }
+];
 
 export default function QuadrantContextMenu({ x, y, currentQuad, onClose, onSelectQuadrant }) {
     const menuRef = useRef(null);
@@ -2950,14 +2949,14 @@ export default function QuadrantContextMenu({ x, y, currentQuad, onClose, onSele
             style={{ top: y, left: x }}
         >
             <div className="quadrant-context-header">ASSIGN QUADRANT</div>
-            {[1, 2, 3, 4].map((quad) => (
+            {QUAD_OPTIONS.map((opt) => (
                 <div 
-                    key={`ctx-quad-${quad}`} 
+                    key={`ctx-quad-${opt.id}`} 
                     className="quadrant-context-item"
-                    onClick={() => { onSelectQuadrant(quad); onClose(); }}
+                    onClick={() => { onSelectQuadrant(opt.id); onClose(); }}
                 >
-                    <span>Quadrant {quad}</span>
-                    {currentQuad === quad && <span style={{ color: 'var(--green)', fontWeight: 'bold' }}>âœ“</span>}
+                    <span>{opt.name}</span>
+                    {currentQuad === opt.id && <span style={{ color: 'var(--green)', fontWeight: 'bold' }}>âœ“</span>}
                 </div>
             ))}
         </div>

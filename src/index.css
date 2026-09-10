@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.55)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.56)
  * =========================================================================
  */
 
@@ -191,7 +191,26 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .quadrant-context-item:hover { background: var(--panel2); color: #fff; }
 
 .version-tag { position:fixed; bottom:16px; left:16px; font-size:13px; color:var(--muted); z-index:1000; font-weight: 500; cursor: pointer; pointer-events: auto; user-select: none; transition: opacity 0.2s ease; }
-.global-tooltip { position: fixed; display: none; background: var(--panel2); color: var(--text); padding: 6px 10px; border-radius: var(--ui-radius); z-index: 99999; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,0.6); max-width: 220px; white-space: pre-wrap; font-family: var(--le-font-family); font-size: var(--le-font-size); }
+
+/* Google AI Studio Replica Tooltip */
+.global-tooltip {
+    position: fixed;
+    display: none;
+    background: #1e1f20;
+    color: #ffffff;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 99999;
+    pointer-events: none;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+    white-space: nowrap;
+    font-family: var(--le-font-family);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+}
+
 .header{ position:fixed; z-index:1000; font-family:var(--le-font-family); font-size:16px; font-weight:700; color:var(--header-color); }
 
 .settings-overlay{ position:fixed; inset:0; display:none; justify-content:center; align-items:center; background:transparent; z-index:9999; padding:16px; pointer-events:none; }
@@ -280,7 +299,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-bus-lock-desc strong { color: var(--text); font-family: monospace; }
 
 /* =========================================================================
-   ATEM MACROS PANEL (QUADRANT 2)
+   ATEM MACROS PANEL (QUADRANT 4)
    ========================================================================= */
 .atem-macros-panel {
     width: 100%;
@@ -441,53 +460,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 .macro-slot-btn:hover .macro-slot-text {
     opacity: 1;
-}
-
-/* Mini Transport Controls on Macro Row Hover */
-.macro-slot-actions {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    margin-left: auto;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.15s ease;
-    flex-shrink: 0;
-}
-
-.macro-slot-btn:hover .macro-slot-actions {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.macro-mini-action-btn {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: transparent;
-    border: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: var(--muted);
-    transition: background 0.12s ease, color 0.12s ease;
-    padding: 0;
-}
-
-.macro-mini-action-btn:hover {
-    background: rgba(150, 150, 150, 0.25);
-    color: var(--text);
-}
-
-.macro-mini-action-btn svg {
-    width: 12px;
-    height: 12px;
-    fill: currentColor;
-}
-
-.macro-mini-action-btn.active-orange {
-    color: var(--orange-hl) !important;
 }
 
 /* Selected: Distinct flat grey highlight */

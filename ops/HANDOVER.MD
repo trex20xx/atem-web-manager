@@ -1,6 +1,6 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-**Current Version:** v2.55
-**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Modular Runtime-Synced Changelogs, Streamlined 4-Action Master CLI Suite.
+**Current Version:** v2.56
+**Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 4), Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Modular Runtime-Synced Changelogs, Streamlined 4-Action Master CLI Suite.
 
 ---
 
@@ -56,7 +56,7 @@ ATEM_WEB_MANAGER/
     ├── components/            
     │   ├── UI/                # Skeleton, GlobalTooltip, ErrorBoundary, QuadrantContextMenu
     │   ├── Sidebar/           # Sidebar, SearchBar, DeviceList, DeviceRow, ColorDropdown, BottomActionBtn
-    │   ├── Multiview/         # QuadrantGrid, Panel (Routes Q1 Player, Q2 Macros, Q3 Switcher)
+    │   ├── Multiview/         # QuadrantGrid, Panel (Routes 1. STREAM, 2. MEDIA POOL, 3. MIXER, 4. MACROS)
     │   ├── Panels/            # AtemConstellationBus.jsx, AtemMacros.jsx (Hardware-locked to 192.168.10.240)
     │   ├── VideoPlayer/       # Player, OverlayDrawer, QualityMenu, SnapshotEngine
     │   └── Settings/          # SettingsModal

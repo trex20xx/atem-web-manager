@@ -1,8 +1,15 @@
 import React, { useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - QUADRANT CONTEXT MENU (v2.07)
+// ATEM WEB MANAGER - QUADRANT CONTEXT MENU (v2.56)
 // =========================================================================
+
+const QUAD_OPTIONS = [
+    { id: 1, name: '1. STREAM' },
+    { id: 2, name: '2. MEDIA POOL' },
+    { id: 3, name: '3. MIXER' },
+    { id: 4, name: '4. MACROS' }
+];
 
 export default function QuadrantContextMenu({ x, y, currentQuad, onClose, onSelectQuadrant }) {
     const menuRef = useRef(null);
@@ -24,14 +31,14 @@ export default function QuadrantContextMenu({ x, y, currentQuad, onClose, onSele
             style={{ top: y, left: x }}
         >
             <div className="quadrant-context-header">ASSIGN QUADRANT</div>
-            {[1, 2, 3, 4].map((quad) => (
+            {QUAD_OPTIONS.map((opt) => (
                 <div 
-                    key={`ctx-quad-${quad}`} 
+                    key={`ctx-quad-${opt.id}`} 
                     className="quadrant-context-item"
-                    onClick={() => { onSelectQuadrant(quad); onClose(); }}
+                    onClick={() => { onSelectQuadrant(opt.id); onClose(); }}
                 >
-                    <span>Quadrant {quad}</span>
-                    {currentQuad === quad && <span style={{ color: 'var(--green)', fontWeight: 'bold' }}>✓</span>}
+                    <span>{opt.name}</span>
+                    {currentQuad === opt.id && <span style={{ color: 'var(--green)', fontWeight: 'bold' }}>✓</span>}
                 </div>
             ))}
         </div>
