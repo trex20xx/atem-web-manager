@@ -505,7 +505,7 @@ export default App;
 === FILE: src/index.css === 
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.50)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.55)
  * =========================================================================
  */
 
@@ -827,29 +827,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     gap: 8px;
 }
 
-.macro-toggle-pill {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    user-select: none;
-    padding: 3px 8px;
-    border-radius: var(--pill-radius);
-    font-family: var(--le-font-family);
-    font-size: var(--le-font-size);
-    font-weight: 700;
-    color: var(--muted);
-    letter-spacing: 0.5px;
-    transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.macro-toggle-pill:hover {
-    background: var(--panel2);
-}
-
-.macro-toggle-pill.active {
-    color: var(--red-muted);
-}
-
 .macro-action-btn {
     width: 28px;
     height: 28px;
@@ -875,13 +852,12 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     background: rgba(150, 150, 150, 0.15);
 }
 
-.macro-action-btn.active-loop,
-.macro-action-btn.stop-btn.active {
-    color: var(--red-muted) !important;
+.macro-action-btn.active-orange {
+    color: var(--orange-hl) !important;
 }
 
-.macro-action-btn.play-btn.ready {
-    color: #ffffff !important;
+.macro-action-btn.ready-orange {
+    color: var(--orange-hl) !important;
 }
 
 .macro-action-btn.disabled {
@@ -915,6 +891,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     transition: background 0.12s ease;
     height: 100%;
     width: 100%;
+    position: relative;
 }
 
 .macro-slot-content {
@@ -922,24 +899,29 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     align-items: center;
     width: 100%;
     gap: 8px;
+    position: relative;
 }
 
-/* Non-italic, non-debossed slot numbers */
+/* Discretely blended slot numbers matching quadrant backdrop color relationship */
 .macro-slot-num {
     font-family: var(--le-font-family);
     font-weight: 800;
     font-style: normal;
     font-size: 15px;
-    color: rgba(185, 185, 185, 0.5);
+    color: rgba(255, 255, 255, 0.12);
     text-shadow: none !important;
     min-width: 26px;
     text-align: left;
     flex-shrink: 0;
+    transition: color 0.15s ease;
 }
 
 [data-theme="light"] .macro-slot-num {
-    color: rgba(0, 0, 0, 0.4);
-    text-shadow: none !important;
+    color: rgba(0, 0, 0, 0.15);
+}
+
+.macro-slot-btn:hover .macro-slot-num {
+    color: rgba(255, 255, 255, 0.25);
 }
 
 /* Slot labels sharing exact sidebar device row typography */
@@ -966,6 +948,53 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     opacity: 1;
 }
 
+/* Mini Transport Controls on Macro Row Hover */
+.macro-slot-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    flex-shrink: 0;
+}
+
+.macro-slot-btn:hover .macro-slot-actions {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.macro-mini-action-btn {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--muted);
+    transition: background 0.12s ease, color 0.12s ease;
+    padding: 0;
+}
+
+.macro-mini-action-btn:hover {
+    background: rgba(150, 150, 150, 0.25);
+    color: var(--text);
+}
+
+.macro-mini-action-btn svg {
+    width: 12px;
+    height: 12px;
+    fill: currentColor;
+}
+
+.macro-mini-action-btn.active-orange {
+    color: var(--orange-hl) !important;
+}
+
 /* Selected: Distinct flat grey highlight */
 .macro-slot-btn.selected {
     background: #404040 !important;
@@ -981,7 +1010,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 }
 
 .macro-slot-btn.selected .macro-slot-num {
-    color: rgba(255, 255, 255, 0.85) !important;
+    color: rgba(255, 255, 255, 0.6) !important;
 }
 
 /* Running: Muted Red (#8a4b48) matching device dropdown */
@@ -999,7 +1028,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 }
 
 .macro-slot-btn.running .macro-slot-num {
-    color: rgba(255, 255, 255, 0.85) !important;
+    color: rgba(255, 255, 255, 0.6) !important;
 }
 
 /* Pagination Footer with Bold Navigation Arrows */
@@ -1095,10 +1124,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
  
 === FILE: src/version.js === 
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.54)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.55)
 // =========================================================================
 
-export const APP_VERSION = 'v2.54';
+export const APP_VERSION = 'v2.55';
  
 === FILE: src/components/Multiview/Panel.jsx === 
 import React, { useState } from 'react';
@@ -1484,10 +1513,9 @@ export default AtemConstellationBus;
  
 === FILE: src/components/Panels/AtemMacros.jsx === 
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.50)
+// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.55)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -1509,8 +1537,7 @@ const AtemMacros = ({ connectedDevice }) => {
 
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedMacroIndex, setSelectedMacroIndex] = useState(null);
-    const [recallAndRun, setRecallAndRun] = useState(true);
-    const [recallMode, setRecallMode] = useLocalStorage('atem_macro_recall_mode', 'icon'); // 'icon' | 'text'
+    const [autoRun, setAutoRun] = useState(true);
     const [isDraggingDots, setIsDraggingDots] = useState(false);
     
     // Live hardware state from bridge
@@ -1677,7 +1704,7 @@ const AtemMacros = ({ connectedDevice }) => {
         }
 
         setSelectedMacroIndex(index);
-        if (recallAndRun) {
+        if (autoRun) {
             runMacro(index);
         }
     };
@@ -1694,15 +1721,6 @@ const AtemMacros = ({ connectedDevice }) => {
         }
     };
 
-    const handleRecallContextMenu = (e) => {
-        e.preventDefault();
-        setRecallMode(prev => prev === 'icon' ? 'text' : 'icon');
-    };
-
-    const handleRecallClick = () => {
-        setRecallAndRun(prev => !prev);
-    };
-
     const handleMacroMouseEnter = (e, macroIdx, name) => {
         const textEl = e.currentTarget.querySelector('.macro-slot-text');
         if (textEl && name && textEl.scrollWidth > textEl.clientWidth) {
@@ -1717,37 +1735,25 @@ const AtemMacros = ({ connectedDevice }) => {
 
     return (
         <div className="atem-macros-panel" onWheel={handlePanelWheel}>
-            {/* Seamless Header Bar without divider line */}
+            {/* Header Bar without divider line */}
             <div className="macro-header-bar">
                 <div className="macro-header-title">MACROS</div>
 
                 <div className="macro-actions-group">
-                    {/* Recall & Run (Simple Double Play Triangle OR Text) */}
-                    {recallMode === 'icon' ? (
-                        <button 
-                            className={`macro-action-btn ${recallAndRun ? 'active-loop' : ''}`}
-                            onClick={handleRecallClick}
-                            onContextMenu={handleRecallContextMenu}
-                            data-description={`Recall & Run: ${recallAndRun ? 'ON' : 'OFF'} (Right-click for text)`}
-                        >
-                            <svg viewBox="0 0 24 24">
-                                <path d="M5 6.5v11l7.5-5.5L5 6.5zm8 0v11l7.5-5.5L13 6.5z" fill="currentColor" />
-                            </svg>
-                        </button>
-                    ) : (
-                        <button 
-                            className={`macro-toggle-pill ${recallAndRun ? 'active' : ''}`}
-                            onClick={handleRecallClick}
-                            onContextMenu={handleRecallContextMenu}
-                            data-description="Recall & Run (Right-click for icon)"
-                        >
-                            RECALL AND RUN
-                        </button>
-                    )}
+                    {/* Auto-Run Icon (Matched to play button dimensions) */}
+                    <button 
+                        className={`macro-action-btn ${autoRun ? 'active-orange' : ''}`}
+                        onClick={() => setAutoRun(prev => !prev)}
+                        data-description={autoRun ? "Auto-Run: ON" : "Auto-Run: OFF"}
+                    >
+                        <svg viewBox="0 0 24 24">
+                            <path d="M4.5 6.8v10.4c0 .8.87 1.28 1.54.85l6.46-4.14V17.2c0 .8.87 1.28 1.54.85l6.46-4.14a1 1 0 0 0 0-1.72l-6.46-4.14a1 1 0 0 0-1.54.85v3.3L6.04 5.95A1 1 0 0 0 4.5 6.8z" fill="currentColor"/>
+                        </svg>
+                    </button>
 
                     {/* Loop icon */}
                     <button 
-                        className={`macro-action-btn ${macroPlayer.loop ? 'active-loop' : ''}`}
+                        className={`macro-action-btn ${macroPlayer.loop ? 'active-orange' : ''}`}
                         onClick={toggleLoop}
                         data-description="Loop Macro"
                     >
@@ -1758,7 +1764,7 @@ const AtemMacros = ({ connectedDevice }) => {
 
                     {/* Play button */}
                     <button 
-                        className={`macro-action-btn play-btn ${selectedMacroIndex !== null ? 'ready' : 'disabled'}`}
+                        className={`macro-action-btn play-btn ${selectedMacroIndex !== null ? 'ready-orange' : 'disabled'}`}
                         onClick={handlePlayClick}
                         data-description="Run Selected Macro"
                         disabled={selectedMacroIndex === null}
@@ -1770,7 +1776,7 @@ const AtemMacros = ({ connectedDevice }) => {
 
                     {/* Stop button */}
                     <button 
-                        className={`macro-action-btn stop-btn ${macroPlayer.isRunning ? 'active' : ''}`}
+                        className={`macro-action-btn stop-btn ${macroPlayer.isRunning ? 'active-orange' : ''}`}
                         onClick={stopMacro}
                         data-description="Stop Macro"
                     >
@@ -1799,6 +1805,33 @@ const AtemMacros = ({ connectedDevice }) => {
                             <div className="macro-slot-content">
                                 <span className="macro-slot-num">{macroIdx + 1}</span>
                                 <span className="macro-slot-text">{name ? name.toUpperCase() : ''}</span>
+
+                                {/* Mini Transport Controls on Macro Hover */}
+                                {name && (
+                                    <div className="macro-slot-actions">
+                                        <div 
+                                            className={`macro-mini-action-btn ${macroPlayer.loop ? 'active-orange' : ''}`}
+                                            onClick={(e) => { e.stopPropagation(); toggleLoop(); }}
+                                            data-description="Loop"
+                                        >
+                                            <svg viewBox="0 0 24 24"><path d="M17 17H7a4 4 0 0 1-4-4v-1h2v1a2 2 0 0 0 2 2h10v-3l4 4-4 4v-3zm-10-10h10a4 4 0 0 1 4 4v1h-2v-1a2 2 0 0 0-2-2H7v3L3 7l4-4v3z"/></svg>
+                                        </div>
+                                        <div 
+                                            className="macro-mini-action-btn"
+                                            onClick={(e) => { e.stopPropagation(); runMacro(macroIdx); }}
+                                            data-description="Run Macro"
+                                        >
+                                            <svg viewBox="0 0 24 24"><path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18c.62-.39.62-1.29 0-1.69L9.54 5.98C8.87 5.55 8 6.03 8 6.82z"/></svg>
+                                        </div>
+                                        <div 
+                                            className={`macro-mini-action-btn ${isRunning ? 'active-orange' : ''}`}
+                                            onClick={(e) => { e.stopPropagation(); stopMacro(); }}
+                                            data-description="Stop Macro"
+                                        >
+                                            <svg viewBox="0 0 24 24"><path d="M8 6h8c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2H8c-1.1 0-2-.9-2-2V8c0-1.1.9-2 2-2z"/></svg>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </button>
                     );

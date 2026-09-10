@@ -1,5 +1,15 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v2.55] - Silent Background Daemon, Macro Hover Actions & Discrete Number Blending
+- Injected `-WindowStyle Hidden` into PowerShell `Start-Process` inside `ops/OPS.BAT`, permanently hiding the background bridge daemon console window.
+- Restored orange highlights (`#ff9436`) across active header transport buttons.
+- Replaced the Auto-Run icon with a double-play vector glyph sized exactly to the 17px Play button and labeled as "Auto-Run".
+- Added mini transport control buttons (Loop, Play, Stop) on the right edge of each populated macro row, appearing only on hover.
+- Softened macro number opacity to `rgba(255, 255, 255, 0.12)` to match the discrete backdrop blending style of the quadrant panels.
+- Documented project path resolution and `.atem_node_path` environment caching invariants in `ops/HANDOVER.MD`.
+- Synchronized application version tag to v2.55 across metadata and documentation.
+
+
 ## [v2.54] - Portable Node.js Auto-Detection & Session PATH Injection
 - Restored intelligent detection and persistent caching (`.atem_node_path`) for portable Node.js environments in `ops/OPS.BAT`.
 - Injected portable directory directly into active session `%PATH%` and resolved explicit `%NODE_CMD%` and `%NPM_CMD%` execution paths.

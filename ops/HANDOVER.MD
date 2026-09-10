@@ -1,5 +1,5 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-**Current Version:** v2.54
+**Current Version:** v2.55
 **Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Modular Runtime-Synced Changelogs, Streamlined 4-Action Master CLI Suite.
 
 ---
@@ -12,7 +12,10 @@
 5. **DOCUMENTATION CONSOLIDATION IN /OPS:** All project documentation lives exclusively within `ops/` as two core files (`ops/CHANGELOG.MD` and `ops/HANDOVER.MD`) supported by modular snippets in `ops/CHANGELOG/`.
 6. **ITERATION DESCRIPTOR:** Always provide a clear, concise descriptor text at the end of every response summarizing the iteration's changes.
 7. **NO WAITING FOR CONFIRMATION:** Provide full files immediately without holding back for intermediate confirmation.
-8. **[LOCKED] ELEMENTS PROTOCOL:**
+8. **WORKSPACE & PATH RESOLUTION PROTOCOL:**
+   - Workspace root path is permanently anchored to the project root directory (e.g. `C:\Users\robert.mirt\Downloads\PROGRAMMING\VSCODE\ATEM_WEB_MANAGER`).
+   - Portable and enterprise Node.js/npm environments lacking global PATH registration must be detected and resolved via persistent `.atem_node_path` caching and injected into runtime session paths.
+9. **[LOCKED] ELEMENTS PROTOCOL:**
    - **Corner Radii:** Buttons use `--pill-radius: 24px`. Panels use `--panel-radius: 9px`.
    - **Video Player UI:** YouTube UI replica layout using custom SVG masks, STRICT 30% transparency (`rgba(30, 30, 30, 0.3)`).
    - **Multiview 16:9 Aspect Ratio:** Strictly maintained under all resize conditions.
@@ -25,6 +28,7 @@
 ## 2. PROJECT FILE TREE
 ```text
 ATEM_WEB_MANAGER/
+├── .atem_node_path                # Persistent cache for custom/portable Node.js runtime
 ├── .atem_workspace_token          # Required for secure WIPE execution
 ├── .gitignore                     # Excludes node_modules, dist, codebase.txt, logs
 ├── package-lock.json              # Preserved in Git for deterministic dependency tree

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.50)
+// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.55)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -24,8 +23,7 @@ const AtemMacros = ({ connectedDevice }) => {
 
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedMacroIndex, setSelectedMacroIndex] = useState(null);
-    const [recallAndRun, setRecallAndRun] = useState(true);
-    const [recallMode, setRecallMode] = useLocalStorage('atem_macro_recall_mode', 'icon'); // 'icon' | 'text'
+    const [autoRun, setAutoRun] = useState(true);
     const [isDraggingDots, setIsDraggingDots] = useState(false);
     
     // Live hardware state from bridge
@@ -192,7 +190,7 @@ const AtemMacros = ({ connectedDevice }) => {
         }
 
         setSelectedMacroIndex(index);
-        if (recallAndRun) {
+        if (autoRun) {
             runMacro(index);
         }
     };
@@ -209,15 +207,6 @@ const AtemMacros = ({ connectedDevice }) => {
         }
     };
 
-    const handleRecallContextMenu = (e) => {
-        e.preventDefault();
-        setRecallMode(prev => prev === 'icon' ? 'text' : 'icon');
-    };
-
-    const handleRecallClick = () => {
-        setRecallAndRun(prev => !prev);
-    };
-
     const handleMacroMouseEnter = (e, macroIdx, name) => {
         const textEl = e.currentTarget.querySelector('.macro-slot-text');
         if (textEl && name && textEl.scrollWidth > textEl.clientWidth) {
@@ -232,37 +221,25 @@ const AtemMacros = ({ connectedDevice }) => {
 
     return (
         <div className="atem-macros-panel" onWheel={handlePanelWheel}>
-            {/* Seamless Header Bar without divider line */}
+            {/* Header Bar without divider line */}
             <div className="macro-header-bar">
                 <div className="macro-header-title">MACROS</div>
 
                 <div className="macro-actions-group">
-                    {/* Recall & Run (Simple Double Play Triangle OR Text) */}
-                    {recallMode === 'icon' ? (
-                        <button 
-                            className={`macro-action-btn ${recallAndRun ? 'active-loop' : ''}`}
-                            onClick={handleRecallClick}
-                            onContextMenu={handleRecallContextMenu}
-                            data-description={`Recall & Run: ${recallAndRun ? 'ON' : 'OFF'} (Right-click for text)`}
-                        >
-                            <svg viewBox="0 0 24 24">
-                                <path d="M5 6.5v11l7.5-5.5L5 6.5zm8 0v11l7.5-5.5L13 6.5z" fill="currentColor" />
-                            </svg>
-                        </button>
-                    ) : (
-                        <button 
-                            className={`macro-toggle-pill ${recallAndRun ? 'active' : ''}`}
-                            onClick={handleRecallClick}
-                            onContextMenu={handleRecallContextMenu}
-                            data-description="Recall & Run (Right-click for icon)"
-                        >
-                            RECALL AND RUN
-                        </button>
-                    )}
+                    {/* Auto-Run Icon (Matched to play button dimensions) */}
+                    <button 
+                        className={`macro-action-btn ${autoRun ? 'active-orange' : ''}`}
+                        onClick={() => setAutoRun(prev => !prev)}
+                        data-description={autoRun ? "Auto-Run: ON" : "Auto-Run: OFF"}
+                    >
+                        <svg viewBox="0 0 24 24">
+                            <path d="M4.5 6.8v10.4c0 .8.87 1.28 1.54.85l6.46-4.14V17.2c0 .8.87 1.28 1.54.85l6.46-4.14a1 1 0 0 0 0-1.72l-6.46-4.14a1 1 0 0 0-1.54.85v3.3L6.04 5.95A1 1 0 0 0 4.5 6.8z" fill="currentColor"/>
+                        </svg>
+                    </button>
 
                     {/* Loop icon */}
                     <button 
-                        className={`macro-action-btn ${macroPlayer.loop ? 'active-loop' : ''}`}
+                        className={`macro-action-btn ${macroPlayer.loop ? 'active-orange' : ''}`}
                         onClick={toggleLoop}
                         data-description="Loop Macro"
                     >
@@ -273,7 +250,7 @@ const AtemMacros = ({ connectedDevice }) => {
 
                     {/* Play button */}
                     <button 
-                        className={`macro-action-btn play-btn ${selectedMacroIndex !== null ? 'ready' : 'disabled'}`}
+                        className={`macro-action-btn play-btn ${selectedMacroIndex !== null ? 'ready-orange' : 'disabled'}`}
                         onClick={handlePlayClick}
                         data-description="Run Selected Macro"
                         disabled={selectedMacroIndex === null}
@@ -285,7 +262,7 @@ const AtemMacros = ({ connectedDevice }) => {
 
                     {/* Stop button */}
                     <button 
-                        className={`macro-action-btn stop-btn ${macroPlayer.isRunning ? 'active' : ''}`}
+                        className={`macro-action-btn stop-btn ${macroPlayer.isRunning ? 'active-orange' : ''}`}
                         onClick={stopMacro}
                         data-description="Stop Macro"
                     >
@@ -314,6 +291,33 @@ const AtemMacros = ({ connectedDevice }) => {
                             <div className="macro-slot-content">
                                 <span className="macro-slot-num">{macroIdx + 1}</span>
                                 <span className="macro-slot-text">{name ? name.toUpperCase() : ''}</span>
+
+                                {/* Mini Transport Controls on Macro Hover */}
+                                {name && (
+                                    <div className="macro-slot-actions">
+                                        <div 
+                                            className={`macro-mini-action-btn ${macroPlayer.loop ? 'active-orange' : ''}`}
+                                            onClick={(e) => { e.stopPropagation(); toggleLoop(); }}
+                                            data-description="Loop"
+                                        >
+                                            <svg viewBox="0 0 24 24"><path d="M17 17H7a4 4 0 0 1-4-4v-1h2v1a2 2 0 0 0 2 2h10v-3l4 4-4 4v-3zm-10-10h10a4 4 0 0 1 4 4v1h-2v-1a2 2 0 0 0-2-2H7v3L3 7l4-4v3z"/></svg>
+                                        </div>
+                                        <div 
+                                            className="macro-mini-action-btn"
+                                            onClick={(e) => { e.stopPropagation(); runMacro(macroIdx); }}
+                                            data-description="Run Macro"
+                                        >
+                                            <svg viewBox="0 0 24 24"><path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18c.62-.39.62-1.29 0-1.69L9.54 5.98C8.87 5.55 8 6.03 8 6.82z"/></svg>
+                                        </div>
+                                        <div 
+                                            className={`macro-mini-action-btn ${isRunning ? 'active-orange' : ''}`}
+                                            onClick={(e) => { e.stopPropagation(); stopMacro(); }}
+                                            data-description="Stop Macro"
+                                        >
+                                            <svg viewBox="0 0 24 24"><path d="M8 6h8c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2H8c-1.1 0-2-.9-2-2V8c0-1.1.9-2 2-2z"/></svg>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </button>
                     );

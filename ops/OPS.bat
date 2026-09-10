@@ -2,7 +2,7 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v2.54)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v2.55)
 :: =============================================================================
 
 :: Establish Project Root context
@@ -21,7 +21,7 @@ cd /d "%PROJECT_ROOT%"
 :MENU
 cls
 echo =================================================================
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v2.54)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v2.55)       
 echo =================================================================
 echo   [1] RUN ^& EVALUATE  (Vite + Daemon, Auto-Export ^& Evaluation)
 echo   [2] WIPE            (Token-Verified Complete Directory Erasure)
@@ -105,8 +105,8 @@ call :CLEANUP_PORTS
 call :EXPORT_CODEBASE
 
 if exist "bridge\server.js" (
-    echo ^>^>^> Starting ATEM Hardware Bridge Daemon on Port 8080...
-    powershell -NoProfile -WindowStyle Hidden -Command "Start-Process '%NODE_CMD%' -ArgumentList 'server.js' -WorkingDirectory '%PROJECT_ROOT%\bridge'"
+    echo ^>^>^> Starting ATEM Hardware Bridge Daemon on Port 8080 in background...
+    powershell -NoProfile -WindowStyle Hidden -Command "Start-Process '%NODE_CMD%' -ArgumentList 'server.js' -WorkingDirectory '%PROJECT_ROOT%\bridge' -WindowStyle Hidden"
 )
 
 echo ^>^>^> Starting Frontend Server on Port 3000 with auto-launch...

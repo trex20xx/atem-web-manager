@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.50)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.55)
  * =========================================================================
  */
 
@@ -322,29 +322,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     gap: 8px;
 }
 
-.macro-toggle-pill {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    user-select: none;
-    padding: 3px 8px;
-    border-radius: var(--pill-radius);
-    font-family: var(--le-font-family);
-    font-size: var(--le-font-size);
-    font-weight: 700;
-    color: var(--muted);
-    letter-spacing: 0.5px;
-    transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.macro-toggle-pill:hover {
-    background: var(--panel2);
-}
-
-.macro-toggle-pill.active {
-    color: var(--red-muted);
-}
-
 .macro-action-btn {
     width: 28px;
     height: 28px;
@@ -370,13 +347,12 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     background: rgba(150, 150, 150, 0.15);
 }
 
-.macro-action-btn.active-loop,
-.macro-action-btn.stop-btn.active {
-    color: var(--red-muted) !important;
+.macro-action-btn.active-orange {
+    color: var(--orange-hl) !important;
 }
 
-.macro-action-btn.play-btn.ready {
-    color: #ffffff !important;
+.macro-action-btn.ready-orange {
+    color: var(--orange-hl) !important;
 }
 
 .macro-action-btn.disabled {
@@ -410,6 +386,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     transition: background 0.12s ease;
     height: 100%;
     width: 100%;
+    position: relative;
 }
 
 .macro-slot-content {
@@ -417,24 +394,29 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     align-items: center;
     width: 100%;
     gap: 8px;
+    position: relative;
 }
 
-/* Non-italic, non-debossed slot numbers */
+/* Discretely blended slot numbers matching quadrant backdrop color relationship */
 .macro-slot-num {
     font-family: var(--le-font-family);
     font-weight: 800;
     font-style: normal;
     font-size: 15px;
-    color: rgba(185, 185, 185, 0.5);
+    color: rgba(255, 255, 255, 0.12);
     text-shadow: none !important;
     min-width: 26px;
     text-align: left;
     flex-shrink: 0;
+    transition: color 0.15s ease;
 }
 
 [data-theme="light"] .macro-slot-num {
-    color: rgba(0, 0, 0, 0.4);
-    text-shadow: none !important;
+    color: rgba(0, 0, 0, 0.15);
+}
+
+.macro-slot-btn:hover .macro-slot-num {
+    color: rgba(255, 255, 255, 0.25);
 }
 
 /* Slot labels sharing exact sidebar device row typography */
@@ -461,6 +443,53 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     opacity: 1;
 }
 
+/* Mini Transport Controls on Macro Row Hover */
+.macro-slot-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    flex-shrink: 0;
+}
+
+.macro-slot-btn:hover .macro-slot-actions {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.macro-mini-action-btn {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--muted);
+    transition: background 0.12s ease, color 0.12s ease;
+    padding: 0;
+}
+
+.macro-mini-action-btn:hover {
+    background: rgba(150, 150, 150, 0.25);
+    color: var(--text);
+}
+
+.macro-mini-action-btn svg {
+    width: 12px;
+    height: 12px;
+    fill: currentColor;
+}
+
+.macro-mini-action-btn.active-orange {
+    color: var(--orange-hl) !important;
+}
+
 /* Selected: Distinct flat grey highlight */
 .macro-slot-btn.selected {
     background: #404040 !important;
@@ -476,7 +505,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 }
 
 .macro-slot-btn.selected .macro-slot-num {
-    color: rgba(255, 255, 255, 0.85) !important;
+    color: rgba(255, 255, 255, 0.6) !important;
 }
 
 /* Running: Muted Red (#8a4b48) matching device dropdown */
@@ -494,7 +523,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 }
 
 .macro-slot-btn.running .macro-slot-num {
-    color: rgba(255, 255, 255, 0.85) !important;
+    color: rgba(255, 255, 255, 0.6) !important;
 }
 
 /* Pagination Footer with Bold Navigation Arrows */
