@@ -1,5 +1,10 @@
 # ATEM WEB MANAGER - Complete Version History
 
+## [v2.44.0] - Mandatory Iteration Descriptor Protocol
+- Formally established Rule 6 requiring a dedicated summary descriptor text at the conclusion of each response.
+- Verified operational decoupling of `src/version.js` preventing redundant component dumps.
+- Synchronized master specification in `ops/HANDOVER.MD` to v2.44.0.
+
 ## [v2.43.0] - Decoupled Versioning Module & Streamlined 4-Option CLI Suite
 - Extracted application version string out of `src/App.jsx` into dedicated `src/version.js` module, permanently preventing full layout re-renders on version increments.
 - Streamlined `ops/OPS.SH` and `ops/OPS.BAT` into a clean 4-option interface (`Run & Evaluate`, `Wipe`, `Export`, `Exit`), removing redundant stop and individual git actions.

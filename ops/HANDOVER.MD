@@ -1,5 +1,5 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-**Current Version:** v2.43.0
+**Current Version:** v2.44.0
 **Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Synchronized Collapse Animations, Apple Switch Icons, ATEM Macro Matrix (Quadrant 2), Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Streamlined 4-Action Master CLI Suite.
 
 ---
@@ -10,7 +10,7 @@
 3. **MAINTAIN ALL COMMENTS & COMPLETE HISTORY:** Never trim, truncate, or delete historical changelog entries or architectural comments. Retain all records from v1.72 onwards inside `ops/CHANGELOG.MD`.
 4. **FULL FILES ONLY FOR MODIFIED FILES:** Always provide 100% complete files ready to copy-paste directly in each reply. Never output code snippets or partial diffs. Do not re-output unmodified components (such as `App.jsx`) unless their internal layout, component, or state logic is actively modified.
 5. **DOCUMENTATION CONSOLIDATION IN /OPS:** All project documentation lives exclusively within `ops/` as two core files: `ops/CHANGELOG.MD` (history) and `ops/HANDOVER.MD` (master spec).
-6. **STREAMLINED OUTPUTS:** Git push commands at the end of responses are discontinued unless explicitly requested by the user.
+6. **ITERATION DESCRIPTOR:** Always provide a clear, concise descriptor text at the end of every response summarizing the iteration's changes.
 7. **NO WAITING FOR CONFIRMATION:** Provide full files immediately without holding back for intermediate confirmation.
 8. **[LOCKED] ELEMENTS PROTOCOL:**
    - **Corner Radii:** Buttons use `--pill-radius: 24px`. Panels use `--panel-radius: 9px`.
@@ -49,7 +49,7 @@ ATEM_WEB_MANAGER/
     ├── App.jsx                    # Master Layout, Top Control Bar, Synchronized Collapse
     ├── index.css                  # Global styles, Apple Switch, Pill Context Menu, Macro Grid
     ├── components/            
-    │   ├── UI/                    # Skeleton, GlobalTooltip, ErrorBoundary, QuadrantContextMenu
+    │   ├── UI/                # Skeleton, GlobalTooltip, ErrorBoundary, QuadrantContextMenu
     │   ├── Sidebar/           # Sidebar, SearchBar, DeviceList, DeviceRow, ColorDropdown, BottomActionBtn
     │   ├── Multiview/         # QuadrantGrid, Panel (Routes Q1 Player, Q2 Macros, Q3 Switcher)
     │   ├── Panels/            # AtemConstellationBus.jsx, AtemMacros.jsx (Hardware-locked to 192.168.10.240)
