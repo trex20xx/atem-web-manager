@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.69)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.70)
  * =========================================================================
  */
 
@@ -433,7 +433,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-btn-standard.tally-orange { background: var(--orange) !important; border-color: var(--orange-hl) !important; color: #fff !important; box-shadow: none !important; }
 .atem-btn-standard.tally-yellow { background: var(--yellow-hl) !important; border-color: #f39c12 !important; color: #000 !important; box-shadow: none !important; }
 
-/* Unified PGM/PVW Box Border centered to 736px */
+/* Unified PGM/PVW Box Border centered to 764px */
 .pgm-pvw-box { 
     width: fit-content;
     margin: 0 auto;
@@ -471,10 +471,9 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 /* Lower Control Sections Row (Next Trans, DSK, FTB) */
 .atem-lower-sections-grid {
-    display: grid;
-    grid-template-columns: repeat(10, 70px);
-    gap: 4px;
-    width: 736px;
+    display: flex;
+    justify-content: space-between;
+    width: 764px;
     margin: 0 auto;
     box-sizing: border-box;
 }
@@ -482,27 +481,37 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-section-box {
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: var(--ui-radius);
-    padding: 8px;
+    border-radius: var(--panel-radius);
+    padding: 10px 14px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     box-sizing: border-box;
 }
 
 .atem-section-title {
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 400;
     color: var(--muted);
-    margin-bottom: 2px;
+    letter-spacing: 0.5px;
     text-transform: uppercase;
     text-align: left;
+    margin: 0 0 4px 0;
+    padding: 0;
 }
 
-/* Grid Columns Spanning */
-.next-trans-box { grid-column: 1 / span 5; }
-.dsk-section-box { grid-column: 7 / span 2; }
-.ftb-section-box { grid-column: 9 / span 1; }
+/* Width specifications ensuring exact vertical alignment under columns 1-5, 7-8, and 10 */
+.next-trans-box {
+    width: 394px;
+}
+
+.dsk-section-box {
+    width: 172px;
+}
+
+.ftb-section-box {
+    width: 98px;
+}
 
 /* Two-Row Action Grids */
 .two-row-grid {

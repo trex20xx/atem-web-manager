@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.69)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.71)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -14,9 +14,11 @@ const DragRateInput = ({ value, onChange, onCommit, title }) => {
     const isDraggingRef = useRef(false);
     const startYRef = useRef(0);
     const startValRef = useRef(30);
+    const currentValRef = useRef(value);
 
     useEffect(() => {
         setTypedVal(value);
+        currentValRef.current = value;
     }, [value]);
 
     const handleMouseDown = (e) => {
@@ -31,6 +33,7 @@ const DragRateInput = ({ value, onChange, onCommit, title }) => {
         isDraggingRef.current = true;
         startYRef.current = e.clientY;
         startValRef.current = parseInt(value, 10) || 30;
+        currentValRef.current = startValRef.current;
         let hasMoved = false;
 
         const onMouseMove = (moveEvent) => {
@@ -39,7 +42,11 @@ const DragRateInput = ({ value, onChange, onCommit, title }) => {
             if (Math.abs(deltaY) > 2) {
                 hasMoved = true;
                 const newVal = Math.max(1, Math.min(250, startValRef.current + Math.floor(deltaY / 2)));
-                onChange(newVal);
+                if (newVal !== currentValRef.current) {
+                    currentValRef.current = newVal;
+                    onChange(newVal);
+                    if (onCommit) onCommit(newVal);
+                }
             }
         };
 
@@ -50,20 +57,20 @@ const DragRateInput = ({ value, onChange, onCommit, title }) => {
             if (panel) panel.draggable = true;
 
             if (hasMoved) {
-                if (onCommit) onCommit();
+                if (onCommit) onCommit(currentValRef.current);
             } else {
                 setIsEditing(true);
             }
         };
 
         window.addEventListener('mousemove', onMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
+        window.addEventListener('mouseup', onMouseUp);
     };
 
     const handleKeyDown = (e) => {
         if (e.key === 'Enter') {
             setIsEditing(false);
-            const parsed = parseInt(typedVal, 10) || 30;
+            const parsed = Math.max(1, Math.min(250, parseInt(typedVal, 10) || 30));
             onChange(parsed);
             if (onCommit) onCommit(parsed);
         } else if (e.key === 'Escape') {
@@ -74,7 +81,7 @@ const DragRateInput = ({ value, onChange, onCommit, title }) => {
 
     const handleBlur = () => {
         setIsEditing(false);
-        const parsed = parseInt(typedVal, 10) || 30;
+        const parsed = Math.max(1, Math.min(250, parseInt(typedVal, 10) || 30));
         onChange(parsed);
         if (onCommit) onCommit(parsed);
     };
@@ -86,6 +93,8 @@ const DragRateInput = ({ value, onChange, onCommit, title }) => {
                     type="number"
                     className="rate-input-field"
                     autoFocus
+                    min="1"
+                    max="250"
                     value={typedVal}
                     onChange={(e) => setTypedVal(e.target.value)}
                     onBlur={handleBlur}
@@ -368,7 +377,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                     </div>
                 </div>
 
-                {/* 2. LOWER CONTROL MODULES (Aligned under Inputs 1–5, 7–8, and 9) */}
+                {/* 2. LOWER CONTROL MODULES (NEXT TRANSITION Cols 1–5, DSK 1 Cols 7–8, FTB Col 10) */}
                 <div className="atem-lower-sections-grid">
                     {/* NEXT TRANSITION (Aligned directly under Inputs 1–5) */}
                     <div className="atem-section-box next-trans-box">
@@ -459,8 +468,11 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                             <DragRateInput 
                                 value={localDskRate} 
                                 onChange={setLocalDskRate} 
-                                onCommit={() => sendAtemCommand('SET_DSK_RATE', { rate: parseInt(localDskRate, 10) || 30 })}
-                                title="DSK 1 Rate (Frames) - Drag up/down or click to type"
+                                onCommit={(val) => {
+                                    const r = val !== undefined ? val : (parseInt(localDskRate, 10) || 30);
+                                    sendAtemCommand('SET_DSK_RATE', { rate: r });
+                                }}
+                                title="DSK 1 Rate (Frames) - Drag up/down, type + enter, or click away"
                             />
 
                             {/* Row 2: ON AIR, AUTO */}
@@ -481,7 +493,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         </div>
                     </div>
 
-                    {/* FADE TO BLACK (Aligned directly under Input 9) */}
+                    {/* FADE TO BLACK (Aligned directly under Input 10) */}
                     <div className="atem-section-box ftb-section-box">
                         <div className="atem-section-title">FTB</div>
                         <div className="two-row-grid one-col">
@@ -489,8 +501,11 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                             <DragRateInput 
                                 value={localFtbRate} 
                                 onChange={setLocalFtbRate} 
-                                onCommit={() => sendAtemCommand('SET_FTB_RATE', { rate: parseInt(localFtbRate, 10) || 30 })}
-                                title="Fade to Black Rate (Frames) - Drag up/down or click to type"
+                                onCommit={(val) => {
+                                    const r = val !== undefined ? val : (parseInt(localFtbRate, 10) || 30);
+                                    sendAtemCommand('SET_FTB_RATE', { rate: r });
+                                }}
+                                title="Fade to Black Rate (Frames) - Drag up/down, type + enter, or click away"
                             />
                             {/* Row 2: FTB */}
                             <button 
@@ -526,8 +541,11 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         <DragRateInput 
                             value={localTransRate} 
                             onChange={setLocalTransRate} 
-                            onCommit={() => sendAtemCommand('SET_TRANSITION_RATE', { rate: parseInt(localTransRate, 10) || 30 })} 
-                            title="Auto Transition Rate (Frames) - Drag up/down or click to type" 
+                            onCommit={(val) => {
+                                const r = val !== undefined ? val : (parseInt(localTransRate, 10) || 30);
+                                sendAtemCommand('SET_TRANSITION_RATE', { rate: r });
+                            }} 
+                            title="Auto Transition Rate (Frames) - Drag up/down, type + enter, or click away" 
                         />
 
                         {/* Col 9: CUT (Under Input 9) */}

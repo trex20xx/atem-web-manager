@@ -1,5 +1,20 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v2.71] - JSX Syntax Error Resolution & Clean Source Delivery
+- Stripped inadvertent Markdown codeblock fence headers from the physical `src/components/Panels/AtemConstellationBus.jsx` file.
+- Verified pure JavaScript/JSX syntax compatibility with Vite Babel parser.
+- Synchronized application version tag to v2.71 across runtime and documentation modules.
+
+
+## [v2.70] - Lower Control Modules Alignment Realignment, FTB Relocation & Rate Drag Shielding
+- Relocated FTB control module from Input 9 to Input 10, establishing clean 50px buffer gaps at Column 6 and Column 9.
+- Re-architected `.atem-lower-sections-grid` to match the exact 764px bounding box width and 10px 14px padding of `.pgm-pvw-box`.
+- Formatted NEXT TRANSITION (Cols 1â€“5), DSK 1 (Cols 7â€“8), and FTB (Col 10) so every button aligns with PGM/PVW inputs and bottom outputs.
+- Fixed sticky mouse cursor bug in `DragRateInput` by correctly binding and removing `onMouseUp` on the window event listener.
+- Added live real-time ATEM hardware rate dispatching during scrub dragging, Enter submission, and click-away blur.
+- Synchronized application version tag to v2.70 across all documentation and runtime modules.
+
+
 ## [v2.69] - Two-Row Control Modules Architecture & Scrub-Drag Interaction Stabilization
 - Re-architected `DragRateInput` by separating display and editing modes, enabling smooth vertical scrub-dragging without input element event collisions while retaining single-click typing with Enter submission.
 - Created the "NEXT TRANSITION" section matching the official software layout aligned directly under Inputs 1â€“5 (Row 1: On Air 1â€“4; Row 2: BKGD, Key 1â€“4).
@@ -10,13 +25,6 @@
 - Locked the global button geometry (`70px x 36px`) and panel layout structure into the permanent Invariants Protocol.
 - Synchronized master application version tag to v2.69 across all documentation.
 
-
-## [v2.70] - Windows Fresh-Clone Dependency Automation (OPS.BAT)
-- Added automated `:CHECK_DEPENDENCIES` routine in `ops/OPS.BAT`, checking for `node_modules/vite` and `bridge/node_modules`.
-- Automatically executes `npm install` across frontend and bridge workspaces on fresh git clones prior to running Vite and the bridge daemon, permanently resolving `'vite' is not recognized` errors.
-- Synchronized master application version tag to v2.70 across all documentation and runtime modules.
-
-
 ## [v2.68] - macOS Parity Audit & POSIX CLI Hardening (OPS.SH)
 - Synchronized `ops/OPS.SH` with `ops/OPS.BAT`, adding interactive iteration description / commit message prompts on finish and merge.
 - Replaced BSD awk multi-line parsing with POSIX `head` and `tail` operations for robust modular changelog merging on macOS.
@@ -25,7 +33,6 @@
 - Standardized `printf` string serialization in `export_codebase` to eliminate BSD `echo -e` escape artifacts.
 - Synchronized master application version tag to v2.68 across all metadata and documentation.
 
-
 ## [v2.67] - Strict Grid Realignment, Rate Drag Shielding & Bottom Row Symmetry
 - Restructured the bottom control row into the exact same 10-column grid (`repeat(10, 70px)`) as the buses above: OUT 1â€“6 (Cols 1â€“6), Spacer (Col 7), Rate (Col 8), CUT (Col 9 under Input 9), and AUTO (Col 10 under Input 10).
 - Applied `width: fit-content; margin: 0 auto;` to `.pgm-pvw-box` to tightly wrap the bus grid with zero spillover.
@@ -33,7 +40,6 @@
 - Aligned Rate input font family, size (`var(--le-font-size)`), and weight (`var(--device-font-weight)`) with switcher button numbers while preserving the orange highlight.
 - Aligned uppercase "PROGRAM" and "PREVIEW" labels flush with the leftmost edge of Input 1.
 - Synchronized master application version tag to v2.67.
-
 
 ## [v2.66] - Bottom Row Integration, Autorun Logic Isolation & Aux Routing Repair
 - Brought back CUT and AUTO buttons, placing them in-line with the bottom OUTS row, justified to the right.
@@ -46,7 +52,6 @@
 - Restored the green online connection indicator ball directly in front of the IP address in the header.
 - Synchronized master application version tag to v2.66.
 
-
 ## [v2.65] - Streamlined ATEM Switcher Layout, Fixed Button Geometry & Bridge Watchdog
 - Removed all transitional and secondary control matrices (Next Transition, Transition Style, DSK, and Fade to Black).
 - Replaced side labels with top-aligned "Program" and "Preview" headers matching official ATEM Software styling.
@@ -57,11 +62,9 @@
 - Integrated an automated background watchdog in `bridge/server.js` that inspects port 3000 and terminates the daemon automatically if Vite stops.
 - Synchronized master application version tag to v2.65 across all documentation.
 
-
 ## [v2.64] - Clean Version Module Restoration & Parsing Repair
 - Restored `src/version.js` to pure JavaScript export syntax, eliminating Markdown changelog text that triggered Vite parser syntax exceptions.
 - Synchronized master application version tag to v2.64 across metadata and documentation.
-
 
 ## [v2.63] - Master Changelog Restoration
 - Restored the complete historical archive in `ops/CHANGELOG.MD` spanning v1.72 through v2.63, fixing the missing v1.72â€“v2.50 entries.
@@ -497,3 +500,5 @@
 ## [v1.72.0] - Settings & Sidebar UX Refinements
 - Increased max corner radius range to 24px in preferences.
 - Disabled global action button timeout (only CONFIRM state times out after 3 seconds).
+
+*initial versions, undocumented*

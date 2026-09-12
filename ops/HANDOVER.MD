@@ -1,5 +1,5 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-**Current Version:** v2.69
+**Current Version:** v2.71
 **Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Pure Sliding Animations, Fullscreen Toggle, ATEM Macro Matrix (Quadrant 4), Integrated Bottom Action & Aux Routing Bar, Auto-Watchdog Bridge Daemon, Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Modular Runtime-Synced Changelogs, Streamlined 4-Action Master CLI Suite.
 
 ---
@@ -23,7 +23,7 @@
    - **Sidebar Devices, Groups & Edit Panels Design:** Row height `30px`, 4px equidistant edit button geometry, pill edit fields, and color dropdown clear mechanics.
    - **Top Bar & Navigation:** Apple-style sliding switch with embedded SVG sun/moon icons matching the settings gear size; synchronized sidebar collapse and multiview vertical zoom transitions. All top bar button hover overlays use circular geometry; version tag uses pill hover geometry.
    - **ATEM Switcher Button Geometry:** Standardized grid buttons (PGM, PVW, Aux, Actions, Next Transition, DSK, FTB) universally locked to fixed `70px x 36px` dimensions. This button design and geometry is permanently locked.
-   - **ATEM Switcher Bus Layout:** Strictly dual-row arrays (Inputs 1-10 top, Internal sources bottom) encapsulated within a unified border section, with top-aligned "PROGRAM" and "PREVIEW" non-bold labels flush with the leftmost buttons. Bottom row houses OUT 1–6 on the left (Cols 1–6), Spacer (Col 7), Rate (Col 8), CUT (Col 9 under Input 9), and AUTO (Col 10 under Input 10). Next Transition sits under Inputs 1–5, DSK 1 sits under Inputs 7–8, and FTB sits under Input 9.
+   - **ATEM Switcher Bus Layout:** Strictly dual-row arrays (Inputs 1-10 top, Internal sources bottom) encapsulated within a unified border section, with top-aligned "PROGRAM" and "PREVIEW" non-bold labels flush with the leftmost buttons. Bottom row houses OUT 1–6 on the left (Cols 1–6), Spacer (Col 7), Rate (Col 8), CUT (Col 9 under Input 9), and AUTO (Col 10 under Input 10). Next Transition sits under Inputs 1–5, DSK 1 sits under Inputs 7–8, and FTB sits under Input 10.
 
 ---
 
