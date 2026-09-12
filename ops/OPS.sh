@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / Linux) (v2.69)
+# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / Linux) (v2.70)
 # =============================================================================
 # Usage: bash ops/OPS.SH  (Execute from project root or ops/)
 # =============================================================================
@@ -66,7 +66,7 @@ setup_node_env() {
 
 # Auto-install dependencies if cloning into a clean machine
 check_dependencies() {
-    if [ ! -d "$PROJECT_ROOT/node_modules" ]; then
+    if [ ! -d "$PROJECT_ROOT/node_modules/vite" ]; then
         echo ">>> Fresh clone detected. Installing frontend dependencies..."
         npm install
     fi
@@ -282,7 +282,7 @@ trap cleanup_ports EXIT INT TERM
 while true; do
     echo ""
     echo "================================================================="
-    echo "          ATEM WEB MANAGER - MASTER OPERATIONS CLI (v2.69)       "
+    echo "          ATEM WEB MANAGER - MASTER OPERATIONS CLI (v2.70)       "
     echo "================================================================="
     echo "  [1] RUN & EVALUATE  (Vite + Daemon, Auto-Export & Evaluation)"
     echo "  [2] WIPE            (Token-Verified Complete Directory Erasure)"

@@ -2,7 +2,7 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v2.59)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v2.70)
 :: =============================================================================
 
 :: Establish Project Root context
@@ -21,7 +21,7 @@ cd /d "%PROJECT_ROOT%"
 :MENU
 cls
 echo =================================================================
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v2.59)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v2.70)       
 echo =================================================================
 echo   [1] RUN ^& EVALUATE  (Vite + Daemon, Auto-Export ^& Evaluation)
 echo   [2] WIPE            (Token-Verified Complete Directory Erasure)
@@ -80,6 +80,25 @@ set "NPM_CMD=%USER_NODE_DIR%\npm.cmd"
 echo [OK] Node.js path saved to .atem_node_path
 goto :eof
 
+:CHECK_DEPENDENCIES
+if not exist "%PROJECT_ROOT%\node_modules\vite\" (
+    echo.
+    echo =================================================================
+    echo      FRESH CLONE DETECTED - INSTALLING FRONTEND DEPENDENCIES     
+    echo =================================================================
+    call "%NPM_CMD%" install
+)
+if not exist "%PROJECT_ROOT%\bridge\node_modules\" (
+    echo.
+    echo =================================================================
+    echo      INSTALLING ATEM BRIDGE BACKEND DEPENDENCIES                
+    echo =================================================================
+    cd /d "%PROJECT_ROOT%\bridge"
+    call "%NPM_CMD%" install
+    cd /d "%PROJECT_ROOT%"
+)
+goto :eof
+
 :SYNC_CHANGELOG
 if not exist "ops\CHANGELOG" goto :eof
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$m='ops\CHANGELOG.MD'; if (-not (Test-Path $m)) { Set-Content -Path $m -Value '# ATEM WEB MANAGER - Complete Version History' -Encoding UTF8 }; $files=Get-ChildItem -Path 'ops\CHANGELOG\*.md' -ErrorAction SilentlyContinue; if ($files) { $mt=Get-Content $m -Raw; foreach ($f in $files) { $c=(Get-Content $f.FullName -Raw).Trim(); if ($c -match '\[v[0-9]+(\.[0-9]+)*\]') { $tag=$matches[0]; if ($mt -notmatch [regex]::Escape($tag)) { Write-Host ('[OPS] Merging ' + $tag + ' into ' + $m + '...'); $lines=Get-Content $m; $header=$lines[0]; $rest=if ($lines.Count -gt 1) { $lines[1..($lines.Count - 1)] } else { @() }; @($header, '', $c, '') + $rest | Set-Content -Path $m -Encoding UTF8; $mt=Get-Content $m -Raw } } } }"
@@ -100,6 +119,7 @@ goto :eof
 
 :RUN_EVAL
 call :SETUP_NODE_ENV
+call :CHECK_DEPENDENCIES
 call :SYNC_CHANGELOG
 call :CLEANUP_PORTS
 call :EXPORT_CODEBASE

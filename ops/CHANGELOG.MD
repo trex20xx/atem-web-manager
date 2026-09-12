@@ -1,5 +1,11 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v2.70] - Windows Fresh-Clone Dependency Automation (OPS.BAT)
+- Added automated `:CHECK_DEPENDENCIES` routine in `ops/OPS.BAT`, checking for `node_modules/vite` and `bridge/node_modules`.
+- Automatically executes `npm install` across frontend and bridge workspaces on fresh git clones prior to running Vite and the bridge daemon, permanently resolving `'vite' is not recognized` errors.
+- Synchronized master application version tag to v2.70 across all documentation and runtime modules.
+
+
 ## [v2.68] - macOS Parity Audit & POSIX CLI Hardening (OPS.SH)
 - Synchronized `ops/OPS.SH` with `ops/OPS.BAT`, adding interactive iteration description / commit message prompts on finish and merge.
 - Replaced BSD awk multi-line parsing with POSIX `head` and `tail` operations for robust modular changelog merging on macOS.
