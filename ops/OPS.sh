@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / Linux) (v2.68)
+# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / Linux) (v2.69)
 # =============================================================================
 # Usage: bash ops/OPS.SH  (Execute from project root or ops/)
 # =============================================================================
@@ -21,24 +21,20 @@ chmod +x "$PROJECT_ROOT/ops/OPS.SH" 2>/dev/null || true
 
 # Discover Node / npm across standard macOS locations (Apple Silicon / Intel / NVM)
 setup_node_env() {
-    # Check if node is already reachable
     if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
         return 0
     fi
 
-    # Check Apple Silicon Homebrew
     if [ -x "/opt/homebrew/bin/node" ]; then
         export PATH="/opt/homebrew/bin:$PATH"
         return 0
     fi
 
-    # Check Intel Homebrew / standard Unix
     if [ -x "/usr/local/bin/node" ]; then
         export PATH="/usr/local/bin:$PATH"
         return 0
     fi
 
-    # Check persistent cache file
     if [ -f "$PROJECT_ROOT/.atem_node_path" ]; then
         CACHED_DIR=$(cat "$PROJECT_ROOT/.atem_node_path" | tr -d '\r\n')
         if [ -x "$CACHED_DIR/node" ]; then
@@ -47,7 +43,6 @@ setup_node_env() {
         fi
     fi
 
-    # If still not found, prompt user once and cache
     echo ""
     echo "================================================================="
     echo "                 NODE.JS ENVIRONMENT REQUIRED                    "
@@ -66,6 +61,19 @@ setup_node_env() {
     else
         echo "[ERROR] 'node' executable not found in '$USER_DIR'."
         exit 1
+    fi
+}
+
+# Auto-install dependencies if cloning into a clean machine
+check_dependencies() {
+    if [ ! -d "$PROJECT_ROOT/node_modules" ]; then
+        echo ">>> Fresh clone detected. Installing frontend dependencies..."
+        npm install
+    fi
+
+    if [ ! -d "$PROJECT_ROOT/bridge/node_modules" ]; then
+        echo ">>> Installing hardware bridge dependencies..."
+        (cd "$PROJECT_ROOT/bridge" && npm install)
     fi
 }
 
@@ -97,7 +105,6 @@ sync_changelog() {
                 echo "[OPS] Merging new changelog entry $vtag into $master_file..."
                 local temp_file
                 temp_file=$(mktemp)
-                # POSIX-safe head/tail merge (immune to BSD awk newline bugs)
                 head -n 1 "$master_file" > "$temp_file"
                 printf "\n" >> "$temp_file"
                 cat "$file" >> "$temp_file"
@@ -149,6 +156,7 @@ export_codebase() {
 
 run_and_evaluate() {
     setup_node_env
+    check_dependencies
     sync_changelog
     cleanup_ports
     export_codebase
@@ -217,7 +225,6 @@ run_and_evaluate() {
             local CMSG=""
             read -p " Enter commit message: " CMSG
             [ -z "$CMSG" ] && CMSG="wip: evaluation checkpoint"
-            git add -A
             git commit -m "$CMSG" || true
             git push origin "$CURRENT_BRANCH"
             echo ">>> Committed and pushed to $CURRENT_BRANCH. <<<"
@@ -275,7 +282,7 @@ trap cleanup_ports EXIT INT TERM
 while true; do
     echo ""
     echo "================================================================="
-    echo "          ATEM WEB MANAGER - MASTER OPERATIONS CLI (v2.68)       "
+    echo "          ATEM WEB MANAGER - MASTER OPERATIONS CLI (v2.69)       "
     echo "================================================================="
     echo "  [1] RUN & EVALUATE  (Vite + Daemon, Auto-Export & Evaluation)"
     echo "  [2] WIPE            (Token-Verified Complete Directory Erasure)"
