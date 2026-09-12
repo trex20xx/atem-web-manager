@@ -67,9 +67,9 @@ export default defineConfig({
  
 === FILE: bridge/server.js === 
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.68)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.69)
 // =========================================================================
-// Bidirectional switcher bus, macro execution, aux router & mix rate sync with auto-watchdog.
+// Bidirectional switcher bus, macro execution, aux router, DSK, FTB & keyers.
 
 const { Atem } = require('atem-connection');
 const WebSocket = require('ws');
@@ -80,8 +80,8 @@ const BRIDGE_PORT = 8080;
 const VITE_PORT = 3000;
 const startTime = Date.now();
 
-console.log(`[ATEM Bridge v2.68] Starting bridge service...`);
-console.log(`[ATEM Bridge v2.68] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v2.69] Starting bridge service...`);
+console.log(`[ATEM Bridge v2.69] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 const atem = new Atem();
 let isAtemConnected = false;
@@ -91,15 +91,18 @@ let currentPgm = 1;
 let currentPvw = 2;
 let currentInTransition = false;
 let currentTransitionRate = 30;
-let currentTransitionSelection = 1; // Bit 1: BKGD, Bit 2: KEY1, Bit 4: KEY2
+let currentTransitionSelection = 1; // Bit 1: BKGD, Bit 2: KEY1, Bit 4: KEY2, Bit 8: KEY3, Bit 16: KEY4
 let currentUskOnAir = [false, false, false, false];
 let currentAux = [1, 2, 3, 4, 5, 6];
+
+let dsk = { onAir: false, inTransition: false, autoOnAir: false, tie: false, rate: 30 };
+let ftb = { inTransition: false, isFullyBlack: false, rate: 30 };
 
 function broadcastState(targetWs = null) {
     try {
         const hardwareConnected = (atem && atem.status === 2) || isAtemConnected;
 
-        // Extract PGM/PVW/Transitions
+        // Extract PGM/PVW/Transitions/ME
         if (atem && atem.state && atem.state.video && atem.state.video.mixEffects) {
             const meObj = atem.state.video.mixEffects;
             const me = meObj[0] || (Array.isArray(meObj) ? meObj[0] : Object.values(meObj)[0]);
@@ -121,6 +124,8 @@ function broadcastState(targetWs = null) {
                 if (me.upstreamKeyers) {
                     currentUskOnAir = [0, 1, 2, 3].map(i => me.upstreamKeyers[i] ? me.upstreamKeyers[i].onAir : false);
                 }
+
+                if (me.fadeToBlack) ftb = me.fadeToBlack;
             }
         }
 
@@ -134,6 +139,20 @@ function broadcastState(targetWs = null) {
                     const val = auxObj[busKey];
                     return typeof val === 'number' ? val : (currentAux[idx] || 1);
                 });
+            }
+        }
+
+        // Extract DSK
+        if (atem && atem.state && atem.state.video && atem.state.video.downstreamKeyers) {
+            const d = atem.state.video.downstreamKeyers[0];
+            if (d) {
+                dsk.onAir = d.onAir;
+                dsk.inTransition = d.inTransition;
+                dsk.autoOnAir = d.autoOnAir;
+                if (d.properties) {
+                    dsk.tie = d.properties.tie;
+                    dsk.rate = d.properties.rate;
+                }
             }
         }
 
@@ -155,6 +174,8 @@ function broadcastState(targetWs = null) {
             transitionSelection: currentTransitionSelection,
             uskOnAir: currentUskOnAir,
             auxSources: currentAux,
+            dsk,
+            ftb,
             macroPlayer,
             macroProperties
         });
@@ -216,7 +237,7 @@ function handleHardwareCommand(cmd) {
             console.log(`[ATEM Bridge â¬… Physical Switcher Event] Aux bus ${auxId} routed to Source ${src}`);
             changed = true;
         }
-    } else if (raw.includes('Upstream') || raw === 'KeOn') {
+    } else if (raw.includes('Upstream') || raw === 'KeOn' || raw.includes('Downstream') || raw.includes('FadeToBlack') || raw.includes('Ftb')) {
         changed = true;
     } else if (raw === 'MRPr' || raw.includes('Macro')) {
         changed = true;
@@ -297,12 +318,8 @@ wss.on('connection', (ws) => {
                 const rateNum = parseInt(data.rate, 10) || 30;
                 currentTransitionRate = rateNum;
                 console.log(`[ATEM Bridge âž” Setting Mix Transition Rate] ${rateNum} frames`);
-                
-                // Call official Sofie atem-connection transition mix rate command
                 if (typeof atem.setMixTransitionSettings === 'function') {
                     atem.setMixTransitionSettings({ rate: rateNum }, 0).catch(e => console.error('[ATEM Bridge] Rate Error:', e.message || e));
-                } else if (typeof atem.setTransitionProperties === 'function') {
-                    atem.setTransitionProperties({ rate: rateNum }, 0).catch(()=>{});
                 }
                 broadcastState();
             } else if (data.action === 'TOGGLE_USK_ONAIR' && data.usk !== undefined) {
@@ -324,7 +341,6 @@ wss.on('connection', (ws) => {
                 const requestedAux = parseInt(data.aux, 10);
                 const src = parseInt(data.source, 10);
 
-                // Dynamically resolve actual physical aux bus key from hardware state if detected
                 let targetBus = requestedAux;
                 if (atem.state && atem.state.video && atem.state.video.auxiliaries) {
                     const keys = Object.keys(atem.state.video.auxiliaries).map(Number).sort((a, b) => a - b);
@@ -351,6 +367,32 @@ wss.on('connection', (ws) => {
                                 })
                                 .catch(e => console.error('[ATEM Bridge] Routing command rejected:', e.message || e));
                         });
+                }
+            } else if (data.action === 'SET_DSK_RATE' && data.rate !== undefined) {
+                const rateNum = parseInt(data.rate, 10) || 30;
+                if (typeof atem.setDownstreamKeyRate === 'function') {
+                    atem.setDownstreamKeyRate(rateNum, 0).catch(e => console.error('[ATEM Bridge] DSK Rate Error:', e.message || e));
+                }
+            } else if (data.action === 'TOGGLE_DSK_TIE') {
+                if (typeof atem.setDownstreamKeyTie === 'function') {
+                    atem.setDownstreamKeyTie(data.tie, 0).catch(e => console.error('[ATEM Bridge] DSK Tie Error:', e.message || e));
+                }
+            } else if (data.action === 'TOGGLE_DSK_ONAIR') {
+                if (typeof atem.setDownstreamKeyOnAir === 'function') {
+                    atem.setDownstreamKeyOnAir(data.onAir, 0).catch(e => console.error('[ATEM Bridge] DSK OnAir Error:', e.message || e));
+                }
+            } else if (data.action === 'EXECUTE_DSK_AUTO') {
+                if (typeof atem.autoDownstreamKey === 'function') {
+                    atem.autoDownstreamKey(0).catch(e => console.error('[ATEM Bridge] DSK Auto Error:', e.message || e));
+                }
+            } else if (data.action === 'SET_FTB_RATE' && data.rate !== undefined) {
+                const rateNum = parseInt(data.rate, 10) || 30;
+                if (typeof atem.setFadeToBlackRate === 'function') {
+                    atem.setFadeToBlackRate(rateNum, 0).catch(e => console.error('[ATEM Bridge] FTB Rate Error:', e.message || e));
+                }
+            } else if (data.action === 'EXECUTE_FTB') {
+                if (typeof atem.fadeToBlack === 'function') {
+                    atem.fadeToBlack(0).catch(e => console.error('[ATEM Bridge] FTB Error:', e.message || e));
                 }
             } else if (data.action === 'MACRO_RUN' && data.index !== undefined) {
                 if (typeof atem.macroRun === 'function') atem.macroRun(parseInt(data.index, 10)).catch(()=>{});
@@ -659,7 +701,7 @@ export default App;
 === FILE: src/index.css === 
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.68)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.69)
  * =========================================================================
  */
 
@@ -729,7 +771,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .app-title { font-size: 14px; font-weight: 700; color: var(--header-color); letter-spacing: 0.5px; }
 .app-title.centered { position: absolute; left: 50%; transform: translateX(-50%); }
 
-/* Perfect circle overlay for all top bar action buttons */
+/* Perfect circle overlay for top bar buttons */
 .top-bar-btn { 
     background: transparent; 
     border: none; 
@@ -1066,7 +1108,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-btn-standard:hover { background: rgba(150,150,150,0.2); color: var(--text); }
 .atem-btn-standard .btn-number { font-size: var(--le-font-size); font-weight: var(--device-font-weight); line-height: 1; font-family: var(--le-font-family); white-space: nowrap; }
 
-/* Multiline Button Label (MP1 KEY, MP2 KEY) */
+/* Multiline Button Label */
 .btn-multiline {
     display: flex;
     flex-direction: column;
@@ -1090,8 +1132,9 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-btn-standard.tally-red { background: #d32f2f !important; border-color: #ff5252 !important; color: #fff !important; box-shadow: none !important; }
 .atem-btn-standard.tally-green { background: #2e7d32 !important; border-color: #4caf50 !important; color: #fff !important; box-shadow: none !important; }
 .atem-btn-standard.tally-orange { background: var(--orange) !important; border-color: var(--orange-hl) !important; color: #fff !important; box-shadow: none !important; }
+.atem-btn-standard.tally-yellow { background: var(--yellow-hl) !important; border-color: #f39c12 !important; color: #000 !important; box-shadow: none !important; }
 
-/* Centered Unified PGM/PVW Box Border (Tight Fit to 736px Grid) */
+/* Unified PGM/PVW Box Border centered to 736px */
 .pgm-pvw-box { 
     width: fit-content;
     margin: 0 auto;
@@ -1127,6 +1170,51 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     justify-content: flex-start; 
 }
 
+/* Lower Control Sections Row (Next Trans, DSK, FTB) */
+.atem-lower-sections-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 70px);
+    gap: 4px;
+    width: 736px;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
+.atem-section-box {
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--ui-radius);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-sizing: border-box;
+}
+
+.atem-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    text-align: left;
+}
+
+/* Grid Columns Spanning */
+.next-trans-box { grid-column: 1 / span 5; }
+.dsk-section-box { grid-column: 7 / span 2; }
+.ftb-section-box { grid-column: 9 / span 1; }
+
+/* Two-Row Action Grids */
+.two-row-grid {
+    display: grid;
+    gap: 4px;
+    grid-template-rows: 36px 36px;
+}
+.two-row-grid.five-cols { grid-template-columns: repeat(5, 70px); }
+.two-row-grid.two-cols { grid-template-columns: repeat(2, 70px); }
+.two-row-grid.one-col { grid-template-columns: 70px; }
+
 /* Bottom Row Container (Unified 10-Column Grid) */
 .atem-outs-wrapper {
     display: flex;
@@ -1154,7 +1242,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .cut-btn:active { background: var(--panel) !important; color: var(--text) !important; }
 .auto-btn.trans-active { background: var(--orange-hl) !important; color: #000000 !important; border-color: var(--orange-hl) !important; }
 
-/* Rate Button styled identically to switcher buttons in font, size, and weight */
+/* Scrub/Click Rate Button matching button geometry exactly */
 .rate-box-button { 
     background: #000000; 
     border: 1px solid rgba(255, 255, 255, 0.1); 
@@ -1167,9 +1255,21 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     box-sizing: border-box; 
     cursor: ns-resize;
     flex-shrink: 0;
+    user-select: none;
 }
 .rate-box-button:hover {
     border-color: var(--muted);
+}
+.rate-box-button.editing {
+    cursor: text;
+    border-color: var(--orange-hl);
+}
+.rate-display-value {
+    color: var(--orange-hl);
+    font-size: var(--le-font-size);
+    font-weight: var(--device-font-weight);
+    font-family: var(--le-font-family);
+    line-height: 1;
 }
 .rate-input-field { 
     width: 100%; 
@@ -1184,7 +1284,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     outline: none; 
     -moz-appearance: textfield; 
     padding: 0; 
-    cursor: ns-resize; 
 }
 .rate-input-field::-webkit-outer-spin-button, .rate-input-field::-webkit-inner-spin-button { 
     -webkit-appearance: none; 
@@ -1275,10 +1374,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
  
 === FILE: src/version.js === 
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.68)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v2.69)
 // =========================================================================
 
-export const APP_VERSION = 'v2.68';
+export const APP_VERSION = 'v2.69';
  
 === FILE: src/components/Multiview/Panel.jsx === 
 import React, { useState } from 'react';
@@ -1459,98 +1558,108 @@ export default QuadrantGrid;
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.68)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.69)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
 
-// Rate Button with drag-to-scrub, click-to-type, Enter submission, and panel drag isolation
+// Reusable Scrub-Drag & Click-to-Type Rate Component
 const DragRateInput = ({ value, onChange, onCommit, title }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [typedVal, setTypedVal] = useState(value);
     const isDraggingRef = useRef(false);
-    const hasDraggedRef = useRef(false);
     const startYRef = useRef(0);
     const startValRef = useRef(30);
-    const inputRef = useRef(null);
 
-    const lockPanelDrag = (e) => {
-        const panel = e.currentTarget.closest('.panel');
-        if (panel) panel.draggable = false;
-    };
-
-    const unlockPanelDrag = (e) => {
-        const panel = e.currentTarget.closest('.panel');
-        if (panel) panel.draggable = true;
-    };
+    useEffect(() => {
+        setTypedVal(value);
+    }, [value]);
 
     const handleMouseDown = (e) => {
+        if (isEditing) return;
         if (e.button !== 0) return;
+        e.preventDefault();
         e.stopPropagation();
 
         const panel = e.currentTarget.closest('.panel');
         if (panel) panel.draggable = false;
 
         isDraggingRef.current = true;
-        hasDraggedRef.current = false;
         startYRef.current = e.clientY;
         startValRef.current = parseInt(value, 10) || 30;
+        let hasMoved = false;
 
-        const handleMouseMove = (moveEvent) => {
+        const onMouseMove = (moveEvent) => {
             if (!isDraggingRef.current) return;
             const deltaY = startYRef.current - moveEvent.clientY;
             if (Math.abs(deltaY) > 2) {
-                hasDraggedRef.current = true;
+                hasMoved = true;
+                const newVal = Math.max(1, Math.min(250, startValRef.current + Math.floor(deltaY / 2)));
+                onChange(newVal);
             }
-            const newVal = Math.max(1, Math.min(250, startValRef.current + Math.floor(deltaY / 2)));
-            onChange(newVal);
         };
 
-        const handleMouseUp = () => {
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
+        const onMouseUp = () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
             isDraggingRef.current = false;
             if (panel) panel.draggable = true;
 
-            if (hasDraggedRef.current) {
+            if (hasMoved) {
                 if (onCommit) onCommit();
             } else {
-                // User simply clicked: focus and select input for typing
-                if (inputRef.current) {
-                    inputRef.current.focus();
-                    inputRef.current.select();
-                }
+                setIsEditing(true);
             }
         };
 
-        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mousemove', onMouseMove);
         window.addEventListener('mouseup', handleMouseUp);
     };
 
     const handleKeyDown = (e) => {
         if (e.key === 'Enter') {
-            e.target.blur();
-            if (onCommit) onCommit();
+            setIsEditing(false);
+            const parsed = parseInt(typedVal, 10) || 30;
+            onChange(parsed);
+            if (onCommit) onCommit(parsed);
+        } else if (e.key === 'Escape') {
+            setIsEditing(false);
+            setTypedVal(value);
         }
     };
+
+    const handleBlur = () => {
+        setIsEditing(false);
+        const parsed = parseInt(typedVal, 10) || 30;
+        onChange(parsed);
+        if (onCommit) onCommit(parsed);
+    };
+
+    if (isEditing) {
+        return (
+            <div className="rate-box-button editing" title={title}>
+                <input
+                    type="number"
+                    className="rate-input-field"
+                    autoFocus
+                    value={typedVal}
+                    onChange={(e) => setTypedVal(e.target.value)}
+                    onBlur={handleBlur}
+                    onKeyDown={handleKeyDown}
+                    onMouseDown={(e) => e.stopPropagation()}
+                />
+            </div>
+        );
+    }
 
     return (
         <div 
             className="rate-box-button"
             title={title}
             onMouseDown={handleMouseDown}
-            onMouseEnter={lockPanelDrag}
-            onMouseLeave={unlockPanelDrag}
         >
-            <input 
-                ref={inputRef}
-                type="number" 
-                className="rate-input-field"
-                value={value} 
-                onChange={e => onChange(e.target.value)} 
-                onBlur={onCommit}
-                onKeyDown={handleKeyDown}
-                onMouseDown={e => e.stopPropagation()}
-            />
+            <span className="rate-display-value">{value}</span>
         </div>
     );
 };
@@ -1570,13 +1679,20 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     const [pgmInput, setPgmInput] = useState(1);
     const [pvwInput, setPvwInput] = useState(2);
     const [inTransition, setInTransition] = useState(false);
-    const [transitionRate, setTransitionRate] = useState(30);
-    const [localTransRate, setLocalTransRate] = useState(30);
     const [bridgeStatus, setBridgeStatus] = useState('connecting');
-    
-    // Upstream Keyer and Next Transition states for MP1 KEY and MP2 KEY tally bindings
+
+    // Hardware Transition, Keyer & DSK State
+    const [transitionRate, setTransitionRate] = useState(30);
+    const [transitionSelection, setTransitionSelection] = useState(1); // Bit 1: BKGD, Bit 2: KEY1, Bit 4: KEY2, Bit 8: KEY3, Bit 16: KEY4
     const [uskOnAir, setUskOnAir] = useState([false, false, false, false]);
-    const [transitionSelection, setTransitionSelection] = useState(1); // bit 1: BKGD, bit 2: KEY1, bit 4: KEY2
+
+    const [dsk, setDsk] = useState({ onAir: false, inTransition: false, autoOnAir: false, tie: false, rate: 30 });
+    const [ftb, setFtb] = useState({ inTransition: false, isFullyBlack: false, rate: 30 });
+
+    // Local Rate Buffers for immediate responsive UI feedback
+    const [localTransRate, setLocalTransRate] = useState(30);
+    const [localDskRate, setLocalDskRate] = useState(30);
+    const [localFtbRate, setLocalFtbRate] = useState(30);
 
     // Router Mode: Selected Aux Output (null = Bus mode; 0..5 = Aux 1..6)
     const [selectedOut, setSelectedOut] = useState(null);
@@ -1598,30 +1714,16 @@ const AtemConstellationBus = ({ connectedDevice }) => {
             wsRef.current.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.hardwareConnected !== undefined) {
-                        setBridgeStatus(data.hardwareConnected ? 'linked' : 'standby');
-                    }
-                    if (data.pgm !== undefined) {
-                        setPgmInput(Number(data.pgm));
-                    }
-                    if (data.pvw !== undefined) {
-                        setPvwInput(Number(data.pvw));
-                    }
-                    if (data.inTransition !== undefined) {
-                        setInTransition(Boolean(data.inTransition));
-                    }
-                    if (data.transitionRate !== undefined) {
-                        setTransitionRate(Number(data.transitionRate));
-                    }
-                    if (data.auxSources && Array.isArray(data.auxSources)) {
-                        setAuxSources(data.auxSources.map(Number));
-                    }
-                    if (data.uskOnAir && Array.isArray(data.uskOnAir)) {
-                        setUskOnAir(data.uskOnAir);
-                    }
-                    if (data.transitionSelection !== undefined) {
-                        setTransitionSelection(Number(data.transitionSelection));
-                    }
+                    if (data.hardwareConnected !== undefined) setBridgeStatus(data.hardwareConnected ? 'linked' : 'standby');
+                    if (data.pgm !== undefined) setPgmInput(Number(data.pgm));
+                    if (data.pvw !== undefined) setPvwInput(Number(data.pvw));
+                    if (data.inTransition !== undefined) setInTransition(Boolean(data.inTransition));
+                    if (data.transitionRate !== undefined) setTransitionRate(Number(data.transitionRate));
+                    if (data.transitionSelection !== undefined) setTransitionSelection(Number(data.transitionSelection));
+                    if (data.uskOnAir && Array.isArray(data.uskOnAir)) setUskOnAir(data.uskOnAir);
+                    if (data.dsk) setDsk(data.dsk);
+                    if (data.ftb) setFtb(data.ftb);
+                    if (data.auxSources && Array.isArray(data.auxSources)) setAuxSources(data.auxSources.map(Number));
                 } catch (err) {
                     console.error("[AtemBus UI] Data Parse Error:", err);
                 }
@@ -1658,9 +1760,9 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         };
     }, []);
 
-    useEffect(() => {
-        setLocalTransRate(transitionRate);
-    }, [transitionRate]);
+    useEffect(() => { setLocalTransRate(transitionRate); }, [transitionRate]);
+    useEffect(() => { setLocalDskRate(dsk.rate); }, [dsk.rate]);
+    useEffect(() => { setLocalFtbRate(ftb.rate); }, [ftb.rate]);
 
     const sendAtemCommand = (commandType, payload = {}) => {
         if (commandType === 'SET_PGM') {
@@ -1671,33 +1773,12 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                 sendCommand('SET_AUX', { aux: selectedOut, source: payload.input });
                 return;
             }
-
-            // Normal bus: Special Keyer On Air handling for MP1 KEY and MP2 KEY
-            if (payload.input === 3011) {
-                sendCommand('TOGGLE_USK_ONAIR', { usk: 0 });
-                return;
-            }
-            if (payload.input === 3021) {
-                sendCommand('TOGGLE_USK_ONAIR', { usk: 1 });
-                return;
-            }
-
             setPgmInput(payload.input);
             sendCommand('SET_PGM', payload);
             return;
         }
 
         if (commandType === 'SET_PVW') {
-            // Normal bus: Special Next Transition selection for MP1 KEY and MP2 KEY
-            if (payload.input === 3011) {
-                sendCommand('TOGGLE_TRANS_SELECTION', { bit: 2 });
-                return;
-            }
-            if (payload.input === 3021) {
-                sendCommand('TOGGLE_TRANS_SELECTION', { bit: 4 });
-                return;
-            }
-
             setPvwInput(payload.input);
             sendCommand('SET_PVW', payload);
             return;
@@ -1744,53 +1825,38 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         }
     };
 
+    // Bus Sources: Inputs 1-10 on Row 1; BLK, BARS, COL1, COL2, MP1, MP2 on Row 2
     const inputSources = [
         { id: 1, label: '1' }, { id: 2, label: '2' }, { id: 3, label: '3' }, { id: 4, label: '4' }, { id: 5, label: '5' }, 
         { id: 6, label: '6' }, { id: 7, label: '7' }, { id: 8, label: '8' }, { id: 9, label: '9' }, { id: 10, label: '10' }
     ];
 
-    // Second row: BLK(1), BARS(2), COL 1(3), COL 2(4), MP1(5), MP1 KEY(6), MP2(7), MP2 KEY(8) + PVW(9)/PGM(10) when routing
-    const baseSecondRow = [
-        { id: 0, label: 'BLK', multi: false },
-        { id: 1000, label: 'BARS', multi: false },
-        { id: 2001, label: 'COL 1', multi: false },
-        { id: 2002, label: 'COL 2', multi: false },
-        { id: 3010, label: 'MP1', multi: false },
-        { id: 3011, label: 'MP1', sub: 'KEY', multi: true, isKey1: true },
-        { id: 3020, label: 'MP2', multi: false },
-        { id: 3021, label: 'MP2', sub: 'KEY', multi: true, isKey2: true }
+    const baseInternalSources = [
+        { id: 0, label: 'BLK' },
+        { id: 1000, label: 'BARS' },
+        { id: 2001, label: 'COL 1' },
+        { id: 2002, label: 'COL 2' },
+        { id: 3010, label: 'MP1' },
+        { id: 3020, label: 'MP2' }
     ];
 
-    const secondRowSources = selectedOut !== null 
+    // Dynamic routing sources: append PVW & PGM under Inputs 9 & 10 during OUT routing
+    const internalSources = selectedOut !== null 
         ? [
-            ...baseSecondRow,
-            { id: 10011, label: 'PVW', multi: false },
-            { id: 10010, label: 'PGM', multi: false }
+            ...baseInternalSources,
+            { id: 10011, label: 'PVW' },
+            { id: 10010, label: 'PGM' }
           ]
-        : baseSecondRow;
+        : baseInternalSources;
 
     const auxOutputsList = [1, 2, 3, 4, 5, 6];
 
-    // Active state calculator accounting for router mode and USK/Next Trans tally binds
-    const getIsActivePgm = (s) => {
-        if (selectedOut !== null) {
-            return auxSources[selectedOut] === s.id;
-        }
-        if (s.isKey1) return uskOnAir[0];
-        if (s.isKey2) return uskOnAir[1];
-        return pgmInput === s.id;
-    };
-
-    const getIsActivePvw = (s) => {
-        if (selectedOut !== null) return false;
-        if (s.isKey1) return Boolean(transitionSelection & 2);
-        if (s.isKey2) return Boolean(transitionSelection & 4);
-        return pvwInput === s.id;
-    };
+    const getIsActivePgm = (sourceId) => selectedOut !== null ? (auxSources[selectedOut] === sourceId) : (pgmInput === sourceId);
+    const getIsActivePvw = (sourceId) => selectedOut !== null ? false : (pvwInput === sourceId);
 
     return (
         <div className="atem-constellation-panel">
-            {/* Header with green online dot */}
+            {/* Header Bar */}
             <div className="atem-bus-header">
                 <span className="atem-bus-title">ATEM 1 M/E CONSTELLATION HD</span>
                 <div className="atem-bus-status">
@@ -1800,7 +1866,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
             </div>
 
             <div className="atem-bus-content-layout">
-                {/* Unified Centered Bordered Box: PROGRAM & PREVIEW */}
+                {/* 1. PROGRAM & PREVIEW BUSES (Enclosed in Unified Bounding Box) */}
                 <div className="atem-section-box pgm-pvw-box">
                     {/* PROGRAM BUS */}
                     <div className="bus-block">
@@ -1811,28 +1877,21 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                             {inputSources.map((s) => (
                                 <button
                                     key={`pgm-${s.id}`}
-                                    className={`atem-btn-standard ${getIsActivePgm(s) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
+                                    className={`atem-btn-standard ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
                                     onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}
                                     data-description={`Input ${s.label}`}
                                 >
                                     <span className="btn-number">{s.label}</span>
                                 </button>
                             ))}
-                            {secondRowSources.map((s) => (
+                            {internalSources.map((s) => (
                                 <button
-                                    key={`pgm-sec-${s.id}`}
-                                    className={`atem-btn-standard aux-source-btn ${getIsActivePgm(s) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
+                                    key={`pgm-int-${s.id}`}
+                                    className={`atem-btn-standard aux-source-btn ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
                                     onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}
-                                    data-description={s.multi ? `${s.label} ${s.sub}` : `Source ${s.label}`}
+                                    data-description={`Source ${s.label}`}
                                 >
-                                    {s.multi ? (
-                                        <div className="btn-multiline">
-                                            <span>{s.label}</span>
-                                            <span className="btn-subtext">{s.sub}</span>
-                                        </div>
-                                    ) : (
-                                        <span className="btn-number">{s.label}</span>
-                                    )}
+                                    <span className="btn-number">{s.label}</span>
                                 </button>
                             ))}
                         </div>
@@ -1845,35 +1904,164 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                             {inputSources.map((s) => (
                                 <button
                                     key={`pvw-${s.id}`}
-                                    className={`atem-btn-standard ${getIsActivePvw(s) ? 'tally-green' : ''}`}
+                                    className={`atem-btn-standard ${getIsActivePvw(s.id) ? 'tally-green' : ''}`}
                                     onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}
                                     data-description={`Preview Input ${s.label}`}
                                 >
                                     <span className="btn-number">{s.label}</span>
                                 </button>
                             ))}
-                            {secondRowSources.map((s) => (
+                            {internalSources.map((s) => (
                                 <button
-                                    key={`pvw-sec-${s.id}`}
-                                    className={`atem-btn-standard aux-source-btn ${getIsActivePvw(s) ? 'tally-green' : ''}`}
+                                    key={`pvw-int-${s.id}`}
+                                    className={`atem-btn-standard aux-source-btn ${getIsActivePvw(s.id) ? 'tally-green' : ''}`}
                                     onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}
-                                    data-description={s.multi ? `Preview ${s.label} ${s.sub}` : `Preview Source ${s.label}`}
+                                    data-description={`Preview Source ${s.label}`}
                                 >
-                                    {s.multi ? (
-                                        <div className="btn-multiline">
-                                            <span>{s.label}</span>
-                                            <span className="btn-subtext">{s.sub}</span>
-                                        </div>
-                                    ) : (
-                                        <span className="btn-number">{s.label}</span>
-                                    )}
+                                    <span className="btn-number">{s.label}</span>
                                 </button>
                             ))}
                         </div>
                     </div>
                 </div>
 
-                {/* BOTTOM ROW: Centered 10-column grid matching buses exactly */}
+                {/* 2. LOWER CONTROL MODULES (Aligned under Inputs 1â€“5, 7â€“8, and 9) */}
+                <div className="atem-lower-sections-grid">
+                    {/* NEXT TRANSITION (Aligned directly under Inputs 1â€“5) */}
+                    <div className="atem-section-box next-trans-box">
+                        <div className="atem-section-title">NEXT TRANSITION</div>
+                        <div className="two-row-grid five-cols">
+                            {/* Row 1: Spacer, On Air 1, On Air 2, On Air 3, On Air 4 */}
+                            <div className="atem-btn-spacer" />
+                            <button 
+                                className={`atem-btn-standard ${uskOnAir[0] ? 'tally-red' : ''}`}
+                                onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk: 0 })}
+                                data-description="Key 1 On Air"
+                            >
+                                <span className="btn-number">ON AIR</span>
+                            </button>
+                            <button 
+                                className={`atem-btn-standard ${uskOnAir[1] ? 'tally-red' : ''}`}
+                                onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk: 1 })}
+                                data-description="Key 2 On Air"
+                            >
+                                <span className="btn-number">ON AIR</span>
+                            </button>
+                            <button 
+                                className={`atem-btn-standard ${uskOnAir[2] ? 'tally-red' : ''}`}
+                                onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk: 2 })}
+                                data-description="Key 3 On Air"
+                            >
+                                <span className="btn-number">ON AIR</span>
+                            </button>
+                            <button 
+                                className={`atem-btn-standard ${uskOnAir[3] ? 'tally-red' : ''}`}
+                                onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk: 3 })}
+                                data-description="Key 4 On Air"
+                            >
+                                <span className="btn-number">ON AIR</span>
+                            </button>
+
+                            {/* Row 2: BKGD, Key 1, Key 2, Key 3, Key 4 */}
+                            <button 
+                                className={`atem-btn-standard ${(transitionSelection & 1) ? 'tally-yellow' : ''}`}
+                                onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 1 })}
+                                data-description="Next Transition Background"
+                            >
+                                <span className="btn-number">BKGD</span>
+                            </button>
+                            <button 
+                                className={`atem-btn-standard ${(transitionSelection & 2) ? 'tally-yellow' : ''}`}
+                                onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 2 })}
+                                data-description="Next Transition Key 1"
+                            >
+                                <span className="btn-number">KEY 1</span>
+                            </button>
+                            <button 
+                                className={`atem-btn-standard ${(transitionSelection & 4) ? 'tally-yellow' : ''}`}
+                                onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 4 })}
+                                data-description="Next Transition Key 2"
+                            >
+                                <span className="btn-number">KEY 2</span>
+                            </button>
+                            <button 
+                                className={`atem-btn-standard ${(transitionSelection & 8) ? 'tally-yellow' : ''}`}
+                                onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 8 })}
+                                data-description="Next Transition Key 3"
+                            >
+                                <span className="btn-number">KEY 3</span>
+                            </button>
+                            <button 
+                                className={`atem-btn-standard ${(transitionSelection & 16) ? 'tally-yellow' : ''}`}
+                                onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 16 })}
+                                data-description="Next Transition Key 4"
+                            >
+                                <span className="btn-number">KEY 4</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* DSK 1 (Aligned directly under Inputs 7â€“8) */}
+                    <div className="atem-section-box dsk-section-box">
+                        <div className="atem-section-title">DSK 1</div>
+                        <div className="two-row-grid two-cols">
+                            {/* Row 1: TIE 1, Rate */}
+                            <button 
+                                className={`atem-btn-standard ${dsk.tie ? 'tally-yellow' : ''}`}
+                                onClick={() => sendAtemCommand('TOGGLE_DSK_TIE', { tie: !dsk.tie })}
+                                data-description="Tie Downstream Key 1"
+                            >
+                                <span className="btn-number">TIE 1</span>
+                            </button>
+                            <DragRateInput 
+                                value={localDskRate} 
+                                onChange={setLocalDskRate} 
+                                onCommit={() => sendAtemCommand('SET_DSK_RATE', { rate: parseInt(localDskRate, 10) || 30 })}
+                                title="DSK 1 Rate (Frames) - Drag up/down or click to type"
+                            />
+
+                            {/* Row 2: ON AIR, AUTO */}
+                            <button 
+                                className={`atem-btn-standard ${dsk.onAir ? 'tally-red' : ''}`}
+                                onClick={() => sendAtemCommand('TOGGLE_DSK_ONAIR', { onAir: !dsk.onAir })}
+                                data-description="Downstream Key 1 On Air"
+                            >
+                                <span className="btn-number">ON AIR</span>
+                            </button>
+                            <button 
+                                className={`atem-btn-standard ${dsk.inTransition ? 'tally-orange' : ''}`}
+                                onClick={() => sendAtemCommand('EXECUTE_DSK_AUTO')}
+                                data-description="Auto Downstream Key 1"
+                            >
+                                <span className="btn-number">AUTO</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* FADE TO BLACK (Aligned directly under Input 9) */}
+                    <div className="atem-section-box ftb-section-box">
+                        <div className="atem-section-title">FTB</div>
+                        <div className="two-row-grid one-col">
+                            {/* Row 1: Rate */}
+                            <DragRateInput 
+                                value={localFtbRate} 
+                                onChange={setLocalFtbRate} 
+                                onCommit={() => sendAtemCommand('SET_FTB_RATE', { rate: parseInt(localFtbRate, 10) || 30 })}
+                                title="Fade to Black Rate (Frames) - Drag up/down or click to type"
+                            />
+                            {/* Row 2: FTB */}
+                            <button 
+                                className={`atem-btn-standard ${ftb.isFullyBlack ? 'tally-red' : (ftb.inTransition ? 'tally-orange' : '')}`}
+                                onClick={() => sendAtemCommand('EXECUTE_FTB')}
+                                data-description="Execute Fade to Black"
+                            >
+                                <span className="btn-number">FTB</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 3. BOTTOM ROW: OUT 1â€“6 (Left), Rate, CUT, AUTO (Right) */}
                 <div className="atem-outs-wrapper">
                     <div className="atem-bottom-grid">
                         {/* Cols 1 to 6: OUT 1 to OUT 6 */}
@@ -1896,7 +2084,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                             value={localTransRate} 
                             onChange={setLocalTransRate} 
                             onCommit={() => sendAtemCommand('SET_TRANSITION_RATE', { rate: parseInt(localTransRate, 10) || 30 })} 
-                            title="Auto Transition Rate (Frames) - Drag up/down or click to type and press Enter" 
+                            title="Auto Transition Rate (Frames) - Drag up/down or click to type" 
                         />
 
                         {/* Col 9: CUT (Under Input 9) */}

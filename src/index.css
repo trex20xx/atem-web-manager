@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.68)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.69)
  * =========================================================================
  */
 
@@ -70,7 +70,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .app-title { font-size: 14px; font-weight: 700; color: var(--header-color); letter-spacing: 0.5px; }
 .app-title.centered { position: absolute; left: 50%; transform: translateX(-50%); }
 
-/* Perfect circle overlay for all top bar action buttons */
+/* Perfect circle overlay for top bar buttons */
 .top-bar-btn { 
     background: transparent; 
     border: none; 
@@ -407,7 +407,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-btn-standard:hover { background: rgba(150,150,150,0.2); color: var(--text); }
 .atem-btn-standard .btn-number { font-size: var(--le-font-size); font-weight: var(--device-font-weight); line-height: 1; font-family: var(--le-font-family); white-space: nowrap; }
 
-/* Multiline Button Label (MP1 KEY, MP2 KEY) */
+/* Multiline Button Label */
 .btn-multiline {
     display: flex;
     flex-direction: column;
@@ -431,8 +431,9 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-btn-standard.tally-red { background: #d32f2f !important; border-color: #ff5252 !important; color: #fff !important; box-shadow: none !important; }
 .atem-btn-standard.tally-green { background: #2e7d32 !important; border-color: #4caf50 !important; color: #fff !important; box-shadow: none !important; }
 .atem-btn-standard.tally-orange { background: var(--orange) !important; border-color: var(--orange-hl) !important; color: #fff !important; box-shadow: none !important; }
+.atem-btn-standard.tally-yellow { background: var(--yellow-hl) !important; border-color: #f39c12 !important; color: #000 !important; box-shadow: none !important; }
 
-/* Centered Unified PGM/PVW Box Border (Tight Fit to 736px Grid) */
+/* Unified PGM/PVW Box Border centered to 736px */
 .pgm-pvw-box { 
     width: fit-content;
     margin: 0 auto;
@@ -468,6 +469,51 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     justify-content: flex-start; 
 }
 
+/* Lower Control Sections Row (Next Trans, DSK, FTB) */
+.atem-lower-sections-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 70px);
+    gap: 4px;
+    width: 736px;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
+.atem-section-box {
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--ui-radius);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-sizing: border-box;
+}
+
+.atem-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    text-align: left;
+}
+
+/* Grid Columns Spanning */
+.next-trans-box { grid-column: 1 / span 5; }
+.dsk-section-box { grid-column: 7 / span 2; }
+.ftb-section-box { grid-column: 9 / span 1; }
+
+/* Two-Row Action Grids */
+.two-row-grid {
+    display: grid;
+    gap: 4px;
+    grid-template-rows: 36px 36px;
+}
+.two-row-grid.five-cols { grid-template-columns: repeat(5, 70px); }
+.two-row-grid.two-cols { grid-template-columns: repeat(2, 70px); }
+.two-row-grid.one-col { grid-template-columns: 70px; }
+
 /* Bottom Row Container (Unified 10-Column Grid) */
 .atem-outs-wrapper {
     display: flex;
@@ -495,7 +541,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .cut-btn:active { background: var(--panel) !important; color: var(--text) !important; }
 .auto-btn.trans-active { background: var(--orange-hl) !important; color: #000000 !important; border-color: var(--orange-hl) !important; }
 
-/* Rate Button styled identically to switcher buttons in font, size, and weight */
+/* Scrub/Click Rate Button matching button geometry exactly */
 .rate-box-button { 
     background: #000000; 
     border: 1px solid rgba(255, 255, 255, 0.1); 
@@ -508,9 +554,21 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     box-sizing: border-box; 
     cursor: ns-resize;
     flex-shrink: 0;
+    user-select: none;
 }
 .rate-box-button:hover {
     border-color: var(--muted);
+}
+.rate-box-button.editing {
+    cursor: text;
+    border-color: var(--orange-hl);
+}
+.rate-display-value {
+    color: var(--orange-hl);
+    font-size: var(--le-font-size);
+    font-weight: var(--device-font-weight);
+    font-family: var(--le-font-family);
+    line-height: 1;
 }
 .rate-input-field { 
     width: 100%; 
@@ -525,7 +583,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     outline: none; 
     -moz-appearance: textfield; 
     padding: 0; 
-    cursor: ns-resize; 
 }
 .rate-input-field::-webkit-outer-spin-button, .rate-input-field::-webkit-inner-spin-button { 
     -webkit-appearance: none; 

@@ -1,5 +1,16 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v2.69] - Two-Row Control Modules Architecture & Scrub-Drag Interaction Stabilization
+- Re-architected `DragRateInput` by separating display and editing modes, enabling smooth vertical scrub-dragging without input element event collisions while retaining single-click typing with Enter submission.
+- Created the "NEXT TRANSITION" section matching the official software layout aligned directly under Inputs 1â€“5 (Row 1: On Air 1â€“4; Row 2: BKGD, Key 1â€“4).
+- Added the "DSK 1" section aligned under Inputs 7â€“8 across two rows (TIE 1, Rate, ON AIR, AUTO).
+- Added the "FADE TO BLACK" section aligned under Input 9 across two rows (Rate, FTB).
+- Formatted sections to an exact two-button-tall height wrapped in individual `atem-section-box` borders.
+- Moved keyer triggers into the Next Transition section, returning bus row 2 to standard sources (`BLK`, `BARS`, `COL 1`, `COL 2`, `MP1`, `MP2`).
+- Locked the global button geometry (`70px x 36px`) and panel layout structure into the permanent Invariants Protocol.
+- Synchronized master application version tag to v2.69 across all documentation.
+
+
 ## [v2.70] - Windows Fresh-Clone Dependency Automation (OPS.BAT)
 - Added automated `:CHECK_DEPENDENCIES` routine in `ops/OPS.BAT`, checking for `node_modules/vite` and `bridge/node_modules`.
 - Automatically executes `npm install` across frontend and bridge workspaces on fresh git clones prior to running Vite and the bridge daemon, permanently resolving `'vite' is not recognized` errors.
