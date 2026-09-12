@@ -1,5 +1,5 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.72)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.74)
 // =========================================================================
 // Bidirectional switcher bus, macro execution, aux router, DSK, FTB & keyers.
 
@@ -12,8 +12,8 @@ const BRIDGE_PORT = 8080;
 const VITE_PORT = 3000;
 const startTime = Date.now();
 
-console.log(`[ATEM Bridge v2.72] Starting bridge service...`);
-console.log(`[ATEM Bridge v2.72] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v2.74] Starting bridge service...`);
+console.log(`[ATEM Bridge v2.74] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 const atem = new Atem();
 let isAtemConnected = false;
@@ -50,11 +50,21 @@ function broadcastState(targetWs = null) {
 
                 if (me.transitionProperties) {
                     if (typeof me.transitionProperties.rate === 'number') currentTransitionRate = me.transitionProperties.rate;
-                    if (typeof me.transitionProperties.selection === 'number') currentTransitionSelection = me.transitionProperties.selection;
+                    
+                    // Support both raw bitmask and modern array of enums
+                    const sel = me.transitionProperties.nextSelection !== undefined ? me.transitionProperties.nextSelection : me.transitionProperties.selection;
+                    if (typeof sel === 'number') {
+                        currentTransitionSelection = sel;
+                    } else if (Array.isArray(sel)) {
+                        currentTransitionSelection = sel.reduce((acc, v) => acc | (typeof v === 'number' ? v : 0), 0) || 1;
+                    }
                 }
 
                 if (me.upstreamKeyers) {
-                    currentUskOnAir = [0, 1, 2, 3].map(i => me.upstreamKeyers[i] ? me.upstreamKeyers[i].onAir : false);
+                    currentUskOnAir = [0, 1, 2, 3].map(i => {
+                        const k = me.upstreamKeyers[i];
+                        return k ? Boolean(k.onAir) : false;
+                    });
                 }
 
                 if (me.fadeToBlack) ftb = me.fadeToBlack;
@@ -158,8 +168,12 @@ function handleHardwareCommand(cmd) {
             currentTransitionRate = props.rate;
             changed = true;
         }
-        if (props.selection !== undefined) {
-            currentTransitionSelection = props.selection;
+        const sel = props.nextSelection !== undefined ? props.nextSelection : props.selection;
+        if (typeof sel === 'number') {
+            currentTransitionSelection = sel;
+            changed = true;
+        } else if (Array.isArray(sel)) {
+            currentTransitionSelection = sel.reduce((acc, v) => acc | (typeof v === 'number' ? v : 0), 0) || 1;
             changed = true;
         }
     } else if (raw === 'AuxS' || raw.includes('AuxSource')) {
@@ -169,7 +183,7 @@ function handleHardwareCommand(cmd) {
             console.log(`[ATEM Bridge ➔ Physical Switcher Event] Aux bus ${auxId} routed to Source ${src}`);
             changed = true;
         }
-    } else if (raw.includes('Upstream') || raw === 'KeOn' || raw.includes('Downstream') || raw.includes('FadeToBlack') || raw.includes('Ftb')) {
+    } else if (raw.includes('Upstream') || raw === 'KeOn' || raw.includes('MixEffectKeyOnAir') || raw.includes('Downstream') || raw.includes('FadeToBlack') || raw.includes('Ftb')) {
         changed = true;
     } else if (raw === 'MRPr' || raw.includes('Macro')) {
         changed = true;
@@ -259,17 +273,12 @@ wss.on('connection', (ws) => {
                 const newState = !currentUskOnAir[uskIdx];
                 console.log(`[ATEM Bridge ➔ Toggling USK ${uskIdx + 1} On Air] -> ${newState}`);
                 
-                // Resilient fallback execution for changing typings
-                if (typeof atem.setUpstreamKeyerOnAir === 'function') {
-                    try {
-                        atem.setUpstreamKeyerOnAir(newState, 0, uskIdx).catch(()=>{});
-                    } catch (err) {
-                        try {
-                            atem.setUpstreamKeyerOnAir(newState, uskIdx, 0).catch(()=>{});
-                        } catch (err2) {
-                            console.error('[ATEM Bridge] USK Error:', err2.message || err2);
-                        }
+                try {
+                    if (typeof atem.setUpstreamKeyerOnAir === 'function') {
+                        atem.setUpstreamKeyerOnAir(newState, 0, uskIdx).catch(e => console.error('[ATEM Bridge] USK Error:', e.message || e));
                     }
+                } catch (err) {
+                    console.error('[ATEM Bridge] Synchronous USK Error:', err.message);
                 }
             } else if (data.action === 'TOGGLE_TRANS_SELECTION' && data.bit !== undefined) {
                 const bit = parseInt(data.bit, 10);
@@ -277,13 +286,32 @@ wss.on('connection', (ws) => {
                 if (newSel === 0) newSel = bit;
                 console.log(`[ATEM Bridge ➔ Toggling Next Transition Selection] -> ${newSel}`);
                 
-                // Resilient fallback stack for atem-connection API changes
-                if (typeof atem.setTransitionStyle === 'function') {
-                    atem.setTransitionStyle({ selection: newSel }, 0).catch(e => console.error('[ATEM Bridge] Selection Error:', e.message || e));
-                } else if (typeof atem.changeTransitionSelection === 'function') {
-                    atem.changeTransitionSelection(newSel, 0).catch(e => console.error('[ATEM Bridge] Selection Error:', e.message || e));
-                } else if (typeof atem.setTransitionSelection === 'function') {
-                    atem.setTransitionSelection(newSel, 0).catch(e => console.error('[ATEM Bridge] Selection Error:', e.message || e));
+                // Build array representation for modern atem-connection versions
+                const selArray = [];
+                if (newSel & 1) selArray.push(1);
+                if (newSel & 2) selArray.push(2);
+                if (newSel & 4) selArray.push(4);
+                if (newSel & 8) selArray.push(8);
+                if (newSel & 16) selArray.push(16);
+
+                try {
+                    if (typeof atem.setTransitionStyle === 'function') {
+                        atem.setTransitionStyle({ nextSelection: selArray }, 0).catch(() => {
+                            atem.setTransitionStyle({ nextSelection: newSel }, 0).catch(() => {
+                                atem.setTransitionStyle({ selection: newSel }, 0).catch(() => {});
+                            });
+                        });
+                    }
+                    if (typeof atem.setTransitionSelection === 'function') {
+                        atem.setTransitionSelection(newSel, 0).catch(() => {
+                            atem.setTransitionSelection(selArray, 0).catch(() => {});
+                        });
+                    }
+                    if (typeof atem.changeTransitionSelection === 'function') {
+                        atem.changeTransitionSelection(newSel, 0).catch(() => {});
+                    }
+                } catch (err) {
+                    console.error('[ATEM Bridge] Synchronous Transition Selection Error:', err.message);
                 }
             } else if (data.action === 'SET_AUX' && data.aux !== undefined && data.source !== undefined) {
                 const requestedAux = parseInt(data.aux, 10);

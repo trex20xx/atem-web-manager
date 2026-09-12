@@ -1,5 +1,25 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v2.74] - Multiview 16:9 Track Lockdown, Horizontal Bus Restoration & Keyer Array Protocol
+- Enforced `minmax(0, 1fr)` and strict `min-height: 0` constraints across `.quadrant-wrapper` and `.panel`, mathematically preventing any panel content from stretching or distorting the 16:9 aspect ratio.
+- Restored `grid-template-columns: repeat(10, 70px)` to `.atem-bus-grid`, resolving the vertical button stack glitch and returning Program and Preview to horizontal dual-row layouts.
+- Rewrote the ATEM Transition Selection handler in `bridge/server.js` to support both array-based enum mapping (`[1, 2]`) and bitmask parameters, restoring physical switcher Key 1â€“4 control.
+- Hardened Upstream Keyer execution (`setUpstreamKeyerOnAir`) with bidirectional state extraction.
+- Fortified markdown code delivery blocks to prevent nested code fences from prematurely terminating artifacts.
+- Synchronized application version tag to v2.74 across all modules.
+
+
+## [v2.73] - Grid Box Alignment Mastery, Relative Frame Scrubber & Hardware API Resilience
+- Separated PROGRAM, PREVIEW, OUTPUTS, and TRANSITION into standalone, identically padded `4px` `.atem-section-box` modules matching the exact geometry spacing of the ATEM inputs.
+- Extracted all section titles into external left-aligned headers that line up geometrically with the leftmost nested buttons.
+- Arranged all modules into a perfectly vertically-distributed, four-row flex stack bridging exactly 744px in width and utilizing `70px` column offsets internally.
+- Transformed the `DragRateInput` mouse interaction into a completely frame-relative scrubber; cursor movement instantly subtracts/adds values, keeping slider adherence sticky regardless of reaching the maximum limit constraint.
+- Upgraded the UI Rate indicators and text-inputs to directly support standard `Seconds:Frames` syntax (25f/s).
+- Wrapped and chained all physical hardware commands (`TOGGLE_USK_ONAIR` and `TOGGLE_TRANS_SELECTION`) behind synchronous `try/catch` fallbacks to combat library typing exceptions in older `atem-connection` instances.
+- Standardized documentation rule 10 explicitly forbidding markdown fences inside raw code delivery artifacts.
+- Synchronized application version tag to v2.73 across all modules.
+
+
 ## [v2.72] - Hardware Keyer Sync, Seconds:Frames Timecode & Bounding Box Realignment
 - Fixed ATEM hardware Next Transition (Key 1-4) controls in `bridge/server.js` by injecting a resilient API payload stack handling `setTransitionStyle` and `changeTransitionSelection` backwards compatibility.
 - Upgraded Rate sliders to accept and format `Seconds:Frames` (S:FF at 25fps) allowing direct string parsing (e.g. `1:05` or `1.05` to 30 frames).

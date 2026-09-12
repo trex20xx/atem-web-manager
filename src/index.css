@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.72)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.74)
  * =========================================================================
  */
 
@@ -224,16 +224,47 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .edit-save{ background:var(--green); }
 .edit-cancel{ background:#4a4a4a; }
 
+/* Quadrant grid locked strictly to 16:9 ratio and minmax(0, 1fr) */
 .quadrant-wrapper{ 
-    display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:var(--gap); flex-shrink: 0; 
+    display:grid; 
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); 
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); 
+    gap:var(--gap); 
+    flex-shrink: 0; 
+    overflow: hidden;
 }
 
-.panel { background:var(--panel); display:flex; flex-direction:column; position:relative; clip-path: inset(0 round var(--panel-radius)); -webkit-transform: translateZ(0); transform: translateZ(0); }
+.panel { 
+    background:var(--panel); 
+    display:flex; 
+    flex-direction:column; 
+    position:relative; 
+    clip-path: inset(0 round var(--panel-radius)); 
+    -webkit-transform: translateZ(0); 
+    transform: translateZ(0); 
+    min-width: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    height: 100% !important;
+    width: 100% !important;
+}
 .panel.drag-over-quadrant { background:rgba(150,150,150,0.2); }
 .panel-content, .stream-container, .video-js, .vjs-tech, iframe { border-radius: 0 !important; }
 
 .panel-muted-num { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:120px; font-weight:800; color:rgba(150,150,150,0.05); pointer-events:none; z-index:1; user-select:none; -webkit-user-select:none; }
-.panel-content { flex:1; width:100%; height:100%; display:flex; align-items:center; justify-content:center; position:relative; z-index:2; overflow:hidden; }
+.panel-content { 
+    flex:1; 
+    width:100%; 
+    height:100%; 
+    display:flex; 
+    align-items:center; 
+    justify-content:center; 
+    position:relative; 
+    z-index:2; 
+    overflow:hidden; 
+    min-width: 0;
+    min-height: 0;
+}
 
 .quadrant-context-menu { position: fixed; background: var(--panel); border: 1px solid var(--atem-border); border-radius: var(--ui-radius); box-shadow: 0 8px 24px rgba(0,0,0,0.6); z-index: 99999; padding: 4px; min-width: 160px; }
 .quadrant-context-header { font-size: 10px; font-weight: 700; color: var(--muted); padding: 4px 8px; border-bottom: 1px solid var(--atem-border); margin-bottom: 2px; }
@@ -375,11 +406,12 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-bus-online-dot.offline { background: var(--red); }
 .atem-bus-ip { font-size: 11px; color: var(--muted); font-family: var(--le-font-family); font-weight: 500; }
 
-/* Content Layout */
+/* Content Layout: equally distributed rows vertically */
 .atem-bus-content-layout { 
     display: flex; 
     flex-direction: column; 
     justify-content: space-between;
+    align-items: center;
     flex: 1; 
     min-height: 0; 
     margin-top: 4px; 
@@ -433,78 +465,57 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-btn-standard.tally-orange { background: var(--orange) !important; border-color: var(--orange-hl) !important; color: #fff !important; box-shadow: none !important; }
 .atem-btn-standard.tally-yellow { background: var(--yellow-hl) !important; border-color: #f39c12 !important; color: #000 !important; box-shadow: none !important; }
 
-/* Unified PGM/PVW Box Border centered to 764px */
-.pgm-pvw-box { 
-    width: fit-content;
-    margin: 0 auto;
-    padding: 14px; 
-    border: 1px solid rgba(255, 255, 255, 0.05); 
-    border-radius: var(--panel-radius); 
-    background: rgba(0, 0, 0, 0.15); 
-    display: flex; 
-    flex-direction: column; 
-    gap: 8px; 
-    box-sizing: border-box;
-}
-
-.bus-block { display: flex; flex-direction: column; gap: 4px; }
-.bus-title-label { 
-    font-size: 11px; 
-    font-weight: 400; /* Regular, NOT bold */
-    color: var(--muted); 
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    text-align: left;
-    padding: 0;
-    margin: 0 0 4px 0;
-}
-.router-label { color: var(--orange-hl); font-weight: 700; }
-.aux-source-btn .btn-number { font-size: 11px; }
-
-/* Central 10-Column Bus Grid (Fixed 70px per button) */
-.atem-bus-grid { 
-    display: grid; 
-    grid-template-columns: repeat(10, 70px); 
-    gap: 4px; 
-    justify-content: flex-start; 
-}
-
-/* Lower Control Sections Row (Next Trans, DSK, FTB) */
-.atem-lower-sections-grid {
+/* Unified Layout Wrappers for all rows */
+.atem-flex-row {
     display: flex;
-    justify-content: space-between;
-    width: 764px;
+    gap: 70px;
+    width: 744px;
     margin: 0 auto;
-    box-sizing: border-box;
 }
 
-.lower-section-wrapper {
+.atem-section-wrapper {
     display: flex;
     flex-direction: column;
     width: fit-content;
 }
 
+/* Titles left-aligned flush with the leftmost button inside the padding */
+.atem-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    text-align: left;
+    margin: 0 0 4px 4px;
+    padding: 0;
+}
+
+.router-label { color: var(--orange-hl); }
+
+/* Bounding box tightly wrapping just the buttons with 4px padding equal to button gap */
 .atem-section-box {
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: var(--panel-radius);
-    padding: 14px;
+    padding: 4px;
     display: flex;
     flex-direction: column;
     gap: 4px;
     box-sizing: border-box;
 }
 
-.atem-section-title {
-    font-size: 11px;
-    font-weight: 400;
-    color: var(--muted);
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    text-align: left;
-    margin: 0 0 4px 0;
-    padding: 0;
+.aux-source-btn .btn-number { font-size: 11px; }
+
+/* Central 10-Column Bus Grid (Fixed 70px per button, strictly horizontal) */
+.atem-bus-grid { 
+    display: grid; 
+    grid-template-columns: repeat(10, 70px);
+    gap: 4px; 
+    justify-content: flex-start; 
 }
+.atem-bus-grid.six-cols { grid-template-columns: repeat(6, 70px); }
+.atem-bus-grid.three-cols { grid-template-columns: repeat(3, 70px); }
 
 /* Two-Row Action Grids */
 .two-row-grid {
@@ -515,24 +526,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .two-row-grid.five-cols { grid-template-columns: repeat(5, 70px); }
 .two-row-grid.two-cols { grid-template-columns: repeat(2, 70px); }
 .two-row-grid.one-col { grid-template-columns: 70px; }
-
-/* Bottom Row Container (Unified 10-Column Grid) */
-.atem-outs-wrapper {
-    display: flex;
-    justify-content: center;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    padding-top: 8px;
-    margin-top: auto;
-    flex-shrink: 0;
-    width: 100%;
-}
-
-.atem-bottom-grid {
-    display: grid;
-    grid-template-columns: repeat(10, 70px);
-    gap: 4px;
-    justify-content: center;
-}
 
 .atem-btn-spacer {
     width: 70px;
@@ -567,8 +560,8 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 }
 .rate-display-value {
     color: var(--orange-hl);
-    font-size: var(--le-font-size);
-    font-weight: var(--device-font-weight);
+    font-size: 13px;
+    font-weight: 600;
     font-family: var(--le-font-family);
     line-height: 1;
 }
@@ -578,8 +571,8 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     border: none; 
     color: var(--orange-hl); 
     text-align: center; 
-    font-size: var(--le-font-size); 
-    font-weight: var(--device-font-weight); 
+    font-size: 13px; 
+    font-weight: 600; 
     font-family: var(--le-font-family);
     line-height: 1;
     outline: none; 

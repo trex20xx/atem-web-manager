@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.72)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.74)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -9,8 +9,9 @@ const BRIDGE_PORT = 8080;
 
 // Format total frames to Seconds:Frames (25fps base)
 const formatFrames = (frames) => {
-    const s = Math.floor(frames / 25);
-    const f = frames % 25;
+    const validFrames = parseInt(frames, 10) || 0;
+    const s = Math.floor(validFrames / 25);
+    const f = validFrames % 25;
     return `${s}:${f.toString().padStart(2, '0')}`;
 };
 
@@ -33,7 +34,6 @@ const DragRateInput = ({ value, onChange, onCommit, title }) => {
     
     const isDraggingRef = useRef(false);
     const startYRef = useRef(0);
-    const startValRef = useRef(30);
     const currentValRef = useRef(value);
 
     useEffect(() => {
@@ -54,20 +54,24 @@ const DragRateInput = ({ value, onChange, onCommit, title }) => {
 
         isDraggingRef.current = true;
         startYRef.current = e.clientY;
-        startValRef.current = parseInt(value, 10) || 30;
-        currentValRef.current = startValRef.current;
         let hasMoved = false;
 
         const onMouseMove = (moveEvent) => {
             if (!isDraggingRef.current) return;
             const deltaY = startYRef.current - moveEvent.clientY;
-            if (Math.abs(deltaY) > 2) {
+            
+            if (Math.abs(deltaY) >= 2) {
                 hasMoved = true;
-                const newVal = Math.max(1, Math.min(250, startValRef.current + Math.floor(deltaY / 2)));
-                if (newVal !== currentValRef.current) {
-                    currentValRef.current = newVal;
-                    onChange(newVal); 
-                    if (onCommit) onCommit(newVal); // Dispatch real-time hardware change
+                const step = deltaY > 0 ? Math.floor(deltaY / 2) : Math.ceil(deltaY / 2);
+                
+                if (step !== 0) {
+                    const newVal = Math.max(1, Math.min(250, currentValRef.current + step));
+                    if (newVal !== currentValRef.current) {
+                        currentValRef.current = newVal;
+                        onChange(newVal);
+                        if (onCommit) onCommit(newVal);
+                    }
+                    startYRef.current -= (step * 2);
                 }
             }
         };
@@ -298,7 +302,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         }
     };
 
-    // Bus Sources: Inputs 1-10 on Row 1; BLK, BARS, COL1, COL2, MP1, MP2 on Row 2
     const inputSources = [
         { id: 1, label: '1' }, { id: 2, label: '2' }, { id: 3, label: '3' }, { id: 4, label: '4' }, { id: 5, label: '5' }, 
         { id: 6, label: '6' }, { id: 7, label: '7' }, { id: 8, label: '8' }, { id: 9, label: '9' }, { id: 10, label: '10' }
@@ -313,7 +316,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         { id: 3020, label: 'MP2' }
     ];
 
-    // Dynamic routing sources: append PVW & PGM under Inputs 9 & 10 during OUT routing
     const internalSources = selectedOut !== null 
         ? [
             ...baseInternalSources,
@@ -329,7 +331,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
     return (
         <div className="atem-constellation-panel">
-            {/* Header Bar */}
             <div className="atem-bus-header">
                 <span className="atem-bus-title">ATEM 1 M/E CONSTELLATION HD</span>
                 <div className="atem-bus-status">
@@ -339,13 +340,12 @@ const AtemConstellationBus = ({ connectedDevice }) => {
             </div>
 
             <div className="atem-bus-content-layout">
-                {/* 1. PROGRAM & PREVIEW BUSES */}
-                <div className="atem-section-box pgm-pvw-box">
-                    {/* PROGRAM BUS */}
-                    <div className="bus-block">
-                        <div className={`bus-title-label ${selectedOut !== null ? 'router-label' : 'pgm-label'}`}>
-                            {selectedOut !== null ? `OUTPUT ${selectedOut + 1}` : 'PROGRAM'}
-                        </div>
+                {/* ROW 1: PROGRAM */}
+                <div className="atem-section-wrapper">
+                    <div className={`atem-section-title ${selectedOut !== null ? 'router-label' : ''}`}>
+                        {selectedOut !== null ? `OUTPUT ${selectedOut + 1}` : 'PROGRAM'}
+                    </div>
+                    <div className="atem-section-box">
                         <div className="atem-bus-grid">
                             {inputSources.map((s) => (
                                 <button
@@ -357,6 +357,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                     <span className="btn-number">{s.label}</span>
                                 </button>
                             ))}
+                        </div>
+                        <div className="atem-bus-grid">
                             {internalSources.map((s) => (
                                 <button
                                     key={`pgm-int-${s.id}`}
@@ -369,10 +371,12 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                             ))}
                         </div>
                     </div>
+                </div>
 
-                    {/* PREVIEW BUS */}
-                    <div className="bus-block" style={{ opacity: selectedOut !== null ? 0.35 : 1, pointerEvents: selectedOut !== null ? 'none' : 'auto' }}>
-                        <div className="bus-title-label pvw-label">PREVIEW</div>
+                {/* ROW 2: PREVIEW */}
+                <div className="atem-section-wrapper" style={{ opacity: selectedOut !== null ? 0.35 : 1, pointerEvents: selectedOut !== null ? 'none' : 'auto' }}>
+                    <div className="atem-section-title">PREVIEW</div>
+                    <div className="atem-section-box">
                         <div className="atem-bus-grid">
                             {inputSources.map((s) => (
                                 <button
@@ -384,6 +388,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                     <span className="btn-number">{s.label}</span>
                                 </button>
                             ))}
+                        </div>
+                        <div className="atem-bus-grid">
                             {internalSources.map((s) => (
                                 <button
                                     key={`pvw-int-${s.id}`}
@@ -398,15 +404,12 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                     </div>
                 </div>
 
-                {/* 2. LOWER CONTROL MODULES (NEXT TRANSITION Cols 1–5, DSK 1 Cols 7–8, FTB Col 10) */}
-                <div className="atem-lower-sections-grid">
-                    
-                    {/* NEXT TRANSITION (Aligned directly under Inputs 1–5) */}
-                    <div className="lower-section-wrapper next-trans-wrapper">
+                {/* ROW 3: LOWER CONTROL MODULES */}
+                <div className="atem-flex-row">
+                    <div className="atem-section-wrapper">
                         <div className="atem-section-title">NEXT TRANSITION</div>
                         <div className="atem-section-box">
                             <div className="two-row-grid five-cols">
-                                {/* Row 1: Spacer, On Air 1, On Air 2, On Air 3, On Air 4 */}
                                 <div className="atem-btn-spacer" />
                                 <button 
                                     className={`atem-btn-standard ${uskOnAir[0] ? 'tally-red' : ''}`}
@@ -437,7 +440,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                     <span className="btn-number">ON AIR</span>
                                 </button>
 
-                                {/* Row 2: BKGD, Key 1, Key 2, Key 3, Key 4 */}
                                 <button 
                                     className={`atem-btn-standard ${(transitionSelection & 1) ? 'tally-yellow' : ''}`}
                                     onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 1 })}
@@ -477,12 +479,10 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         </div>
                     </div>
 
-                    {/* DSK 1 (Aligned directly under Inputs 7–8) */}
-                    <div className="lower-section-wrapper dsk-wrapper">
+                    <div className="atem-section-wrapper">
                         <div className="atem-section-title">DSK 1</div>
                         <div className="atem-section-box">
                             <div className="two-row-grid two-cols">
-                                {/* Row 1: TIE 1, Rate */}
                                 <button 
                                     className={`atem-btn-standard ${dsk.tie ? 'tally-yellow' : ''}`}
                                     onClick={() => sendAtemCommand('TOGGLE_DSK_TIE', { tie: !dsk.tie })}
@@ -497,10 +497,9 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                         const r = val !== undefined ? val : (parseInt(localDskRate, 10) || 30);
                                         sendAtemCommand('SET_DSK_RATE', { rate: r });
                                     }}
-                                    title="DSK 1 Rate (Frames) - Drag up/down, type + enter, or click away"
+                                    title="DSK 1 Rate (Seconds:Frames) - Drag vertically or click to type"
                                 />
 
-                                {/* Row 2: ON AIR, AUTO */}
                                 <button 
                                     className={`atem-btn-standard ${dsk.onAir ? 'tally-red' : ''}`}
                                     onClick={() => sendAtemCommand('TOGGLE_DSK_ONAIR', { onAir: !dsk.onAir })}
@@ -519,12 +518,10 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         </div>
                     </div>
 
-                    {/* FADE TO BLACK (Aligned directly under Input 10) */}
-                    <div className="lower-section-wrapper ftb-wrapper">
+                    <div className="atem-section-wrapper">
                         <div className="atem-section-title">FTB</div>
                         <div className="atem-section-box">
                             <div className="two-row-grid one-col">
-                                {/* Row 1: Rate */}
                                 <DragRateInput 
                                     value={localFtbRate} 
                                     onChange={setLocalFtbRate} 
@@ -532,9 +529,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                         const r = val !== undefined ? val : (parseInt(localFtbRate, 10) || 30);
                                         sendAtemCommand('SET_FTB_RATE', { rate: r });
                                     }}
-                                    title="Fade to Black Rate (Frames) - Drag up/down, type + enter, or click away"
+                                    title="Fade to Black Rate (Seconds:Frames) - Drag vertically or click to type"
                                 />
-                                {/* Row 2: FTB */}
                                 <button 
                                     className={`atem-btn-standard ${ftb.isFullyBlack ? 'tally-red' : (ftb.inTransition ? 'tally-orange' : '')}`}
                                     onClick={() => sendAtemCommand('EXECUTE_FTB')}
@@ -545,55 +541,59 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                             </div>
                         </div>
                     </div>
-
                 </div>
 
-                {/* 3. BOTTOM ROW: OUT 1–6 (Left), Rate, CUT, AUTO (Right) */}
-                <div className="atem-outs-wrapper">
-                    <div className="atem-bottom-grid">
-                        {/* Cols 1 to 6: OUT 1 to OUT 6 */}
-                        {auxOutputsList.map((num, idx) => (
-                            <button
-                                key={`out-${num}`}
-                                className={`atem-btn-standard ${selectedOut === idx ? 'out-active' : ''}`}
-                                onClick={() => setSelectedOut(prev => prev === idx ? null : idx)}
-                                data-description={`Route Output ${num}`}
-                            >
-                                <span className="btn-number">OUT {num}</span>
-                            </button>
-                        ))}
+                {/* ROW 4: BOTTOM ROW */}
+                <div className="atem-flex-row">
+                    <div className="atem-section-wrapper">
+                        <div className="atem-section-title">OUTPUTS</div>
+                        <div className="atem-section-box">
+                            <div className="atem-bus-grid six-cols">
+                                {auxOutputsList.map((num, idx) => (
+                                    <button
+                                        key={`out-${num}`}
+                                        className={`atem-btn-standard ${selectedOut === idx ? 'out-active' : ''}`}
+                                        onClick={() => setSelectedOut(prev => prev === idx ? null : idx)}
+                                        data-description={`Route Output ${num}`}
+                                    >
+                                        <span className="btn-number">OUT {num}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
 
-                        {/* Col 7: Spacer */}
-                        <div className="atem-btn-spacer" />
+                    <div className="atem-section-wrapper">
+                        <div className="atem-section-title">TRANSITION</div>
+                        <div className="atem-section-box">
+                            <div className="atem-bus-grid three-cols">
+                                <DragRateInput 
+                                    value={localTransRate} 
+                                    onChange={setLocalTransRate} 
+                                    onCommit={(val) => {
+                                        const r = val !== undefined ? val : (parseInt(localTransRate, 10) || 30);
+                                        sendAtemCommand('SET_TRANSITION_RATE', { rate: r });
+                                    }} 
+                                    title="Auto Transition Rate (Seconds:Frames) - Drag vertically or click to type" 
+                                />
 
-                        {/* Col 8: RATE (Left of CUT) */}
-                        <DragRateInput 
-                            value={localTransRate} 
-                            onChange={setLocalTransRate} 
-                            onCommit={(val) => {
-                                const r = val !== undefined ? val : (parseInt(localTransRate, 10) || 30);
-                                sendAtemCommand('SET_TRANSITION_RATE', { rate: r });
-                            }} 
-                            title="Auto Transition Rate (Frames) - Drag up/down, type + enter, or click away" 
-                        />
+                                <button 
+                                    className="atem-btn-standard cut-btn"
+                                    onClick={() => sendAtemCommand('CUT')}
+                                    data-description="Cut Transition"
+                                >
+                                    <span className="btn-number">CUT</span>
+                                </button>
 
-                        {/* Col 9: CUT (Under Input 9) */}
-                        <button 
-                            className="atem-btn-standard cut-btn"
-                            onClick={() => sendAtemCommand('CUT')}
-                            data-description="Cut Transition"
-                        >
-                            <span className="btn-number">CUT</span>
-                        </button>
-
-                        {/* Col 10: AUTO (Under Input 10) */}
-                        <button 
-                            className={`atem-btn-standard auto-btn ${inTransition ? 'trans-active' : ''}`}
-                            onClick={() => sendAtemCommand('AUTO')}
-                            data-description="Auto Transition"
-                        >
-                            <span className="btn-number">AUTO</span>
-                        </button>
+                                <button 
+                                    className={`atem-btn-standard auto-btn ${inTransition ? 'trans-active' : ''}`}
+                                    onClick={() => sendAtemCommand('AUTO')}
+                                    data-description="Auto Transition"
+                                >
+                                    <span className="btn-number">AUTO</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

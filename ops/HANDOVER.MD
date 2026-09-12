@@ -1,5 +1,5 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-**Current Version:** v2.72
+**Current Version:** v2.74
 **Architecture:** React 18, Vite, Native CSS Variables, Componentized Hooks, Pure Sliding Animations, Fullscreen Toggle, ATEM Macro Matrix (Quadrant 4), Integrated Bottom Action & Aux Routing Bar, Auto-Watchdog Bridge Daemon, Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Modular Runtime-Synced Changelogs, Streamlined 4-Action Master CLI Suite.
 
 ---
@@ -18,12 +18,13 @@
 9. **[LOCKED] ELEMENTS PROTOCOL:**
    - **Corner Radii:** Buttons use `--pill-radius: 24px`. Panels use `--panel-radius: 9px`.
    - **Video Player UI:** YouTube UI replica layout using custom SVG masks, STRICT 30% transparency (`rgba(30, 30, 30, 0.3)`).
-   - **Multiview 16:9 Aspect Ratio:** Strictly maintained under all resize conditions.
+   - **Multiview 16:9 Aspect Ratio:** Strictly maintained under all resize conditions. Quadrant grid tracks are permanently locked to `minmax(0, 1fr)` and panels to `min-height: 0; min-width: 0; overflow: hidden;` to mathematically prevent content-driven track expansion.
    - **Hardware-Locked IP:** `AtemConstellationBus.jsx` and `AtemMacros.jsx` are locked exclusively to IP `192.168.10.240`.
    - **Sidebar Devices, Groups & Edit Panels Design:** Row height `30px`, 4px equidistant edit button geometry, pill edit fields, and color dropdown clear mechanics.
    - **Top Bar & Navigation:** Apple-style sliding switch with embedded SVG sun/moon icons matching the settings gear size; synchronized sidebar collapse and multiview vertical zoom transitions. All top bar button hover overlays use circular geometry; version tag uses pill hover geometry.
    - **ATEM Switcher Button Geometry:** Standardized grid buttons (PGM, PVW, Aux, Actions, Next Transition, DSK, FTB) universally locked to fixed `70px x 36px` dimensions. This button design and geometry is permanently locked.
-   - **ATEM Switcher Bus Layout:** Strictly dual-row arrays (Inputs 1-10 top, Internal sources bottom) encapsulated within a unified border section, with top-aligned "PROGRAM" and "PREVIEW" non-bold labels flush with the leftmost buttons. Bottom row houses OUT 1–6 on the left (Cols 1–6), Spacer (Col 7), Rate (Col 8), CUT (Col 9 under Input 9), and AUTO (Col 10 under Input 10). Next Transition sits under Inputs 1–5, DSK 1 sits under Inputs 7–8, and FTB sits under Input 10.
+   - **ATEM Switcher Bus Layout:** Dual-row horizontal arrays (Inputs 1–10 top, Internal sources bottom) encapsulated within distinct bounding boxes with 4px padding equal to button spacing. Section titles align flush left with the leftmost button. Bottom row houses OUT 1–6 (Cols 1–6), Spacer (Col 7), Rate (Col 8), CUT (Col 9), and AUTO (Col 10). Next Transition sits under Inputs 1–5, DSK 1 sits under Inputs 7–8, and FTB sits under Input 10.
+10. **NO MARKDOWN IN CODE FILES:** Never paste markdown headers, code fences (e.g., ````javascript````), or file paths inside the actual source code blocks during delivery. All markdown codeblocks delivering markdown files must use 4 backticks (` ` ` `) to prevent premature closing.
 
 ---
 
@@ -63,3 +64,4 @@ ATEM_WEB_MANAGER/
     │   ├── VideoPlayer/       # Player, OverlayDrawer, QualityMenu, SnapshotEngine
     │   └── Settings/          # SettingsModal
     └── hooks/                 # useDevices, useDragDrop, useLocalStorage
+```
