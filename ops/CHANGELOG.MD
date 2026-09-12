@@ -1,5 +1,14 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v2.72] - Hardware Keyer Sync, Seconds:Frames Timecode & Bounding Box Realignment
+- Fixed ATEM hardware Next Transition (Key 1-4) controls in `bridge/server.js` by injecting a resilient API payload stack handling `setTransitionStyle` and `changeTransitionSelection` backwards compatibility.
+- Upgraded Rate sliders to accept and format `Seconds:Frames` (S:FF at 25fps) allowing direct string parsing (e.g. `1:05` or `1.05` to 30 frames).
+- Bound Rate sliders to dispatch hardware commands to the ATEM instantaneously during real-time mouse scrubbing, Enter key submission, and input blur.
+- Extracted lower module titles ("NEXT TRANSITION", "DSK 1", "FTB") outside of their background `.atem-section-box` boundaries to mirror the ATEM Software Control aesthetic.
+- Equalized horizontal and vertical margins inside bounding boxes to `padding: 14px`, achieving flawless mathematical vertical column alignment across all 10 columns of the UI.
+- Synchronized application version tag to v2.72 across all operational documentation.
+
+
 ## [v2.71] - JSX Syntax Error Resolution & Clean Source Delivery
 - Stripped inadvertent Markdown codeblock fence headers from the physical `src/components/Panels/AtemConstellationBus.jsx` file.
 - Verified pure JavaScript/JSX syntax compatibility with Vite Babel parser.

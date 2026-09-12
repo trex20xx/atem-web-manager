@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.70)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.72)
  * =========================================================================
  */
 
@@ -437,7 +437,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .pgm-pvw-box { 
     width: fit-content;
     margin: 0 auto;
-    padding: 10px 14px; 
+    padding: 14px; 
     border: 1px solid rgba(255, 255, 255, 0.05); 
     border-radius: var(--panel-radius); 
     background: rgba(0, 0, 0, 0.15); 
@@ -478,11 +478,17 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     box-sizing: border-box;
 }
 
+.lower-section-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: fit-content;
+}
+
 .atem-section-box {
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: var(--panel-radius);
-    padding: 10px 14px;
+    padding: 14px;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -498,19 +504,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     text-align: left;
     margin: 0 0 4px 0;
     padding: 0;
-}
-
-/* Width specifications ensuring exact vertical alignment under columns 1-5, 7-8, and 10 */
-.next-trans-box {
-    width: 394px;
-}
-
-.dsk-section-box {
-    width: 172px;
-}
-
-.ftb-section-box {
-    width: 98px;
 }
 
 /* Two-Row Action Grids */

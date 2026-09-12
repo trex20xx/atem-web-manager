@@ -1,5 +1,5 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.69)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.72)
 // =========================================================================
 // Bidirectional switcher bus, macro execution, aux router, DSK, FTB & keyers.
 
@@ -12,8 +12,8 @@ const BRIDGE_PORT = 8080;
 const VITE_PORT = 3000;
 const startTime = Date.now();
 
-console.log(`[ATEM Bridge v2.69] Starting bridge service...`);
-console.log(`[ATEM Bridge v2.69] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v2.72] Starting bridge service...`);
+console.log(`[ATEM Bridge v2.72] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 const atem = new Atem();
 let isAtemConnected = false;
@@ -139,14 +139,14 @@ function handleHardwareCommand(cmd) {
         if (typeof src === 'number') {
             currentPgm = src;
             changed = true;
-            console.log(`[ATEM Bridge ⬅ Physical Switcher Event] Program changed to Input ${src}`);
+            console.log(`[ATEM Bridge ➔ Physical Switcher Event] Program changed to Input ${src}`);
         }
     } else if (raw === 'PrvI' || raw.includes('PreviewInput')) {
         const src = props.source !== undefined ? props.source : props.previewInput;
         if (typeof src === 'number') {
             currentPvw = src;
             changed = true;
-            console.log(`[ATEM Bridge ⬅ Physical Switcher Event] Preview changed to Input ${src}`);
+            console.log(`[ATEM Bridge ➔ Physical Switcher Event] Preview changed to Input ${src}`);
         }
     } else if (raw === 'TrPr' || raw === 'TrPs' || raw.includes('TransitionPosition')) {
         if (props.inTransition !== undefined) {
@@ -166,7 +166,7 @@ function handleHardwareCommand(cmd) {
         const auxId = props.id !== undefined ? props.id : props.auxiliaryId;
         const src = props.source !== undefined ? props.source : props.input;
         if (typeof auxId === 'number' && typeof src === 'number') {
-            console.log(`[ATEM Bridge ⬅ Physical Switcher Event] Aux bus ${auxId} routed to Source ${src}`);
+            console.log(`[ATEM Bridge ➔ Physical Switcher Event] Aux bus ${auxId} routed to Source ${src}`);
             changed = true;
         }
     } else if (raw.includes('Upstream') || raw === 'KeOn' || raw.includes('Downstream') || raw.includes('FadeToBlack') || raw.includes('Ftb')) {
@@ -258,15 +258,31 @@ wss.on('connection', (ws) => {
                 const uskIdx = parseInt(data.usk, 10);
                 const newState = !currentUskOnAir[uskIdx];
                 console.log(`[ATEM Bridge ➔ Toggling USK ${uskIdx + 1} On Air] -> ${newState}`);
+                
+                // Resilient fallback execution for changing typings
                 if (typeof atem.setUpstreamKeyerOnAir === 'function') {
-                    atem.setUpstreamKeyerOnAir(newState, 0, uskIdx).catch(e => console.error('[ATEM Bridge] USK Error:', e.message || e));
+                    try {
+                        atem.setUpstreamKeyerOnAir(newState, 0, uskIdx).catch(()=>{});
+                    } catch (err) {
+                        try {
+                            atem.setUpstreamKeyerOnAir(newState, uskIdx, 0).catch(()=>{});
+                        } catch (err2) {
+                            console.error('[ATEM Bridge] USK Error:', err2.message || err2);
+                        }
+                    }
                 }
             } else if (data.action === 'TOGGLE_TRANS_SELECTION' && data.bit !== undefined) {
                 const bit = parseInt(data.bit, 10);
                 let newSel = currentTransitionSelection ^ bit;
                 if (newSel === 0) newSel = bit;
                 console.log(`[ATEM Bridge ➔ Toggling Next Transition Selection] -> ${newSel}`);
-                if (typeof atem.setTransitionSelection === 'function') {
+                
+                // Resilient fallback stack for atem-connection API changes
+                if (typeof atem.setTransitionStyle === 'function') {
+                    atem.setTransitionStyle({ selection: newSel }, 0).catch(e => console.error('[ATEM Bridge] Selection Error:', e.message || e));
+                } else if (typeof atem.changeTransitionSelection === 'function') {
+                    atem.changeTransitionSelection(newSel, 0).catch(e => console.error('[ATEM Bridge] Selection Error:', e.message || e));
+                } else if (typeof atem.setTransitionSelection === 'function') {
                     atem.setTransitionSelection(newSel, 0).catch(e => console.error('[ATEM Bridge] Selection Error:', e.message || e));
                 }
             } else if (data.action === 'SET_AUX' && data.aux !== undefined && data.source !== undefined) {
