@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.67)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v2.68)
  * =========================================================================
  */
 
@@ -348,7 +348,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     overflow: hidden; 
 }
 
-/* Header Bar */
+/* Unified Header Bar */
 .atem-bus-header { 
     display: flex; 
     justify-content: space-between; 
@@ -361,7 +361,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 }
 .atem-bus-title { font-family: var(--le-font-family); font-size: 14px; font-weight: 700; color: var(--text); opacity: 0.8; letter-spacing: 0.5px; }
 
-/* Status Indicator with Green Online Ball */
+/* Connection Status Indicator */
 .atem-bus-status { display: flex; align-items: center; gap: 6px; }
 .atem-bus-online-dot { 
     width: 8px; 
@@ -407,12 +407,32 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-btn-standard:hover { background: rgba(150,150,150,0.2); color: var(--text); }
 .atem-btn-standard .btn-number { font-size: var(--le-font-size); font-weight: var(--device-font-weight); line-height: 1; font-family: var(--le-font-family); white-space: nowrap; }
 
+/* Multiline Button Label (MP1 KEY, MP2 KEY) */
+.btn-multiline {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.1;
+    pointer-events: none;
+}
+.btn-multiline span {
+    font-size: 11px;
+    font-weight: var(--device-font-weight);
+    font-family: var(--le-font-family);
+}
+.btn-multiline .btn-subtext {
+    font-size: 9px;
+    font-weight: 700;
+    opacity: 0.9;
+}
+
 /* Tally Active States */
 .atem-btn-standard.tally-red { background: #d32f2f !important; border-color: #ff5252 !important; color: #fff !important; box-shadow: none !important; }
 .atem-btn-standard.tally-green { background: #2e7d32 !important; border-color: #4caf50 !important; color: #fff !important; box-shadow: none !important; }
 .atem-btn-standard.tally-orange { background: var(--orange) !important; border-color: var(--orange-hl) !important; color: #fff !important; box-shadow: none !important; }
 
-/* Centered Unified PGM/PVW Box Border (Tight Fit) */
+/* Centered Unified PGM/PVW Box Border (Tight Fit to 736px Grid) */
 .pgm-pvw-box { 
     width: fit-content;
     margin: 0 auto;
@@ -429,7 +449,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .bus-block { display: flex; flex-direction: column; gap: 4px; }
 .bus-title-label { 
     font-size: 11px; 
-    font-weight: 700; 
+    font-weight: 400; /* Regular, NOT bold */
     color: var(--muted); 
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -475,7 +495,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .cut-btn:active { background: var(--panel) !important; color: var(--text) !important; }
 .auto-btn.trans-active { background: var(--orange-hl) !important; color: #000000 !important; border-color: var(--orange-hl) !important; }
 
-/* Rate Button styled identically to switcher buttons */
+/* Rate Button styled identically to switcher buttons in font, size, and weight */
 .rate-box-button { 
     background: #000000; 
     border: 1px solid rgba(255, 255, 255, 0.1); 

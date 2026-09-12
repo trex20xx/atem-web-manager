@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.67)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v2.68)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
 
-// Rate Button with drag up/down, typing, Enter-key submission, and panel-drag suppression
-const DragRateInput = ({ value, onChange, onBlur, title }) => {
+// Rate Button with drag-to-scrub, click-to-type, Enter submission, and panel drag isolation
+const DragRateInput = ({ value, onChange, onCommit, title }) => {
     const isDraggingRef = useRef(false);
+    const hasDraggedRef = useRef(false);
     const startYRef = useRef(0);
     const startValRef = useRef(30);
+    const inputRef = useRef(null);
 
     const lockPanelDrag = (e) => {
         const panel = e.currentTarget.closest('.panel');
@@ -26,27 +28,40 @@ const DragRateInput = ({ value, onChange, onBlur, title }) => {
     const handleMouseDown = (e) => {
         if (e.button !== 0) return;
         e.stopPropagation();
-        
+
         const panel = e.currentTarget.closest('.panel');
         if (panel) panel.draggable = false;
 
         isDraggingRef.current = true;
+        hasDraggedRef.current = false;
         startYRef.current = e.clientY;
         startValRef.current = parseInt(value, 10) || 30;
 
         const handleMouseMove = (moveEvent) => {
             if (!isDraggingRef.current) return;
             const deltaY = startYRef.current - moveEvent.clientY;
+            if (Math.abs(deltaY) > 2) {
+                hasDraggedRef.current = true;
+            }
             const newVal = Math.max(1, Math.min(250, startValRef.current + Math.floor(deltaY / 2)));
             onChange(newVal);
         };
 
         const handleMouseUp = () => {
-            isDraggingRef.current = false;
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
+            isDraggingRef.current = false;
             if (panel) panel.draggable = true;
-            if (onBlur) onBlur();
+
+            if (hasDraggedRef.current) {
+                if (onCommit) onCommit();
+            } else {
+                // User simply clicked: focus and select input for typing
+                if (inputRef.current) {
+                    inputRef.current.focus();
+                    inputRef.current.select();
+                }
+            }
         };
 
         window.addEventListener('mousemove', handleMouseMove);
@@ -56,7 +71,7 @@ const DragRateInput = ({ value, onChange, onBlur, title }) => {
     const handleKeyDown = (e) => {
         if (e.key === 'Enter') {
             e.target.blur();
-            if (onBlur) onBlur();
+            if (onCommit) onCommit();
         }
     };
 
@@ -69,11 +84,12 @@ const DragRateInput = ({ value, onChange, onBlur, title }) => {
             onMouseLeave={unlockPanelDrag}
         >
             <input 
+                ref={inputRef}
                 type="number" 
                 className="rate-input-field"
                 value={value} 
                 onChange={e => onChange(e.target.value)} 
-                onBlur={onBlur}
+                onBlur={onCommit}
                 onKeyDown={handleKeyDown}
                 onMouseDown={e => e.stopPropagation()}
             />
@@ -100,6 +116,10 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     const [localTransRate, setLocalTransRate] = useState(30);
     const [bridgeStatus, setBridgeStatus] = useState('connecting');
     
+    // Upstream Keyer and Next Transition states for MP1 KEY and MP2 KEY tally bindings
+    const [uskOnAir, setUskOnAir] = useState([false, false, false, false]);
+    const [transitionSelection, setTransitionSelection] = useState(1); // bit 1: BKGD, bit 2: KEY1, bit 4: KEY2
+
     // Router Mode: Selected Aux Output (null = Bus mode; 0..5 = Aux 1..6)
     const [selectedOut, setSelectedOut] = useState(null);
     const [auxSources, setAuxSources] = useState([1, 2, 3, 4, 5, 6]);
@@ -137,6 +157,12 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                     }
                     if (data.auxSources && Array.isArray(data.auxSources)) {
                         setAuxSources(data.auxSources.map(Number));
+                    }
+                    if (data.uskOnAir && Array.isArray(data.uskOnAir)) {
+                        setUskOnAir(data.uskOnAir);
+                    }
+                    if (data.transitionSelection !== undefined) {
+                        setTransitionSelection(Number(data.transitionSelection));
                     }
                 } catch (err) {
                     console.error("[AtemBus UI] Data Parse Error:", err);
@@ -187,12 +213,33 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                 sendCommand('SET_AUX', { aux: selectedOut, source: payload.input });
                 return;
             }
+
+            // Normal bus: Special Keyer On Air handling for MP1 KEY and MP2 KEY
+            if (payload.input === 3011) {
+                sendCommand('TOGGLE_USK_ONAIR', { usk: 0 });
+                return;
+            }
+            if (payload.input === 3021) {
+                sendCommand('TOGGLE_USK_ONAIR', { usk: 1 });
+                return;
+            }
+
             setPgmInput(payload.input);
             sendCommand('SET_PGM', payload);
             return;
         }
 
         if (commandType === 'SET_PVW') {
+            // Normal bus: Special Next Transition selection for MP1 KEY and MP2 KEY
+            if (payload.input === 3011) {
+                sendCommand('TOGGLE_TRANS_SELECTION', { bit: 2 });
+                return;
+            }
+            if (payload.input === 3021) {
+                sendCommand('TOGGLE_TRANS_SELECTION', { bit: 4 });
+                return;
+            }
+
             setPvwInput(payload.input);
             sendCommand('SET_PVW', payload);
             return;
@@ -244,15 +291,44 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         { id: 6, label: '6' }, { id: 7, label: '7' }, { id: 8, label: '8' }, { id: 9, label: '9' }, { id: 10, label: '10' }
     ];
 
-    const internalSources = [
-        { id: 0, label: 'BLK' }, { id: 1000, label: 'BARS' }, { id: 2001, label: 'COL 1' }, 
-        { id: 2002, label: 'COL 2' }, { id: 3010, label: 'MP 1' }, { id: 3020, label: 'MP 2' }
+    // Second row: BLK(1), BARS(2), COL 1(3), COL 2(4), MP1(5), MP1 KEY(6), MP2(7), MP2 KEY(8) + PVW(9)/PGM(10) when routing
+    const baseSecondRow = [
+        { id: 0, label: 'BLK', multi: false },
+        { id: 1000, label: 'BARS', multi: false },
+        { id: 2001, label: 'COL 1', multi: false },
+        { id: 2002, label: 'COL 2', multi: false },
+        { id: 3010, label: 'MP1', multi: false },
+        { id: 3011, label: 'MP1', sub: 'KEY', multi: true, isKey1: true },
+        { id: 3020, label: 'MP2', multi: false },
+        { id: 3021, label: 'MP2', sub: 'KEY', multi: true, isKey2: true }
     ];
+
+    const secondRowSources = selectedOut !== null 
+        ? [
+            ...baseSecondRow,
+            { id: 10011, label: 'PVW', multi: false },
+            { id: 10010, label: 'PGM', multi: false }
+          ]
+        : baseSecondRow;
 
     const auxOutputsList = [1, 2, 3, 4, 5, 6];
 
-    const getIsActivePgm = (sourceId) => selectedOut !== null ? (auxSources[selectedOut] === sourceId) : (pgmInput === sourceId);
-    const getIsActivePvw = (sourceId) => selectedOut !== null ? false : (pvwInput === sourceId);
+    // Active state calculator accounting for router mode and USK/Next Trans tally binds
+    const getIsActivePgm = (s) => {
+        if (selectedOut !== null) {
+            return auxSources[selectedOut] === s.id;
+        }
+        if (s.isKey1) return uskOnAir[0];
+        if (s.isKey2) return uskOnAir[1];
+        return pgmInput === s.id;
+    };
+
+    const getIsActivePvw = (s) => {
+        if (selectedOut !== null) return false;
+        if (s.isKey1) return Boolean(transitionSelection & 2);
+        if (s.isKey2) return Boolean(transitionSelection & 4);
+        return pvwInput === s.id;
+    };
 
     return (
         <div className="atem-constellation-panel">
@@ -277,21 +353,28 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                             {inputSources.map((s) => (
                                 <button
                                     key={`pgm-${s.id}`}
-                                    className={`atem-btn-standard ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
+                                    className={`atem-btn-standard ${getIsActivePgm(s) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
                                     onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}
                                     data-description={`Input ${s.label}`}
                                 >
                                     <span className="btn-number">{s.label}</span>
                                 </button>
                             ))}
-                            {internalSources.map((s) => (
+                            {secondRowSources.map((s) => (
                                 <button
-                                    key={`pgm-int-${s.id}`}
-                                    className={`atem-btn-standard aux-source-btn ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
+                                    key={`pgm-sec-${s.id}`}
+                                    className={`atem-btn-standard aux-source-btn ${getIsActivePgm(s) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
                                     onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}
-                                    data-description={`Source ${s.label}`}
+                                    data-description={s.multi ? `${s.label} ${s.sub}` : `Source ${s.label}`}
                                 >
-                                    <span className="btn-number">{s.label}</span>
+                                    {s.multi ? (
+                                        <div className="btn-multiline">
+                                            <span>{s.label}</span>
+                                            <span className="btn-subtext">{s.sub}</span>
+                                        </div>
+                                    ) : (
+                                        <span className="btn-number">{s.label}</span>
+                                    )}
                                 </button>
                             ))}
                         </div>
@@ -304,21 +387,28 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                             {inputSources.map((s) => (
                                 <button
                                     key={`pvw-${s.id}`}
-                                    className={`atem-btn-standard ${getIsActivePvw(s.id) ? 'tally-green' : ''}`}
+                                    className={`atem-btn-standard ${getIsActivePvw(s) ? 'tally-green' : ''}`}
                                     onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}
                                     data-description={`Preview Input ${s.label}`}
                                 >
                                     <span className="btn-number">{s.label}</span>
                                 </button>
                             ))}
-                            {internalSources.map((s) => (
+                            {secondRowSources.map((s) => (
                                 <button
-                                    key={`pvw-int-${s.id}`}
-                                    className={`atem-btn-standard aux-source-btn ${getIsActivePvw(s.id) ? 'tally-green' : ''}`}
+                                    key={`pvw-sec-${s.id}`}
+                                    className={`atem-btn-standard aux-source-btn ${getIsActivePvw(s) ? 'tally-green' : ''}`}
                                     onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}
-                                    data-description={`Preview Source ${s.label}`}
+                                    data-description={s.multi ? `Preview ${s.label} ${s.sub}` : `Preview Source ${s.label}`}
                                 >
-                                    <span className="btn-number">{s.label}</span>
+                                    {s.multi ? (
+                                        <div className="btn-multiline">
+                                            <span>{s.label}</span>
+                                            <span className="btn-subtext">{s.sub}</span>
+                                        </div>
+                                    ) : (
+                                        <span className="btn-number">{s.label}</span>
+                                    )}
                                 </button>
                             ))}
                         </div>
@@ -347,8 +437,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         <DragRateInput 
                             value={localTransRate} 
                             onChange={setLocalTransRate} 
-                            onBlur={() => sendAtemCommand('SET_TRANSITION_RATE', { rate: parseInt(localTransRate, 10) || 30 })} 
-                            title="Auto Transition Rate (Frames) - Drag up/down or type and press Enter" 
+                            onCommit={() => sendAtemCommand('SET_TRANSITION_RATE', { rate: parseInt(localTransRate, 10) || 30 })} 
+                            title="Auto Transition Rate (Frames) - Drag up/down or click to type and press Enter" 
                         />
 
                         {/* Col 9: CUT (Under Input 9) */}

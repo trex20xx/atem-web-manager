@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.66)
+// ATEM WEB MANAGER - ATEM MACROS PANEL (v2.68)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -171,7 +171,7 @@ const AtemMacros = ({ connectedDevice }) => {
         return '';
     };
 
-    // Strict autorun separation: when OFF, clicking ONLY selects; when ON, clicking runs immediately
+    // Strict autorun behavior: when OFF, clicking ONLY selects (never triggers); when ON, clicking triggers immediately
     const handleMacroClick = (index) => {
         const name = getMacroName(index);
         const isEmpty = !name || name.trim() === '';
@@ -182,15 +182,16 @@ const AtemMacros = ({ connectedDevice }) => {
             return;
         }
 
-        if (!autoRun) {
-            // Only select the macro, never run it regardless of clicks
-            setSelectedMacroIndex(index);
-            return;
-        }
-
-        // Autorun is engaged: select and execute straight
         setSelectedMacroIndex(index);
-        runMacro(index);
+
+        if (autoRun) {
+            const isCurrentlyRunning = macroPlayer.isRunning && (macroPlayer.macroIndex === index);
+            if (isCurrentlyRunning) {
+                stopMacro();
+            } else {
+                runMacro(index);
+            }
+        }
     };
 
     const handlePlayClick = () => {

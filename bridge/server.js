@@ -1,7 +1,7 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.66)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v2.68)
 // =========================================================================
-// Bidirectional switcher bus, macro execution & aux router sync with auto-watchdog.
+// Bidirectional switcher bus, macro execution, aux router & mix rate sync with auto-watchdog.
 
 const { Atem } = require('atem-connection');
 const WebSocket = require('ws');
@@ -12,8 +12,8 @@ const BRIDGE_PORT = 8080;
 const VITE_PORT = 3000;
 const startTime = Date.now();
 
-console.log(`[ATEM Bridge v2.66] Starting bridge service...`);
-console.log(`[ATEM Bridge v2.66] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v2.68] Starting bridge service...`);
+console.log(`[ATEM Bridge v2.68] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 const atem = new Atem();
 let isAtemConnected = false;
@@ -23,6 +23,8 @@ let currentPgm = 1;
 let currentPvw = 2;
 let currentInTransition = false;
 let currentTransitionRate = 30;
+let currentTransitionSelection = 1; // Bit 1: BKGD, Bit 2: KEY1, Bit 4: KEY2
+let currentUskOnAir = [false, false, false, false];
 let currentAux = [1, 2, 3, 4, 5, 6];
 
 function broadcastState(targetWs = null) {
@@ -43,8 +45,13 @@ function broadcastState(targetWs = null) {
                     currentInTransition = me.inTransition;
                 }
 
-                if (me.transitionProperties && typeof me.transitionProperties.rate === 'number') {
-                    currentTransitionRate = me.transitionProperties.rate;
+                if (me.transitionProperties) {
+                    if (typeof me.transitionProperties.rate === 'number') currentTransitionRate = me.transitionProperties.rate;
+                    if (typeof me.transitionProperties.selection === 'number') currentTransitionSelection = me.transitionProperties.selection;
+                }
+
+                if (me.upstreamKeyers) {
+                    currentUskOnAir = [0, 1, 2, 3].map(i => me.upstreamKeyers[i] ? me.upstreamKeyers[i].onAir : false);
                 }
             }
         }
@@ -52,10 +59,14 @@ function broadcastState(targetWs = null) {
         // Extract Auxiliaries (Outputs 1 to 6)
         if (atem && atem.state && atem.state.video && atem.state.video.auxiliaries) {
             const auxObj = atem.state.video.auxiliaries;
-            currentAux = [0, 1, 2, 3, 4, 5].map(idx => {
-                const val = auxObj[idx];
-                return typeof val === 'number' ? val : (currentAux[idx] || 1);
-            });
+            const keys = Object.keys(auxObj).map(Number).sort((a, b) => a - b);
+            if (keys.length > 0) {
+                currentAux = [0, 1, 2, 3, 4, 5].map(idx => {
+                    const busKey = keys[idx] !== undefined ? keys[idx] : idx;
+                    const val = auxObj[busKey];
+                    return typeof val === 'number' ? val : (currentAux[idx] || 1);
+                });
+            }
         }
 
         // Extract Macros
@@ -73,6 +84,8 @@ function broadcastState(targetWs = null) {
             pvw: currentPvw,
             inTransition: currentInTransition,
             transitionRate: currentTransitionRate,
+            transitionSelection: currentTransitionSelection,
+            uskOnAir: currentUskOnAir,
             auxSources: currentAux,
             macroPlayer,
             macroProperties
@@ -124,14 +137,19 @@ function handleHardwareCommand(cmd) {
             currentTransitionRate = props.rate;
             changed = true;
         }
+        if (props.selection !== undefined) {
+            currentTransitionSelection = props.selection;
+            changed = true;
+        }
     } else if (raw === 'AuxS' || raw.includes('AuxSource')) {
         const auxId = props.id !== undefined ? props.id : props.auxiliaryId;
         const src = props.source !== undefined ? props.source : props.input;
-        if (typeof auxId === 'number' && typeof src === 'number' && auxId >= 0 && auxId < 6) {
-            currentAux[auxId] = src;
+        if (typeof auxId === 'number' && typeof src === 'number') {
+            console.log(`[ATEM Bridge ⬅ Physical Switcher Event] Aux bus ${auxId} routed to Source ${src}`);
             changed = true;
-            console.log(`[ATEM Bridge ⬅ Physical Switcher Event] Output ${auxId + 1} routed to Source ${src}`);
         }
+    } else if (raw.includes('Upstream') || raw === 'KeOn') {
+        changed = true;
     } else if (raw === 'MRPr' || raw.includes('Macro')) {
         changed = true;
     }
@@ -210,32 +228,60 @@ wss.on('connection', (ws) => {
             } else if (data.action === 'SET_TRANSITION_RATE' && data.rate !== undefined) {
                 const rateNum = parseInt(data.rate, 10) || 30;
                 currentTransitionRate = rateNum;
-                atem.setTransitionRate(rateNum, 0).catch((e) => console.error('[ATEM Bridge] Rate Error:', e.message || e));
-                broadcastState();
-            } else if (data.action === 'SET_AUX' && data.aux !== undefined && data.source !== undefined) {
-                const auxIdx = parseInt(data.aux, 10);
-                const src = parseInt(data.source, 10);
-                console.log(`[ATEM Bridge ➔ Routing Aux Output] Output ${auxIdx + 1} (Bus index ${auxIdx}) to Source ${src}`);
+                console.log(`[ATEM Bridge ➔ Setting Mix Transition Rate] ${rateNum} frames`);
                 
-                // Direct call to Sofie atem-connection: setAuxSource(source, bus = 0)
+                // Call official Sofie atem-connection transition mix rate command
+                if (typeof atem.setMixTransitionSettings === 'function') {
+                    atem.setMixTransitionSettings({ rate: rateNum }, 0).catch(e => console.error('[ATEM Bridge] Rate Error:', e.message || e));
+                } else if (typeof atem.setTransitionProperties === 'function') {
+                    atem.setTransitionProperties({ rate: rateNum }, 0).catch(()=>{});
+                }
+                broadcastState();
+            } else if (data.action === 'TOGGLE_USK_ONAIR' && data.usk !== undefined) {
+                const uskIdx = parseInt(data.usk, 10);
+                const newState = !currentUskOnAir[uskIdx];
+                console.log(`[ATEM Bridge ➔ Toggling USK ${uskIdx + 1} On Air] -> ${newState}`);
+                if (typeof atem.setUpstreamKeyerOnAir === 'function') {
+                    atem.setUpstreamKeyerOnAir(newState, 0, uskIdx).catch(e => console.error('[ATEM Bridge] USK Error:', e.message || e));
+                }
+            } else if (data.action === 'TOGGLE_TRANS_SELECTION' && data.bit !== undefined) {
+                const bit = parseInt(data.bit, 10);
+                let newSel = currentTransitionSelection ^ bit;
+                if (newSel === 0) newSel = bit;
+                console.log(`[ATEM Bridge ➔ Toggling Next Transition Selection] -> ${newSel}`);
+                if (typeof atem.setTransitionSelection === 'function') {
+                    atem.setTransitionSelection(newSel, 0).catch(e => console.error('[ATEM Bridge] Selection Error:', e.message || e));
+                }
+            } else if (data.action === 'SET_AUX' && data.aux !== undefined && data.source !== undefined) {
+                const requestedAux = parseInt(data.aux, 10);
+                const src = parseInt(data.source, 10);
+
+                // Dynamically resolve actual physical aux bus key from hardware state if detected
+                let targetBus = requestedAux;
+                if (atem.state && atem.state.video && atem.state.video.auxiliaries) {
+                    const keys = Object.keys(atem.state.video.auxiliaries).map(Number).sort((a, b) => a - b);
+                    if (keys.length > 0 && keys[requestedAux] !== undefined) {
+                        targetBus = keys[requestedAux];
+                    }
+                }
+
+                console.log(`[ATEM Bridge ➔ Routing Aux Output] Target Bus: ${targetBus} (Selected OUT ${requestedAux + 1}) -> Source: ${src}`);
+
                 if (typeof atem.setAuxSource === 'function') {
-                    atem.setAuxSource(src, auxIdx)
+                    atem.setAuxSource(src, targetBus)
                         .then(() => {
-                            console.log(`[ATEM Bridge] Aux ${auxIdx + 1} successfully routed to Source ${src}`);
-                            currentAux[auxIdx] = src;
+                            console.log(`[ATEM Bridge] Successfully routed Source ${src} to Aux Bus ${targetBus}`);
+                            currentAux[requestedAux] = src;
                             broadcastState();
                         })
-                        .catch((errPrimary) => {
-                            console.warn(`[ATEM Bridge] Primary setAuxSource(${src}, ${auxIdx}) failed (${errPrimary.message}). Attempting (bus, source) permutation...`);
-                            atem.setAuxSource(auxIdx, src)
+                        .catch((err) => {
+                            console.warn(`[ATEM Bridge] setAuxSource(${src}, ${targetBus}) failed: ${err.message}. Retrying permutation...`);
+                            atem.setAuxSource(targetBus, src)
                                 .then(() => {
-                                    console.log(`[ATEM Bridge] Aux ${auxIdx + 1} successfully routed via inverted parameters`);
-                                    currentAux[auxIdx] = src;
+                                    currentAux[requestedAux] = src;
                                     broadcastState();
                                 })
-                                .catch((errSecondary) => {
-                                    console.error(`[ATEM Bridge] Both aux routing signatures failed:`, errSecondary.message || errSecondary);
-                                });
+                                .catch(e => console.error('[ATEM Bridge] Routing command rejected:', e.message || e));
                         });
                 }
             } else if (data.action === 'MACRO_RUN' && data.index !== undefined) {
