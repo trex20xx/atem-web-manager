@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM COMPACT MACROS PANEL (v3.25)
+// ATEM WEB MANAGER - ATEM COMPACT MACROS PANEL (v3.28)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -173,7 +173,7 @@ const AtemMacrosCompact = ({ connectedDevice }) => {
 
     return (
         <div className="quadrant-master-panel" onWheel={handlePanelWheel}>
-            <div className="panel-layout-frame">
+            <div className="panel-layout-frame" style={{ justifyContent: 'flex-start' }}>
                 <div className="macro-compact-header-row">
                     <div className="macro-title-group">
                         <span className="atem-section-title">MACROS</span>
