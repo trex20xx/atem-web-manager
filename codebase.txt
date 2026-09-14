@@ -294,7 +294,7 @@ function App() {
 
 export default App;/*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.30)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.31)
  * =========================================================================
  */
 
@@ -1081,6 +1081,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     width: 191px;
     box-sizing: border-box;
     cursor: pointer;
+    flex-shrink: 0;
 }
 .mp-slot.drag-over {
     border-color: var(--orange-hl);
@@ -1440,6 +1441,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     margin: 0 auto;
     display: block; 
     height: fit-content; 
+    flex-shrink: 0;
 }
 
 .macro-matrix-grid-compact {

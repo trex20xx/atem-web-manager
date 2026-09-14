@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.30)
+// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.31)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -245,7 +245,7 @@ const MediaPool = () => {
     return (
         <div className="quadrant-master-panel" onWheel={handlePanelWheel}>
             {currentPage === 1 ? (
-                /* Page 1: Stills 1-16 (Strict 4x4 Grid in 424px Frame) */
+                /* PAGE 1: STILLS 1-16 (Strict 4x4 Grid in 424px Frame) */
                 <div className="panel-layout-frame">
                     <div className="macro-compact-header-row">
                         <div className="macro-title-group">
@@ -288,9 +288,9 @@ const MediaPool = () => {
                     </div>
                 </div>
             ) : (
-                /* Page 2: Stills 17-20 in Row 1, Clips 1-4 in Row 4 (Strict 424px Frame with space-between) */
+                /* PAGE 2: STILLS 17-20 in Row 1, CLIPS 1-4 in Row 4 (424px Frame with space-between) */
                 <div className="panel-layout-frame" style={{ justifyContent: 'space-between' }}>
-                    {/* SECTION 1: STILLS 17-20 (ROW 1) */}
+                    {/* SECTION 1: STILLS 17-20 (ROW 1 OF 4x4 GRID) */}
                     <div>
                         <div className="macro-compact-header-row">
                             <div className="macro-title-group">
@@ -333,7 +333,7 @@ const MediaPool = () => {
                         </div>
                     </div>
 
-                    {/* SECTION 2: CLIPS 1-4 (ROW 4) */}
+                    {/* SECTION 2: CLIPS 1-4 (ROW 4 OF 4x4 GRID, ROWS 2 & 3 REMAIN EMPTY) */}
                     <div>
                         <div className="atem-section-header-row">
                             <span className="atem-section-title">CLIPS</span>
