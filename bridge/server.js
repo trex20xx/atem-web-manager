@@ -1,5 +1,5 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.25)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.26)
 // =========================================================================
 // Bidirectional switcher bus, macro execution, aux router, DSK, FTB, and Media Pool.
 
@@ -12,11 +12,12 @@ const BRIDGE_PORT = 8080;
 const VITE_PORT = 3000;
 const startTime = Date.now();
 
-console.log(`[ATEM Bridge v3.25] Starting bridge service...`);
-console.log(`[ATEM Bridge v3.25] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v3.26] Starting bridge service...`);
+console.log(`[ATEM Bridge v3.26] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 let atem = new Atem();
 let isAtemConnected = false;
+let reconnectTimer = null;
 
 // Authoritative switcher state cache
 let currentPgm = 1;
@@ -35,7 +36,89 @@ let mediaPlayers = [
     { sourceType: 1, stillIndex: 1, clipIndex: 0 }
 ];
 
-// Helper: Downscale a raw RGBA buffer to a crisp 320x180 BMP data URI
+// Single-threaded Sequential Data Transfer Queue (ATEM UDP hardware can only handle 1 transfer at a time)
+let isTransferring = false;
+const transferQueue = [];
+
+function processTransferQueue() {
+    if (isTransferring || transferQueue.length === 0) return;
+    if (!isAtemConnected) {
+        setTimeout(processTransferQueue, 1500);
+        return;
+    }
+    
+    isTransferring = true;
+    const task = transferQueue.shift();
+    
+    task()
+        .catch(err => {
+            console.warn('[ATEM Bridge Transfer Warning]:', err.message || err);
+        })
+        .finally(() => {
+            isTransferring = false;
+            setTimeout(processTransferQueue, 350); // 350ms breather between transfers to prevent ATEM UDP drop
+        });
+}
+
+function queueDownloadStill(index) {
+    if (transferQueue.some(t => t.type === 'download' && t.index === index)) return;
+
+    const task = () => new Promise((resolve) => {
+        if (!isAtemConnected || typeof atem.downloadStill !== 'function') {
+            return resolve();
+        }
+        console.log(`[ATEM Bridge] Downloading Still ${index + 1} from ATEM...`);
+        atem.downloadStill(index, 'rgba')
+            .then(rgbaBuffer => {
+                let width = 1920; let height = 1080;
+                if (rgbaBuffer.length === 1280 * 720 * 4) { width = 1280; height = 720; }
+                else if (rgbaBuffer.length === 3840 * 2160 * 4) { width = 3840; height = 2160; }
+
+                const bmpDataUri = downscaleRgbaToThumbnailBmp(rgbaBuffer, width, height, 320, 180);
+                const payload = JSON.stringify({ type: 'STILL_DATA', index, data: bmpDataUri });
+                
+                wss.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) client.send(payload);
+                });
+                console.log(`[ATEM Bridge] Successfully downloaded Still ${index + 1}`);
+                resolve();
+            })
+            .catch(err => {
+                console.warn(`[ATEM Bridge] Download failed for Still ${index + 1}:`, err.message || err);
+                resolve();
+            });
+    });
+    task.type = 'download';
+    task.index = index;
+    transferQueue.push(task);
+    processTransferQueue();
+}
+
+function queueUploadStill(index, buffer, name) {
+    const task = () => new Promise((resolve) => {
+        if (!isAtemConnected || typeof atem.uploadStill !== 'function') {
+            return resolve();
+        }
+        console.log(`[ATEM Bridge] Uploading to Still ${index + 1}...`);
+        atem.uploadStill(index, buffer, name || `Still ${index + 1}`, '')
+            .then(() => {
+                console.log(`[ATEM Bridge] Successfully uploaded to Still ${index + 1}`);
+                broadcastState();
+                setTimeout(() => queueDownloadStill(index), 600);
+                resolve();
+            })
+            .catch(err => {
+                console.warn(`[ATEM Bridge] Upload failed for Still ${index + 1}:`, err.message || err);
+                resolve();
+            });
+    });
+    task.type = 'upload';
+    task.index = index;
+    transferQueue.push(task);
+    processTransferQueue();
+}
+
+// Downscale raw RGBA buffer to a crisp 320x180 BMP data URI
 function downscaleRgbaToThumbnailBmp(rgbaBuffer, srcWidth = 1920, srcHeight = 1080, targetWidth = 320, targetHeight = 180) {
     const scaleX = srcWidth / targetWidth;
     const scaleY = srcHeight / targetHeight;
@@ -70,28 +153,6 @@ function downscaleRgbaToThumbnailBmp(rgbaBuffer, srcWidth = 1920, srcHeight = 10
     return 'data:image/bmp;base64,' + bmp.toString('base64');
 }
 
-function fetchStill(index) {
-    if (typeof atem.downloadStill === 'function') {
-        atem.downloadStill(index, 'rgba')
-            .then(rgbaBuffer => {
-                let width = 1920;
-                let height = 1080;
-                if (rgbaBuffer.length === 1280 * 720 * 4) { width = 1280; height = 720; }
-                else if (rgbaBuffer.length === 3840 * 2160 * 4) { width = 3840; height = 2160; }
-                
-                const bmpDataUri = downscaleRgbaToThumbnailBmp(rgbaBuffer, width, height, 320, 180);
-                
-                const payload = JSON.stringify({ type: 'STILL_DATA', index, data: bmpDataUri });
-                wss.clients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) client.send(payload);
-                });
-            })
-            .catch(e => {
-                console.warn(`[ATEM Bridge] downloadStill(${index}) failed:`, e.message || e);
-            });
-    }
-}
-
 function setupAtemListeners() {
     atem.on('receivedCommand', (command) => {
         if (handleHardwareCommand(command)) broadcastState();
@@ -113,6 +174,10 @@ function setupAtemListeners() {
 
     atem.on('connected', () => {
         isAtemConnected = true;
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+        }
         console.log(`[ATEM Bridge] >>> SUCCESS: Connected to physical ATEM at ${ATEM_IP} <<<`);
         broadcastState();
     });
@@ -121,6 +186,17 @@ function setupAtemListeners() {
         isAtemConnected = false;
         console.log(`[ATEM Bridge] >>> DISCONNECTED: Lost UDP link to physical ATEM at ${ATEM_IP} <<<`);
         broadcastState();
+        
+        // Automatic reconnection loop
+        if (!reconnectTimer) {
+            reconnectTimer = setTimeout(() => {
+                reconnectTimer = null;
+                if (!isAtemConnected) {
+                    console.log(`[ATEM Bridge] Attempting reconnection to ATEM at ${ATEM_IP}...`);
+                    atem.connect(ATEM_IP).catch(() => {});
+                }
+            }, 3000);
+        }
     });
 
     atem.on('error', (err) => {
@@ -252,17 +328,9 @@ wss.on('connection', (ws) => {
                 atem.setMixTransitionSettings({ rate: parseInt(data.rate, 10) || 30 }, 0).catch(e => {});
             } else if (data.action === 'UPLOAD_STILL' && data.rgbaBase64) {
                 const buffer = Buffer.from(data.rgbaBase64, 'base64');
-                console.log(`[ATEM Bridge] Uploading image to ATEM Still Slot ${data.index + 1}...`);
-                if (typeof atem.uploadStill === 'function') {
-                    atem.uploadStill(data.index, buffer, data.name || `Still ${data.index + 1}`, '')
-                        .then(() => {
-                            console.log(`[ATEM Bridge] Upload successful for Slot ${data.index + 1}`);
-                            setTimeout(() => fetchStill(data.index), 1000);
-                        })
-                        .catch(e => console.error('[ATEM Bridge] Still upload failed:', e.message || e));
-                }
+                queueUploadStill(data.index, buffer, data.name);
             } else if (data.action === 'GET_STILL' && data.index !== undefined) {
-                fetchStill(data.index);
+                queueDownloadStill(data.index);
             } else if (data.action === 'SET_MEDIA_PLAYER_SOURCE' && data.player !== undefined) {
                 const playerIdx = parseInt(data.player, 10);
                 const props = {};
@@ -280,10 +348,14 @@ wss.on('connection', (ws) => {
     });
 });
 
+// Watchdog: Grace period of 30 seconds before terminating on Vite loss
 setInterval(() => {
     const req = http.get(`http://localhost:${VITE_PORT}`, () => {});
     req.on('error', (err) => {
-        if (err.code === 'ECONNREFUSED' && Date.now() - startTime > 10000) process.exit(0);
+        if (err.code === 'ECONNREFUSED' && Date.now() - startTime > 30000) {
+            console.log('[ATEM Bridge Watchdog] Vite server closed. Terminating bridge daemon...');
+            process.exit(0);
+        }
     });
     req.setTimeout(1500, () => req.destroy());
-}, 3000);
+}, 5000);

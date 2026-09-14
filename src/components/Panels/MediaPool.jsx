@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.25)
+// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.26)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -16,13 +16,8 @@ const MediaPool = () => {
         { sourceType: 1, stillIndex: 1, clipIndex: 0 }
     ]);
     
-    // MP 1 and MP 2 target selection: null, 1, or 2
     const [selectedMp, setSelectedMp] = useState(null);
-
-    // Downloaded thumbnails from ATEM (data:image/bmp;base64,...)
     const [downloadedStills, setDownloadedStills] = useState({});
-    
-    // Locally dropped immediate previews
     const [localPreviews, setLocalPreviews] = useState({});
     const [dragActive, setDragActive] = useState(null);
     const [uploadingSlot, setUploadingSlot] = useState(null);
@@ -30,6 +25,8 @@ const MediaPool = () => {
     const wsRef = useRef(null);
     const reconnectTimerRef = useRef(null);
     const lastWheelTimeRef = useRef(0);
+    const requestedStillsRef = useRef(new Set());
+    const downloadedStillsRef = useRef({});
 
     useEffect(() => {
         const initWebSocket = () => {
@@ -47,10 +44,15 @@ const MediaPool = () => {
                         if (data.mediaPool) {
                             if (data.mediaPool.stills) {
                                 setAtemStills(data.mediaPool.stills);
-                                // Request image data for populated slots that haven't been loaded yet
+                                // Request missing still images sequentially with a stagger to protect ATEM UDP channel
                                 data.mediaPool.stills.forEach((still, idx) => {
-                                    if (still.isUsed && !downloadedStills[idx]) {
-                                        wsRef.current.send(JSON.stringify({ action: 'GET_STILL', ip: LOCKED_ATEM_IP, index: idx }));
+                                    if (still.isUsed && !requestedStillsRef.current.has(idx) && !downloadedStillsRef.current[idx]) {
+                                        requestedStillsRef.current.add(idx);
+                                        setTimeout(() => {
+                                            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                                                wsRef.current.send(JSON.stringify({ action: 'GET_STILL', ip: LOCKED_ATEM_IP, index: idx }));
+                                            }
+                                        }, idx * 300);
                                     }
                                 });
                             }
@@ -60,6 +62,7 @@ const MediaPool = () => {
                             setMediaPlayers(data.mediaPlayers);
                         }
                         if (data.type === 'STILL_DATA' && data.data) {
+                            downloadedStillsRef.current[data.index] = data.data;
                             setDownloadedStills(prev => ({ ...prev, [data.index]: data.data }));
                         }
                     } catch (err) {}
@@ -90,7 +93,7 @@ const MediaPool = () => {
                 try { wsRef.current.close(); } catch (e) {}
             }
         };
-    }, [downloadedStills]);
+    }, []); // Empty dependency array permanently resolves the infinite reconnect loop
 
     const handlePanelWheel = (e) => {
         const now = Date.now();
@@ -185,7 +188,7 @@ const MediaPool = () => {
             wsRef.current.send(JSON.stringify({
                 action: 'SET_MEDIA_PLAYER_SOURCE',
                 ip: LOCKED_ATEM_IP,
-                player: selectedMp - 1, // 0 for MP 1, 1 for MP 2
+                player: selectedMp - 1,
                 sourceType: type === 'still' ? 1 : 2,
                 stillIndex: type === 'still' ? slotIndex : 0,
                 clipIndex: type === 'clip' ? slotIndex : 0
@@ -208,7 +211,6 @@ const MediaPool = () => {
         const displayName = localPreview ? localPreview.name : (atemData ? atemData.name : '');
         const displaySrc = localPreview ? localPreview.src : downloadedImg;
 
-        // MP 1 and MP 2 status badges
         const isMp1 = mediaPlayers[0] && (type === 'still' ? (mediaPlayers[0].sourceType === 1 && mediaPlayers[0].stillIndex === actualSlotIndex) : (mediaPlayers[0].sourceType === 2 && mediaPlayers[0].clipIndex === actualSlotIndex));
         const isMp2 = mediaPlayers[1] && (type === 'still' ? (mediaPlayers[1].sourceType === 1 && mediaPlayers[1].stillIndex === actualSlotIndex) : (mediaPlayers[1].sourceType === 2 && mediaPlayers[1].clipIndex === actualSlotIndex));
 
@@ -245,7 +247,6 @@ const MediaPool = () => {
 
     return (
         <div className="atem-macros-panel compact-layout" onWheel={handlePanelWheel}>
-            {/* Header row with titles, page buttons, and MP 1 / MP 2 buttons */}
             <div className="macro-compact-header-row">
                 <div className="macro-title-group" style={{ display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
                     <div className="atem-section-title">STILLS</div>
@@ -280,8 +281,7 @@ const MediaPool = () => {
                 </div>
             </div>
 
-            {/* Page 1: Stills 1-16 */}
-            {currentPage === 1 && (
+            {currentPage === 1 ? (
                 <div className="macro-section-box">
                     <div className="mp-grid">
                         {Array.from({ length: 16 }).map((_, idx) => (
@@ -289,12 +289,8 @@ const MediaPool = () => {
                         ))}
                     </div>
                 </div>
-            )}
-
-            {/* Page 2: Stills 17-20 and Clips 1-4 */}
-            {currentPage === 2 && (
+            ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', width: '786px', margin: '0 auto' }}>
-                    {/* Section 1: Stills 17-20 */}
                     <div className="macro-section-box" style={{ marginBottom: '76px' }}>
                         <div className="mp-grid one-row">
                             {Array.from({ length: 4 }).map((_, idx) => (
@@ -303,7 +299,6 @@ const MediaPool = () => {
                         </div>
                     </div>
 
-                    {/* Section 2: Clips 1-4 with exact title spacing */}
                     <div className="atem-section-header-row">
                         <div className="atem-section-title">CLIPS</div>
                     </div>
