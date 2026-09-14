@@ -176,7 +176,7 @@ server.bind(ATEM_PORT, EMULATOR_IP, () => {
  
 === FILE: bridge/server.js === 
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.26)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.25)
 // =========================================================================
 // Bidirectional switcher bus, macro execution, aux router, DSK, FTB, and Media Pool.
 
@@ -189,8 +189,8 @@ const BRIDGE_PORT = 8080;
 const VITE_PORT = 3000;
 const startTime = Date.now();
 
-console.log(`[ATEM Bridge v3.26] Starting bridge service...`);
-console.log(`[ATEM Bridge v3.26] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v3.25] Starting bridge service...`);
+console.log(`[ATEM Bridge v3.25] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 let atem = new Atem();
 let isAtemConnected = false;
@@ -213,7 +213,7 @@ let mediaPlayers = [
     { sourceType: 1, stillIndex: 1, clipIndex: 0 }
 ];
 
-// Single-threaded Sequential Data Transfer Queue (ATEM UDP hardware can only handle 1 transfer at a time)
+// Single-threaded Sequential Data Transfer Queue
 let isTransferring = false;
 const transferQueue = [];
 
@@ -233,7 +233,7 @@ function processTransferQueue() {
         })
         .finally(() => {
             isTransferring = false;
-            setTimeout(processTransferQueue, 350); // 350ms breather between transfers to prevent ATEM UDP drop
+            setTimeout(processTransferQueue, 100); 
         });
 }
 
@@ -364,7 +364,6 @@ function setupAtemListeners() {
         console.log(`[ATEM Bridge] >>> DISCONNECTED: Lost UDP link to physical ATEM at ${ATEM_IP} <<<`);
         broadcastState();
         
-        // Automatic reconnection loop
         if (!reconnectTimer) {
             reconnectTimer = setTimeout(() => {
                 reconnectTimer = null;
@@ -525,7 +524,6 @@ wss.on('connection', (ws) => {
     });
 });
 
-// Watchdog: Grace period of 30 seconds before terminating on Vite loss
 setInterval(() => {
     const req = http.get(`http://localhost:${VITE_PORT}`, () => {});
     req.on('error', (err) => {
@@ -836,7 +834,7 @@ export default App;
 === FILE: src/index.css === 
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.25)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.26)
  * =========================================================================
  */
 
@@ -1073,6 +1071,8 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     background:var(--panel); 
     display:flex; 
     flex-direction:column; 
+    justify-content: center;
+    align-items: center;
     position:relative; 
     clip-path: inset(0 round var(--panel-radius)); 
     -webkit-transform: translateZ(0); 
@@ -1082,9 +1082,39 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     overflow: hidden !important;
     height: 100% !important;
     width: 100% !important;
+    padding: 10px;
+    box-sizing: border-box;
 }
 .panel.drag-over-quadrant { background:rgba(150,150,150,0.2); }
 .panel-content, .stream-container, .stream-video-surface, iframe { border-radius: 0 !important; }
+
+/* Core Inner Panel Block (Strictly 786px x 424px inside 16:9 Quadrants) */
+.panel-layout-frame {
+    width: 786px;
+    height: 424px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    position: relative;
+    box-sizing: border-box;
+}
+
+/* Global Quadrant Inner Normalization */
+.quadrant-master-panel {
+    width: 100%; 
+    height: 100%; 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: center; 
+    align-items: center;
+    padding: 10px; 
+    background: var(--panel); 
+    box-sizing: border-box; 
+    font-family: var(--le-font-family); 
+    color: var(--text); 
+    user-select: none; 
+    overflow: hidden; 
+}
 
 .panel-muted-num { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:120px; font-weight:800; color:rgba(150,150,150,0.05); pointer-events:none; z-index:1; user-select:none; -webkit-user-select:none; }
 .panel-content { 
@@ -1106,7 +1136,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     height: 100%;
     display: flex;
     flex-direction: column;
-    padding: 10px;
+    padding: 0;
     box-sizing: border-box;
     position: relative;
     user-select: none;
@@ -1115,9 +1145,9 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 
 .panel-idle-header {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: flex-start;
-    padding: 0;
+    padding: 0 5px;
     height: 14px;
     min-height: 14px;
     flex-shrink: 0;
@@ -1563,12 +1593,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 /* =========================================================================
    MEDIA POOL PANEL (QUADRANT 2)
    ========================================================================= */
-.media-pool-panel {
-    width: 100%; height: 100%; display: flex; flex-direction: column;
-    padding: 10px; background: var(--panel); box-sizing: border-box;
-    position: relative; user-select: none; overflow: hidden;
-}
-
 .mp-grid {
     display: grid;
     grid-template-columns: repeat(4, 191px);
@@ -1577,12 +1601,8 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     width: 100%;
 }
 
-.mp-grid.one-row {
-    grid-template-rows: 96px;
-}
-
 .mp-slot {
-    background: #181818;
+    background: var(--panel2);
     border: 1px solid var(--atem-border);
     border-radius: var(--ui-radius);
     display: flex;
@@ -1601,7 +1621,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .mp-thumb-container {
     flex: 1;
     min-height: 0;
-    background: #1a1a1a;
+    background: var(--atem-bg);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1632,11 +1652,11 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid var(--atem-border);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: rgba(255,255,255,0.15);
+    color: var(--muted);
     font-size: 13px;
     font-weight: 600;
 }
@@ -1650,7 +1670,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 .mp-label-bar {
     height: 20px;
-    background: #242424;
+    background: var(--atem-hl);
     display: flex;
     align-items: center;
     padding: 0 4px;
@@ -1659,8 +1679,8 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 }
 
 .mp-label-num {
-    border: 1px solid rgba(255,255,255,0.15);
-    color: rgba(255,255,255,0.4);
+    border: 1px solid var(--atem-border);
+    color: var(--muted);
     padding: 0 3px;
     font-size: 9px;
     border-radius: 2px;
@@ -1668,7 +1688,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 }
 
 .mp-label-text {
-    color: var(--muted);
+    color: var(--text);
     font-size: 10px;
     white-space: nowrap;
     overflow: hidden;
@@ -1679,62 +1699,89 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 /* =========================================================================
    ATEM SWITCHER BUS CSS (QUADRANT 3)
    ========================================================================= */
-.atem-constellation-panel { 
-    width: 100%; 
-    height: 100%; 
-    display: flex; 
-    flex-direction: column; 
-    justify-content: center; 
-    padding: 10px; 
-    background: var(--panel); 
-    box-sizing: border-box; 
-    font-family: var(--le-font-family); 
-    color: var(--text); 
-    user-select: none; 
-    overflow: hidden; 
-}
 
-/* Connection Status Indicator in Program row - flush with right edge of Input 10 button (5px from box border) */
+/* Connection Status Indicator in Program row */
 .atem-bus-status { 
-    display: inline-flex; 
+    display: flex; 
     align-items: center; 
     gap: 6px; 
-    margin: 0 !important;
-    padding-right: 5px !important;
+    margin: 0;
+    padding: 0;
     height: 14px;
-    line-height: 14px;
 }
 .atem-bus-online-dot { 
-    width: 8px; 
-    height: 8px; 
-    min-width: 8px;
+    width: 7px; 
+    height: 7px; 
+    min-width: 7px;
     border-radius: 50%; 
     background: var(--green); 
-    display: inline-block; 
-    flex-shrink: 0; 
-    vertical-align: middle;
+    display: block; 
 }
 .atem-bus-online-dot.offline { background: var(--red); }
-.atem-bus-ip { 
-    font-size: 11px; 
-    color: var(--muted); 
-    font-family: var(--le-font-family); 
-    font-weight: 500; 
-    line-height: 14px;
+
+/* Unified Typography Core for all Header Elements */
+.atem-section-title,
+.macro-action-text-btn,
+.atem-bus-ip {
+    font-family: var(--le-font-family);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    line-height: 11px; /* Exact match to font size removes flex baseline jumping */
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    display: block;
 }
 
-/* Content Layout: 4 rows spaced out equally, centered perfectly at 424px internal height */
-.atem-bus-content-layout { 
-    display: flex; 
-    flex-direction: column; 
-    justify-content: center;
-    align-items: center;
-    gap: 16px;
-    flex: 1; 
-    min-height: 0; 
+.macro-action-text-btn {
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+.macro-action-text-btn:hover:not(:disabled) {
+    color: var(--text);
+}
+.macro-action-text-btn.active-orange { color: var(--orange-hl) !important; opacity: 1; }
+.macro-action-text-btn.active-green { color: #2e7d32 !important; opacity: 1; }
+.macro-action-text-btn.active-red { color: #d32f2f !important; opacity: 1; }
+.macro-action-text-btn.disabled { opacity: 0.35; cursor: default !important; pointer-events: none; }
+
+/* Global Header Flex Row Containers */
+.atem-section-header-row,
+.macro-compact-header-row {
+    display: flex;
+    align-items: center; /* Center horizontally ignoring internal box models */
+    justify-content: space-between;
+    width: 786px;
+    height: 14px;
+    margin: 0 auto 4px auto;
+    padding: 0 5px; /* Global 5px inset matching the button edges */
+    box-sizing: border-box;
+}
+
+.atem-flex-row .atem-section-header-row {
     width: 100%;
-    height: 100%;
-    overflow: hidden; 
+    padding: 0 5px;
+}
+
+/* Flex Groups inside Headers */
+.macro-title-group,
+.macro-actions-group {
+    display: flex;
+    align-items: center;
+    height: 14px;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+}
+
+.macro-page-buttons {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 /* 74px x 36px Widened Grid Button Dimensions */
@@ -1763,26 +1810,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     opacity: 0.35 !important;
     pointer-events: none !important;
     cursor: default !important;
-}
-
-/* Multiline Button Label */
-.btn-multiline {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    line-height: 1.1;
-    pointer-events: none;
-}
-.btn-multiline span {
-    font-size: 11px;
-    font-weight: var(--device-font-weight);
-    font-family: var(--le-font-family);
-}
-.btn-multiline .btn-subtext {
-    font-size: 9px;
-    font-weight: 700;
-    opacity: 0.9;
 }
 
 /* Tally Active States */
@@ -1828,33 +1855,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     display: flex;
     flex-direction: column;
     width: 786px;
-}
-
-/* Program Header Row: baseline alignment for perfect horizontal font alignment */
-.atem-section-header-row {
-    display: flex;
-    align-items: flex-end; 
-    justify-content: space-between;
-    width: 100%;
-    height: 14px;
-    margin: 0 0 4px 0;
-    padding: 0;
-}
-
-/* Titles: removed margin-bottom to ensure absolute bottom anchor in flex-end */
-.atem-section-title {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--muted);
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    text-align: left;
-    margin: 0 !important;
-    padding-left: 5px !important;
-    height: 14px;
-    line-height: 14px;
-    display: flex;
-    align-items: flex-end;
 }
 
 .router-label { color: var(--orange-hl); }
@@ -1957,68 +1957,35 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-bus-lock-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
 .atem-bus-lock-desc strong { color: var(--text); font-family: monospace; }
 
-/* =========================================================================
-   ATEM MACROS PANEL (QUADRANT 4)
-   ========================================================================= */
-.atem-macros-panel.compact-layout {
+/* CORE ABSOLUTE 424px PARITY ARCHITECTURE */
+.panel-layout-frame {
+    width: 786px;
+    height: 424px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    position: relative;
+    box-sizing: border-box;
+}
+
+/* Global Quadrant Inner Normalization */
+.quadrant-master-panel {
     width: 100%; 
     height: 100%; 
     display: flex; 
     flex-direction: column; 
     justify-content: center; 
+    align-items: center;
     padding: 10px; 
     background: var(--panel); 
-    box-sizing: border-box;
+    box-sizing: border-box; 
     font-family: var(--le-font-family); 
     color: var(--text); 
     user-select: none; 
     overflow: hidden; 
 }
 
-/* Header row matches Program row baseline and 14px text metrics exactly */
-.macro-compact-header-row {
-    display: flex; 
-    align-items: flex-end; 
-    justify-content: space-between;
-    width: 786px;
-    margin: 0 auto 4px auto;
-    height: 14px;
-    padding: 0;
-}
-
-.macro-actions-group {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 !important;
-    padding-right: 5px !important;
-    height: 14px;
-}
-
-.macro-action-text-btn {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    font-family: var(--le-font-family);
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--muted);
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    transition: color 0.15s ease, background 0.15s ease;
-    padding: 2px 6px;
-    border-radius: 4px;
-}
-.macro-action-text-btn:hover:not(:disabled) {
-    background: rgba(150, 150, 150, 0.15);
-    color: var(--text);
-}
-.macro-action-text-btn.active-orange { color: var(--orange-hl) !important; opacity: 1; }
-.macro-action-text-btn.active-green { color: #2e7d32 !important; opacity: 1; }
-.macro-action-text-btn.active-red { color: #d32f2f !important; opacity: 1; }
-.macro-action-text-btn.disabled { opacity: 0.35; cursor: default !important; pointer-events: none; }
-
-/* Enclosed bounding box: 786px wide with 4px padding all around */
+/* MACRO PANEL OVERRIDES */
 .macro-section-box {
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.05);
@@ -2042,7 +2009,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     align-content: start; 
 }
 
-/* Buttons designed identically to Mixer switcher buttons (36px height) */
 .macro-compact-btn {
     background: var(--panel2);
     border: 1px solid var(--atem-border) !important;
@@ -2071,7 +2037,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     height: 100%;
 }
 
-/* Fixed number width: 24px */
 .macro-compact-num {
     font-family: var(--le-font-family);
     font-size: var(--le-font-size);
@@ -2084,7 +2049,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     line-height: 1;
 }
 
-/* Left-justified macro text preserving original casing */
 .macro-compact-text {
     font-family: var(--le-font-family);
     font-size: var(--le-font-size);
@@ -2300,15 +2264,12 @@ export default QuadrantGrid;
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.02)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.25)
 // =========================================================================
-// 74px x 36px widened button architecture with 786px row symmetry,
-// 4px equal bounding box padding, and 10px uniform panel margins all around.
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
 
-// Format total frames to Seconds:Frames (25fps base)
 const formatFrames = (frames) => {
     const validFrames = parseInt(frames, 10) || 0;
     const s = Math.floor(validFrames / 25);
@@ -2316,7 +2277,6 @@ const formatFrames = (frames) => {
     return `${s}:${f.toString().padStart(2, '0')}`;
 };
 
-// Parse input string (e.g. "1:05", "1.05", "30") back to total frames
 const parseFrames = (str) => {
     const s = str.toString().trim();
     if (s.includes(':') || s.includes('.')) {
@@ -2328,7 +2288,6 @@ const parseFrames = (str) => {
     return parseInt(s, 10) || 0;
 };
 
-// Reusable Scrub-Drag & Click-to-Type Rate Component
 const DragRateInput = ({ value, onChange, onCommit, title }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [typedVal, setTypedVal] = useState(formatFrames(value));
@@ -2432,11 +2391,7 @@ const DragRateInput = ({ value, onChange, onCommit, title }) => {
     }
 
     return (
-        <div 
-            className="rate-box-button"
-            title={title}
-            onMouseDown={handleMouseDown}
-        >
+        <div className="rate-box-button" title={title} onMouseDown={handleMouseDown}>
             <span className="rate-display-value">{formatFrames(value)}</span>
         </div>
     );
@@ -2459,7 +2414,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     const [inTransition, setInTransition] = useState(false);
     const [bridgeStatus, setBridgeStatus] = useState('connecting');
 
-    // Hardware Transition, Keyer & DSK State
     const [transitionRate, setTransitionRate] = useState(30);
     const [transitionSelection, setTransitionSelection] = useState(1);
     const [uskOnAir, setUskOnAir] = useState([false, false, false, false]);
@@ -2467,12 +2421,10 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     const [dsk, setDsk] = useState({ onAir: false, inTransition: false, autoOnAir: false, tie: false, rate: 30 });
     const [ftb, setFtb] = useState({ inTransition: false, isFullyBlack: false, rate: 30 });
 
-    // Local Rate Buffers for immediate responsive UI feedback
     const [localTransRate, setLocalTransRate] = useState(30);
     const [localDskRate, setLocalDskRate] = useState(30);
     const [localFtbRate, setLocalFtbRate] = useState(30);
 
-    // Router Mode: Selected Aux Output (null = Bus mode; 0..5 = Aux 1..6)
     const [selectedOut, setSelectedOut] = useState(null);
     const [auxSources, setAuxSources] = useState([1, 2, 3, 4, 5, 6]);
 
@@ -2502,9 +2454,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                     if (data.dsk) setDsk(data.dsk);
                     if (data.ftb) setFtb(data.ftb);
                     if (data.auxSources && Array.isArray(data.auxSources)) setAuxSources(data.auxSources.map(Number));
-                } catch (err) {
-                    console.error("[AtemBus UI] Data Parse Error:", err);
-                }
+                } catch (err) {}
             };
 
             wsRef.current.onerror = () => setBridgeStatus('offline');
@@ -2597,9 +2547,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                     ip: LOCKED_ATEM_IP, 
                     ...payload 
                 }));
-            } catch (err) {
-                console.warn("[AtemBus UI] Dispatch failed.");
-            }
+            } catch (err) {}
         }
     };
 
@@ -2627,14 +2575,14 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     const getIsActivePvw = (sourceId) => selectedOut !== null ? false : (pvwInput === sourceId);
 
     return (
-        <div className="atem-constellation-panel">
-            <div className="atem-bus-content-layout">
+        <div className="quadrant-master-panel">
+            <div className="panel-layout-frame" style={{ gap: '16px' }}>
                 {/* ROW 1: PROGRAM */}
                 <div className="atem-section-wrapper row-one">
                     <div className="atem-section-header-row">
-                        <div className={`atem-section-title ${selectedOut !== null ? 'router-label' : ''}`}>
+                        <span className={`atem-section-title ${selectedOut !== null ? 'router-label' : ''}`}>
                             {selectedOut !== null ? `OUTPUT ${selectedOut + 1}` : 'PROGRAM'}
-                        </div>
+                        </span>
                         <div className="atem-bus-status">
                             <span className={`atem-bus-online-dot ${bridgeStatus === 'linked' ? 'online' : 'offline'}`} />
                             <span className="atem-bus-ip">{LOCKED_ATEM_IP}</span>
@@ -2647,7 +2595,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                     key={`pgm-${s.id}`}
                                     className={`atem-btn-standard ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
                                     onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}
-                                    data-description={`Input ${s.label}`}
                                 >
                                     <span className="btn-number">{s.label}</span>
                                 </button>
@@ -2655,16 +2602,13 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         </div>
                         <div className="atem-bus-grid ten-cols">
                             {internalSources.map((s) => {
-                                if (s.spacer) {
-                                    return <div key={s.id} className="atem-btn-spacer" />;
-                                }
+                                if (s.spacer) return <div key={s.id} className="atem-btn-spacer" />;
                                 const isMuted = s.isAuxOnly && selectedOut === null;
                                 return (
                                     <button
                                         key={`pgm-int-${s.id}`}
                                         className={`atem-btn-standard aux-source-btn ${isMuted ? 'btn-muted' : ''} ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
                                         onClick={() => !isMuted && sendAtemCommand('SET_PGM', { input: s.id })}
-                                        data-description={isMuted ? undefined : `Source ${s.label}`}
                                         disabled={isMuted}
                                     >
                                         <span className="btn-number">{s.label}</span>
@@ -2678,7 +2622,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                 {/* ROW 2: PREVIEW */}
                 <div className="atem-section-wrapper row-two" style={{ opacity: selectedOut !== null ? 0.35 : 1, pointerEvents: selectedOut !== null ? 'none' : 'auto' }}>
                     <div className="atem-section-header-row">
-                        <div className="atem-section-title">PREVIEW</div>
+                        <span className="atem-section-title">PREVIEW</span>
                     </div>
                     <div className="atem-section-box">
                         <div className="atem-bus-grid ten-cols">
@@ -2687,7 +2631,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                     key={`pvw-${s.id}`}
                                     className={`atem-btn-standard ${getIsActivePvw(s.id) ? 'tally-green' : ''}`}
                                     onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}
-                                    data-description={`Preview Input ${s.label}`}
                                 >
                                     <span className="btn-number">{s.label}</span>
                                 </button>
@@ -2695,16 +2638,13 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         </div>
                         <div className="atem-bus-grid ten-cols">
                             {internalSources.map((s) => {
-                                if (s.spacer) {
-                                    return <div key={s.id} className="atem-btn-spacer" />;
-                                }
+                                if (s.spacer) return <div key={s.id} className="atem-btn-spacer" />;
                                 const isMuted = s.isAuxOnly;
                                 return (
                                     <button
                                         key={`pvw-int-${s.id}`}
                                         className={`atem-btn-standard aux-source-btn ${isMuted ? 'btn-muted' : ''} ${getIsActivePvw(s.id) ? 'tally-green' : ''}`}
                                         onClick={() => !isMuted && sendAtemCommand('SET_PVW', { input: s.id })}
-                                        data-description={isMuted ? undefined : `Preview Source ${s.label}`}
                                         disabled={isMuted}
                                     >
                                         <span className="btn-number">{s.label}</span>
@@ -2719,114 +2659,43 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                 <div className="atem-flex-row row-three">
                     <div className="atem-section-wrapper next-trans-col">
                         <div className="atem-section-header-row">
-                            <div className="atem-section-title">NEXT TRANSITION</div>
+                            <span className="atem-section-title">NEXT TRANSITION</span>
                         </div>
                         <div className="atem-section-box">
                             <div className="two-row-grid five-cols">
                                 <div className="atem-btn-spacer" />
-                                <button 
-                                    className={`atem-btn-standard ${uskOnAir[0] ? 'tally-red' : ''}`}
-                                    onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk: 0 })}
-                                    data-description="Key 1 On Air"
-                                >
-                                    <span className="btn-number">ON AIR</span>
-                                </button>
-                                <button 
-                                    className={`atem-btn-standard ${uskOnAir[1] ? 'tally-red' : ''}`}
-                                    onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk: 1 })}
-                                    data-description="Key 2 On Air"
-                                >
-                                    <span className="btn-number">ON AIR</span>
-                                </button>
-                                <button 
-                                    className={`atem-btn-standard ${uskOnAir[2] ? 'tally-red' : ''}`}
-                                    onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk: 2 })}
-                                    data-description="Key 3 On Air"
-                                >
-                                    <span className="btn-number">ON AIR</span>
-                                </button>
-                                <button 
-                                    className={`atem-btn-standard ${uskOnAir[3] ? 'tally-red' : ''}`}
-                                    onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk: 3 })}
-                                    data-description="Key 4 On Air"
-                                >
-                                    <span className="btn-number">ON AIR</span>
-                                </button>
+                                {[0, 1, 2, 3].map(usk => (
+                                    <button key={`usk-${usk}`} className={`atem-btn-standard ${uskOnAir[usk] ? 'tally-red' : ''}`} onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk })}>
+                                        <span className="btn-number">ON AIR</span>
+                                    </button>
+                                ))}
 
-                                <button 
-                                    className={`atem-btn-standard ${(transitionSelection & 1) ? 'tally-yellow' : ''}`}
-                                    onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 1 })}
-                                    data-description="Next Transition Background"
-                                >
-                                    <span className="btn-number">BKGD</span>
-                                </button>
-                                <button 
-                                    className={`atem-btn-standard ${(transitionSelection & 2) ? 'tally-yellow' : ''}`}
-                                    onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 2 })}
-                                    data-description="Next Transition Key 1"
-                                >
-                                    <span className="btn-number">KEY 1</span>
-                                </button>
-                                <button 
-                                    className={`atem-btn-standard ${(transitionSelection & 4) ? 'tally-yellow' : ''}`}
-                                    onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 4 })}
-                                    data-description="Next Transition Key 2"
-                                >
-                                    <span className="btn-number">KEY 2</span>
-                                </button>
-                                <button 
-                                    className={`atem-btn-standard ${(transitionSelection & 8) ? 'tally-yellow' : ''}`}
-                                    onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 8 })}
-                                    data-description="Next Transition Key 3"
-                                >
-                                    <span className="btn-number">KEY 3</span>
-                                </button>
-                                <button 
-                                    className={`atem-btn-standard ${(transitionSelection & 16) ? 'tally-yellow' : ''}`}
-                                    onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit: 16 })}
-                                    data-description="Next Transition Key 4"
-                                >
-                                    <span className="btn-number">KEY 4</span>
-                                </button>
+                                {[1, 2, 4, 8, 16].map((bit, idx) => {
+                                    const labels = ['BKGD', 'KEY 1', 'KEY 2', 'KEY 3', 'KEY 4'];
+                                    return (
+                                        <button key={`trans-${bit}`} className={`atem-btn-standard ${(transitionSelection & bit) ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit })}>
+                                            <span className="btn-number">{labels[idx]}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
 
                     <div className="atem-section-wrapper dsk-col">
                         <div className="atem-section-header-row">
-                            <div className="atem-section-title">DSK 1</div>
+                            <span className="atem-section-title">DSK 1</span>
                         </div>
                         <div className="atem-section-box">
                             <div className="two-row-grid two-cols">
-                                <button 
-                                    className={`atem-btn-standard ${dsk.tie ? 'tally-yellow' : ''}`}
-                                    onClick={() => sendAtemCommand('TOGGLE_DSK_TIE', { tie: !dsk.tie })}
-                                    data-description="Tie Downstream Key 1"
-                                >
+                                <button className={`atem-btn-standard ${dsk.tie ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_DSK_TIE', { tie: !dsk.tie })}>
                                     <span className="btn-number">TIE 1</span>
                                 </button>
-                                <DragRateInput 
-                                    value={localDskRate} 
-                                    onChange={setLocalDskRate} 
-                                    onCommit={(val) => {
-                                        const r = val !== undefined ? val : (parseInt(localDskRate, 10) || 30);
-                                        sendAtemCommand('SET_DSK_RATE', { rate: r });
-                                    }}
-                                    title="DSK 1 Rate (Seconds:Frames) - Drag vertically or click to type"
-                                />
-
-                                <button 
-                                    className={`atem-btn-standard ${dsk.onAir ? 'tally-red' : ''}`}
-                                    onClick={() => sendAtemCommand('TOGGLE_DSK_ONAIR', { onAir: !dsk.onAir })}
-                                    data-description="Downstream Key 1 On Air"
-                                >
+                                <DragRateInput value={localDskRate} onChange={setLocalDskRate} onCommit={(val) => sendAtemCommand('SET_DSK_RATE', { rate: val })} />
+                                <button className={`atem-btn-standard ${dsk.onAir ? 'tally-red' : ''}`} onClick={() => sendAtemCommand('TOGGLE_DSK_ONAIR', { onAir: !dsk.onAir })}>
                                     <span className="btn-number">ON AIR</span>
                                 </button>
-                                <button 
-                                    className={`atem-btn-standard ${dsk.inTransition ? 'tally-orange' : ''}`}
-                                    onClick={() => sendAtemCommand('EXECUTE_DSK_AUTO')}
-                                    data-description="Auto Downstream Key 1"
-                                >
+                                <button className={`atem-btn-standard ${dsk.inTransition ? 'tally-orange' : ''}`} onClick={() => sendAtemCommand('EXECUTE_DSK_AUTO')}>
                                     <span className="btn-number">AUTO</span>
                                 </button>
                             </div>
@@ -2835,24 +2704,12 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
                     <div className="atem-section-wrapper ftb-col">
                         <div className="atem-section-header-row">
-                            <div className="atem-section-title">FTB</div>
+                            <span className="atem-section-title">FTB</span>
                         </div>
                         <div className="atem-section-box">
                             <div className="two-row-grid one-col">
-                                <DragRateInput 
-                                    value={localFtbRate} 
-                                    onChange={setLocalFtbRate} 
-                                    onCommit={(val) => {
-                                        const r = val !== undefined ? val : (parseInt(localFtbRate, 10) || 30);
-                                        sendAtemCommand('SET_FTB_RATE', { rate: r });
-                                    }}
-                                    title="Fade to Black Rate (Seconds:Frames) - Drag vertically or click to type"
-                                />
-                                <button 
-                                    className={`atem-btn-standard ${ftb.isFullyBlack ? 'tally-red' : (ftb.inTransition ? 'tally-orange' : '')}`}
-                                    onClick={() => sendAtemCommand('EXECUTE_FTB')}
-                                    data-description="Execute Fade to Black"
-                                >
+                                <DragRateInput value={localFtbRate} onChange={setLocalFtbRate} onCommit={(val) => sendAtemCommand('SET_FTB_RATE', { rate: val })} />
+                                <button className={`atem-btn-standard ${ftb.isFullyBlack ? 'tally-red' : (ftb.inTransition ? 'tally-orange' : '')}`} onClick={() => sendAtemCommand('EXECUTE_FTB')}>
                                     <span className="btn-number">FTB</span>
                                 </button>
                             </div>
@@ -2864,17 +2721,12 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                 <div className="atem-flex-row row-four">
                     <div className="atem-section-wrapper outputs-col">
                         <div className="atem-section-header-row">
-                            <div className="atem-section-title">OUTPUTS</div>
+                            <span className="atem-section-title">OUTPUTS</span>
                         </div>
                         <div className="atem-section-box">
                             <div className="atem-bus-grid six-cols">
                                 {auxOutputsList.map((num, idx) => (
-                                    <button
-                                        key={`out-${num}`}
-                                        className={`atem-btn-standard ${selectedOut === idx ? 'out-active' : ''}`}
-                                        onClick={() => setSelectedOut(prev => prev === idx ? null : idx)}
-                                        data-description={`Route Output ${num}`}
-                                    >
+                                    <button key={`out-${num}`} className={`atem-btn-standard ${selectedOut === idx ? 'out-active' : ''}`} onClick={() => setSelectedOut(prev => prev === idx ? null : idx)}>
                                         <span className="btn-number">OUT {num}</span>
                                     </button>
                                 ))}
@@ -2884,35 +2736,13 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
                     <div className="atem-section-wrapper transition-col">
                         <div className="atem-section-header-row">
-                            <div className="atem-section-title">TRANSITION</div>
+                            <span className="atem-section-title">TRANSITION</span>
                         </div>
                         <div className="atem-section-box">
                             <div className="atem-bus-grid three-cols">
-                                <DragRateInput 
-                                    value={localTransRate} 
-                                    onChange={setLocalTransRate} 
-                                    onCommit={(val) => {
-                                        const r = val !== undefined ? val : (parseInt(localTransRate, 10) || 30);
-                                        sendAtemCommand('SET_TRANSITION_RATE', { rate: r });
-                                    }} 
-                                    title="Auto Transition Rate (Seconds:Frames) - Drag vertically or click to type" 
-                                />
-
-                                <button 
-                                    className="atem-btn-standard cut-btn"
-                                    onClick={() => sendAtemCommand('CUT')}
-                                    data-description="Cut Transition"
-                                >
-                                    <span className="btn-number">CUT</span>
-                                </button>
-
-                                <button 
-                                    className={`atem-btn-standard auto-btn ${inTransition ? 'trans-active' : ''}`}
-                                    onClick={() => sendAtemCommand('AUTO')}
-                                    data-description="Auto Transition"
-                                >
-                                    <span className="btn-number">AUTO</span>
-                                </button>
+                                <DragRateInput value={localTransRate} onChange={setLocalTransRate} onCommit={(val) => sendAtemCommand('SET_TRANSITION_RATE', { rate: val })} />
+                                <button className="atem-btn-standard cut-btn" onClick={() => sendAtemCommand('CUT')}><span className="btn-number">CUT</span></button>
+                                <button className={`atem-btn-standard auto-btn ${inTransition ? 'trans-active' : ''}`} onClick={() => sendAtemCommand('AUTO')}><span className="btn-number">AUTO</span></button>
                             </div>
                         </div>
                     </div>
@@ -3251,7 +3081,7 @@ export default AtemMacros;
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM COMPACT MACROS PANEL (v3.11)
+// ATEM WEB MANAGER - ATEM COMPACT MACROS PANEL (v3.25)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -3271,7 +3101,7 @@ const AtemMacrosCompact = ({ connectedDevice }) => {
         );
     }
 
-    const [currentPage, setCurrentPage] = useState(1); // Page 1: 1-40, Page 2: 41-80, Page 3: 81-100
+    const [currentPage, setCurrentPage] = useState(1);
     const [selectedMacroIndex, setSelectedMacroIndex] = useState(null);
     const [autoRun, setAutoRun] = useState(true);
     
@@ -3300,9 +3130,7 @@ const AtemMacrosCompact = ({ connectedDevice }) => {
                     if (data.macroProperties && Array.isArray(data.macroProperties)) {
                         setMacroProperties(data.macroProperties);
                     }
-                } catch (err) {
-                    console.error('[AtemMacrosCompact] Parse Error:', err);
-                }
+                } catch (err) {}
             };
 
             wsRef.current.onerror = () => setBridgeStatus('offline');
@@ -3338,7 +3166,7 @@ const AtemMacrosCompact = ({ connectedDevice }) => {
 
     const handlePanelWheel = (e) => {
         const now = Date.now();
-        if (now - lastWheelTimeRef.current < 35) return;
+        if (now - lastWheelTimeRef.current < 45) return;
         
         if (Math.abs(e.deltaY) > 1 || Math.abs(e.deltaX) > 1) {
             lastWheelTimeRef.current = now;
@@ -3354,9 +3182,7 @@ const AtemMacrosCompact = ({ connectedDevice }) => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             try {
                 wsRef.current.send(JSON.stringify({ action, ip: LOCKED_ATEM_IP, ...payload }));
-            } catch (err) {
-                console.warn('[AtemMacrosCompact] Dispatch failed.');
-            }
+            } catch (err) {}
         }
     };
 
@@ -3421,98 +3247,94 @@ const AtemMacrosCompact = ({ connectedDevice }) => {
         }
     };
 
-    // Calculate indices based on page (Page 1: 0-39, Page 2: 40-79, Page 3: 80-99)
     const startIndex = (currentPage - 1) * MACROS_PER_PAGE;
-    const currentCount = currentPage === 3 ? 20 : MACROS_PER_PAGE; // Page 3 has 20 macros (81-100)
+    const currentCount = currentPage === 3 ? 20 : MACROS_PER_PAGE;
     const currentMacroIndices = Array.from({ length: currentCount }, (_, i) => startIndex + i);
 
     return (
-        <div className="atem-macros-panel compact-layout" onWheel={handlePanelWheel}>
-            <div className="macro-compact-header-row">
-                <div className="macro-title-group" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div className="atem-section-title">MACROS</div>
-                    <div className="macro-page-buttons" style={{ display: 'flex', gap: '4px' }}>
-                        {[1, 2, 3].map((pageNum) => (
-                            <button
-                                key={`macro-page-btn-${pageNum}`}
-                                className={`macro-action-text-btn ${currentPage === pageNum ? 'active-orange' : ''}`}
-                                onClick={() => setCurrentPage(pageNum)}
-                                data-description={`Switch to Macros Page ${pageNum} (${pageNum === 1 ? '1-40' : pageNum === 2 ? '41-80' : '81-100'})`}
-                            >
-                                {pageNum}
-                            </button>
-                        ))}
+        <div className="quadrant-master-panel" onWheel={handlePanelWheel}>
+            <div className="panel-layout-frame">
+                <div className="macro-compact-header-row">
+                    <div className="macro-title-group">
+                        <span className="atem-section-title">MACROS</span>
+                        <div className="macro-page-buttons">
+                            {[1, 2, 3].map((pageNum) => (
+                                <button
+                                    key={`macro-page-btn-${pageNum}`}
+                                    className={`macro-action-text-btn ${currentPage === pageNum ? 'active-orange' : ''}`}
+                                    onClick={() => setCurrentPage(pageNum)}
+                                >
+                                    {pageNum}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="macro-actions-group">
+                        <button 
+                            className={`macro-action-text-btn ${macroPlayer.loop ? 'active-orange' : ''}`}
+                            onClick={toggleLoop}
+                        >
+                            LOOP
+                        </button>
+
+                        <button 
+                            className={`macro-action-text-btn ${autoRun ? 'active-orange' : ''}`}
+                            onClick={() => setAutoRun(prev => !prev)}
+                        >
+                            AUTORUN
+                        </button>
+
+                        <button 
+                            className={`macro-action-text-btn ${selectedMacroIndex !== null ? 'active-green' : 'disabled'}`}
+                            onClick={handlePlayClick}
+                            disabled={selectedMacroIndex === null}
+                        >
+                            PLAY
+                        </button>
+
+                        <button 
+                            className={`macro-action-text-btn ${macroPlayer.isRunning ? 'active-red' : 'disabled'}`}
+                            onClick={stopMacro}
+                            disabled={!macroPlayer.isRunning}
+                        >
+                            STOP
+                        </button>
                     </div>
                 </div>
 
-                <div className="macro-actions-group">
-                    <button 
-                        className={`macro-action-text-btn ${macroPlayer.loop ? 'active-orange' : ''}`}
-                        onClick={toggleLoop}
-                        data-description="Loop Macro"
-                    >
-                        LOOP
-                    </button>
+                <div className="macro-section-box">
+                    <div className="macro-matrix-grid-compact">
+                        {currentMacroIndices.map((macroIdx) => {
+                            const rawName = getMacroName(macroIdx);
+                            const rawDesc = getMacroDescription(macroIdx);
+                            const displayName = rawName ? rawName : '';
+                            const displayNum = (macroIdx + 1).toString().padStart(2, '0');
+                            const isSelected = selectedMacroIndex === macroIdx;
+                            const isRunning = macroPlayer.isRunning && macroPlayer.macroIndex === macroIdx;
 
-                    <button 
-                        className={`macro-action-text-btn ${autoRun ? 'active-orange' : ''}`}
-                        onClick={() => setAutoRun(prev => !prev)}
-                        data-description={`AUTORUN MACRO: ${autoRun ? 'ON' : 'OFF'}`}
-                    >
-                        AUTORUN
-                    </button>
+                            const isOverflowing = displayName.length > 18;
+                            const hasNote = rawDesc && rawDesc.trim() !== '';
+                            
+                            const tooltipTitle = (isOverflowing || hasNote) ? displayName : undefined;
+                            const tooltipNote = hasNote ? rawDesc : undefined;
 
-                    <button 
-                        className={`macro-action-text-btn ${selectedMacroIndex !== null ? 'active-green' : 'disabled'}`}
-                        onClick={handlePlayClick}
-                        data-description="Run Selected Macro"
-                        disabled={selectedMacroIndex === null}
-                    >
-                        PLAY
-                    </button>
-
-                    <button 
-                        className={`macro-action-text-btn ${macroPlayer.isRunning ? 'active-red' : 'disabled'}`}
-                        onClick={stopMacro}
-                        data-description="Stop Macro"
-                        disabled={!macroPlayer.isRunning}
-                    >
-                        STOP
-                    </button>
-                </div>
-            </div>
-
-            <div className="macro-section-box">
-                <div className="macro-matrix-grid-compact">
-                    {currentMacroIndices.map((macroIdx) => {
-                        const rawName = getMacroName(macroIdx);
-                        const rawDesc = getMacroDescription(macroIdx);
-                        const displayName = rawName ? rawName : '';
-                        const displayNum = (macroIdx + 1).toString().padStart(2, '0');
-                        const isSelected = selectedMacroIndex === macroIdx;
-                        const isRunning = macroPlayer.isRunning && macroPlayer.macroIndex === macroIdx;
-
-                        const isOverflowing = displayName.length > 18;
-                        const hasNote = rawDesc && rawDesc.trim() !== '';
-                        
-                        const tooltipTitle = (isOverflowing || hasNote) ? displayName : undefined;
-                        const tooltipNote = hasNote ? rawDesc : undefined;
-
-                        return (
-                            <button
-                                key={`macro-compact-btn-${macroIdx}`}
-                                className={`macro-compact-btn ${isSelected ? 'selected' : ''} ${isRunning ? 'running' : ''}`}
-                                onClick={() => handleMacroClick(macroIdx)}
-                                data-description={tooltipTitle}
-                                data-note={tooltipNote}
-                            >
-                                <div className="macro-compact-content">
-                                    <span className="macro-compact-num">{displayNum}</span>
-                                    <span className="macro-compact-text">{displayName}</span>
-                                </div>
-                            </button>
-                        );
-                    })}
+                            return (
+                                <button
+                                    key={`macro-compact-btn-${macroIdx}`}
+                                    className={`macro-compact-btn ${isSelected ? 'selected' : ''} ${isRunning ? 'running' : ''}`}
+                                    onClick={() => handleMacroClick(macroIdx)}
+                                    data-description={tooltipTitle}
+                                    data-note={tooltipNote}
+                                >
+                                    <div className="macro-compact-content">
+                                        <span className="macro-compact-num">{displayNum}</span>
+                                        <span className="macro-compact-text">{displayName}</span>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
         </div>
@@ -3525,7 +3347,7 @@ export default AtemMacrosCompact;
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.26)
+// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.25)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -3568,15 +3390,12 @@ const MediaPool = () => {
                         if (data.mediaPool) {
                             if (data.mediaPool.stills) {
                                 setAtemStills(data.mediaPool.stills);
-                                // Request missing still images sequentially with a stagger to protect ATEM UDP channel
                                 data.mediaPool.stills.forEach((still, idx) => {
                                     if (still.isUsed && !requestedStillsRef.current.has(idx) && !downloadedStillsRef.current[idx]) {
                                         requestedStillsRef.current.add(idx);
-                                        setTimeout(() => {
-                                            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                                                wsRef.current.send(JSON.stringify({ action: 'GET_STILL', ip: LOCKED_ATEM_IP, index: idx }));
-                                            }
-                                        }, idx * 300);
+                                        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                                            wsRef.current.send(JSON.stringify({ action: 'GET_STILL', ip: LOCKED_ATEM_IP, index: idx }));
+                                        }
                                     }
                                 });
                             }
@@ -3617,7 +3436,7 @@ const MediaPool = () => {
                 try { wsRef.current.close(); } catch (e) {}
             }
         };
-    }, []); // Empty dependency array permanently resolves the infinite reconnect loop
+    }, []);
 
     const handlePanelWheel = (e) => {
         const now = Date.now();
@@ -3720,7 +3539,7 @@ const MediaPool = () => {
         }
     };
 
-    const MediaSlot = ({ index, type, startIndex = 0 }) => {
+    const MediaSlot = ({ index, type, startIndex = 0, gridRow, gridCol }) => {
         const slotNumber = startIndex + index + 1;
         const actualSlotIndex = startIndex + index;
         const dropId = `${type}-${actualSlotIndex}`;
@@ -3745,7 +3564,7 @@ const MediaPool = () => {
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, actualSlotIndex, type)}
                 onClick={() => handleSlotClick(actualSlotIndex, type)}
-                style={{ opacity: isUploading ? 0.5 : 1 }}
+                style={{ opacity: isUploading ? 0.5 : 1, gridRow: gridRow, gridColumn: gridCol }}
             >
                 {isMp1 && <div className="mp-badge" style={{ left: '4px' }}>1</div>}
                 {isMp2 && <div className="mp-badge" style={{ left: isMp1 ? '24px' : '4px' }}>2</div>}
@@ -3754,7 +3573,7 @@ const MediaPool = () => {
                     {displaySrc ? (
                         <img src={displaySrc} alt={`Slot ${slotNumber}`} className="mp-thumbnail" />
                     ) : (
-                        <div className="mp-empty-circle" style={{ borderColor: isUsed ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.08)' }}>
+                        <div className="mp-empty-circle" style={{ borderColor: isUsed ? 'var(--atem-border)' : 'var(--atem-border)' }}>
                             {isUploading ? 'UP...' : slotNumber}
                         </div>
                     )}
@@ -3770,71 +3589,66 @@ const MediaPool = () => {
     };
 
     return (
-        <div className="atem-macros-panel compact-layout" onWheel={handlePanelWheel}>
-            <div className="macro-compact-header-row">
-                <div className="macro-title-group" style={{ display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
-                    <div className="atem-section-title">STILLS</div>
-                    <div className="macro-page-buttons" style={{ display: 'flex', gap: '4px' }}>
-                        {[1, 2].map((pageNum) => (
-                            <button
-                                key={`mp-page-btn-${pageNum}`}
-                                className={`macro-action-text-btn ${currentPage === pageNum ? 'active-orange' : ''}`}
-                                onClick={() => setCurrentPage(pageNum)}
-                            >
-                                {pageNum}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="macro-actions-group">
-                    <button 
-                        className={`macro-action-text-btn ${selectedMp === 1 ? 'active-orange' : ''}`}
-                        onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
-                        data-description="Select Media Player 1 to assign still/clip"
-                    >
-                        MP 1
-                    </button>
-                    <button 
-                        className={`macro-action-text-btn ${selectedMp === 2 ? 'active-orange' : ''}`}
-                        onClick={() => setSelectedMp(prev => prev === 2 ? null : 2)}
-                        data-description="Select Media Player 2 to assign still/clip"
-                    >
-                        MP 2
-                    </button>
-                </div>
-            </div>
-
-            {currentPage === 1 ? (
-                <div className="macro-section-box">
-                    <div className="mp-grid">
-                        {Array.from({ length: 16 }).map((_, idx) => (
-                            <MediaSlot key={`still-${idx}`} index={idx} type="still" startIndex={0} />
-                        ))}
-                    </div>
-                </div>
-            ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', width: '786px', margin: '0 auto' }}>
-                    <div className="macro-section-box" style={{ marginBottom: '76px' }}>
-                        <div className="mp-grid one-row">
-                            {Array.from({ length: 4 }).map((_, idx) => (
-                                <MediaSlot key={`still-p2-${idx}`} index={idx} type="still" startIndex={16} />
+        <div className="quadrant-master-panel" onWheel={handlePanelWheel}>
+            <div className="panel-layout-frame">
+                <div className="macro-compact-header-row">
+                    <div className="macro-title-group">
+                        <span className="atem-section-title">STILLS</span>
+                        <div className="macro-page-buttons">
+                            {[1, 2].map((pageNum) => (
+                                <button
+                                    key={`mp-page-btn-${pageNum}`}
+                                    className={`macro-action-text-btn ${currentPage === pageNum ? 'active-orange' : ''}`}
+                                    onClick={() => setCurrentPage(pageNum)}
+                                >
+                                    {pageNum}
+                                </button>
                             ))}
                         </div>
                     </div>
 
-                    <div className="atem-section-header-row">
-                        <div className="atem-section-title">CLIPS</div>
+                    <div className="macro-actions-group">
+                        <button 
+                            className={`macro-action-text-btn ${selectedMp === 1 ? 'active-orange' : ''}`}
+                            onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
+                        >
+                            MP 1
+                        </button>
+                        <button 
+                            className={`macro-action-text-btn ${selectedMp === 2 ? 'active-orange' : ''}`}
+                            onClick={() => setSelectedMp(prev => prev === 2 ? null : 2)}
+                        >
+                            MP 2
+                        </button>
                     </div>
+                </div>
+
+                {currentPage === 1 ? (
                     <div className="macro-section-box">
-                        <div className="mp-grid one-row">
-                            {Array.from({ length: 4 }).map((_, idx) => (
-                                <MediaSlot key={`clip-${idx}`} index={idx} type="clip" startIndex={0} />
+                        <div className="mp-grid">
+                            {Array.from({ length: 16 }).map((_, idx) => (
+                                <MediaSlot key={`still-${idx}`} index={idx} type="still" startIndex={0} />
                             ))}
                         </div>
                     </div>
-                </div>
-            )}
+                ) : (
+                    <div className="macro-section-box">
+                        <div className="mp-grid-page-2">
+                            {Array.from({ length: 4 }).map((_, idx) => (
+                                <MediaSlot key={`still-p2-${idx}`} index={idx} type="still" startIndex={16} gridRow={1} gridCol={idx + 1} />
+                            ))}
+
+                            <div className="atem-section-title" style={{ gridRow: 2, gridColumn: '1 / -1', alignSelf: 'end' }}>
+                                CLIPS
+                            </div>
+
+                            {Array.from({ length: 4 }).map((_, idx) => (
+                                <MediaSlot key={`clip-${idx}`} index={idx} type="clip" startIndex={0} gridRow={3} gridCol={idx + 1} />
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

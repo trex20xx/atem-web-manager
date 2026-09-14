@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.26)
+// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.25)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -44,15 +44,12 @@ const MediaPool = () => {
                         if (data.mediaPool) {
                             if (data.mediaPool.stills) {
                                 setAtemStills(data.mediaPool.stills);
-                                // Request missing still images sequentially with a stagger to protect ATEM UDP channel
                                 data.mediaPool.stills.forEach((still, idx) => {
                                     if (still.isUsed && !requestedStillsRef.current.has(idx) && !downloadedStillsRef.current[idx]) {
                                         requestedStillsRef.current.add(idx);
-                                        setTimeout(() => {
-                                            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                                                wsRef.current.send(JSON.stringify({ action: 'GET_STILL', ip: LOCKED_ATEM_IP, index: idx }));
-                                            }
-                                        }, idx * 300);
+                                        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                                            wsRef.current.send(JSON.stringify({ action: 'GET_STILL', ip: LOCKED_ATEM_IP, index: idx }));
+                                        }
                                     }
                                 });
                             }
@@ -93,7 +90,7 @@ const MediaPool = () => {
                 try { wsRef.current.close(); } catch (e) {}
             }
         };
-    }, []); // Empty dependency array permanently resolves the infinite reconnect loop
+    }, []);
 
     const handlePanelWheel = (e) => {
         const now = Date.now();
@@ -196,7 +193,7 @@ const MediaPool = () => {
         }
     };
 
-    const MediaSlot = ({ index, type, startIndex = 0 }) => {
+    const MediaSlot = ({ index, type, startIndex = 0, gridRow, gridCol }) => {
         const slotNumber = startIndex + index + 1;
         const actualSlotIndex = startIndex + index;
         const dropId = `${type}-${actualSlotIndex}`;
@@ -221,7 +218,7 @@ const MediaPool = () => {
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, actualSlotIndex, type)}
                 onClick={() => handleSlotClick(actualSlotIndex, type)}
-                style={{ opacity: isUploading ? 0.5 : 1 }}
+                style={{ opacity: isUploading ? 0.5 : 1, gridRow: gridRow, gridColumn: gridCol }}
             >
                 {isMp1 && <div className="mp-badge" style={{ left: '4px' }}>1</div>}
                 {isMp2 && <div className="mp-badge" style={{ left: isMp1 ? '24px' : '4px' }}>2</div>}
@@ -230,7 +227,7 @@ const MediaPool = () => {
                     {displaySrc ? (
                         <img src={displaySrc} alt={`Slot ${slotNumber}`} className="mp-thumbnail" />
                     ) : (
-                        <div className="mp-empty-circle" style={{ borderColor: isUsed ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.08)' }}>
+                        <div className="mp-empty-circle" style={{ borderColor: isUsed ? 'var(--atem-border)' : 'var(--atem-border)' }}>
                             {isUploading ? 'UP...' : slotNumber}
                         </div>
                     )}
@@ -246,71 +243,66 @@ const MediaPool = () => {
     };
 
     return (
-        <div className="atem-macros-panel compact-layout" onWheel={handlePanelWheel}>
-            <div className="macro-compact-header-row">
-                <div className="macro-title-group" style={{ display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
-                    <div className="atem-section-title">STILLS</div>
-                    <div className="macro-page-buttons" style={{ display: 'flex', gap: '4px' }}>
-                        {[1, 2].map((pageNum) => (
-                            <button
-                                key={`mp-page-btn-${pageNum}`}
-                                className={`macro-action-text-btn ${currentPage === pageNum ? 'active-orange' : ''}`}
-                                onClick={() => setCurrentPage(pageNum)}
-                            >
-                                {pageNum}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="macro-actions-group">
-                    <button 
-                        className={`macro-action-text-btn ${selectedMp === 1 ? 'active-orange' : ''}`}
-                        onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
-                        data-description="Select Media Player 1 to assign still/clip"
-                    >
-                        MP 1
-                    </button>
-                    <button 
-                        className={`macro-action-text-btn ${selectedMp === 2 ? 'active-orange' : ''}`}
-                        onClick={() => setSelectedMp(prev => prev === 2 ? null : 2)}
-                        data-description="Select Media Player 2 to assign still/clip"
-                    >
-                        MP 2
-                    </button>
-                </div>
-            </div>
-
-            {currentPage === 1 ? (
-                <div className="macro-section-box">
-                    <div className="mp-grid">
-                        {Array.from({ length: 16 }).map((_, idx) => (
-                            <MediaSlot key={`still-${idx}`} index={idx} type="still" startIndex={0} />
-                        ))}
-                    </div>
-                </div>
-            ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', width: '786px', margin: '0 auto' }}>
-                    <div className="macro-section-box" style={{ marginBottom: '76px' }}>
-                        <div className="mp-grid one-row">
-                            {Array.from({ length: 4 }).map((_, idx) => (
-                                <MediaSlot key={`still-p2-${idx}`} index={idx} type="still" startIndex={16} />
+        <div className="quadrant-master-panel" onWheel={handlePanelWheel}>
+            <div className="panel-layout-frame">
+                <div className="macro-compact-header-row">
+                    <div className="macro-title-group">
+                        <span className="atem-section-title">STILLS</span>
+                        <div className="macro-page-buttons">
+                            {[1, 2].map((pageNum) => (
+                                <button
+                                    key={`mp-page-btn-${pageNum}`}
+                                    className={`macro-action-text-btn ${currentPage === pageNum ? 'active-orange' : ''}`}
+                                    onClick={() => setCurrentPage(pageNum)}
+                                >
+                                    {pageNum}
+                                </button>
                             ))}
                         </div>
                     </div>
 
-                    <div className="atem-section-header-row">
-                        <div className="atem-section-title">CLIPS</div>
+                    <div className="macro-actions-group">
+                        <button 
+                            className={`macro-action-text-btn ${selectedMp === 1 ? 'active-orange' : ''}`}
+                            onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
+                        >
+                            MP 1
+                        </button>
+                        <button 
+                            className={`macro-action-text-btn ${selectedMp === 2 ? 'active-orange' : ''}`}
+                            onClick={() => setSelectedMp(prev => prev === 2 ? null : 2)}
+                        >
+                            MP 2
+                        </button>
                     </div>
+                </div>
+
+                {currentPage === 1 ? (
                     <div className="macro-section-box">
-                        <div className="mp-grid one-row">
-                            {Array.from({ length: 4 }).map((_, idx) => (
-                                <MediaSlot key={`clip-${idx}`} index={idx} type="clip" startIndex={0} />
+                        <div className="mp-grid">
+                            {Array.from({ length: 16 }).map((_, idx) => (
+                                <MediaSlot key={`still-${idx}`} index={idx} type="still" startIndex={0} />
                             ))}
                         </div>
                     </div>
-                </div>
-            )}
+                ) : (
+                    <div className="macro-section-box">
+                        <div className="mp-grid-page-2">
+                            {Array.from({ length: 4 }).map((_, idx) => (
+                                <MediaSlot key={`still-p2-${idx}`} index={idx} type="still" startIndex={16} gridRow={1} gridCol={idx + 1} />
+                            ))}
+
+                            <div className="atem-section-title" style={{ gridRow: 2, gridColumn: '1 / -1', alignSelf: 'end' }}>
+                                CLIPS
+                            </div>
+
+                            {Array.from({ length: 4 }).map((_, idx) => (
+                                <MediaSlot key={`clip-${idx}`} index={idx} type="clip" startIndex={0} gridRow={3} gridCol={idx + 1} />
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

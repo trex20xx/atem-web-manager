@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.25)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.26)
  * =========================================================================
  */
 
@@ -237,6 +237,8 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     background:var(--panel); 
     display:flex; 
     flex-direction:column; 
+    justify-content: center;
+    align-items: center;
     position:relative; 
     clip-path: inset(0 round var(--panel-radius)); 
     -webkit-transform: translateZ(0); 
@@ -246,9 +248,39 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     overflow: hidden !important;
     height: 100% !important;
     width: 100% !important;
+    padding: 10px;
+    box-sizing: border-box;
 }
 .panel.drag-over-quadrant { background:rgba(150,150,150,0.2); }
 .panel-content, .stream-container, .stream-video-surface, iframe { border-radius: 0 !important; }
+
+/* Core Inner Panel Block (Strictly 786px x 424px inside 16:9 Quadrants) */
+.panel-layout-frame {
+    width: 786px;
+    height: 424px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    position: relative;
+    box-sizing: border-box;
+}
+
+/* Global Quadrant Inner Normalization */
+.quadrant-master-panel {
+    width: 100%; 
+    height: 100%; 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: center; 
+    align-items: center;
+    padding: 10px; 
+    background: var(--panel); 
+    box-sizing: border-box; 
+    font-family: var(--le-font-family); 
+    color: var(--text); 
+    user-select: none; 
+    overflow: hidden; 
+}
 
 .panel-muted-num { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:120px; font-weight:800; color:rgba(150,150,150,0.05); pointer-events:none; z-index:1; user-select:none; -webkit-user-select:none; }
 .panel-content { 
@@ -270,7 +302,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     height: 100%;
     display: flex;
     flex-direction: column;
-    padding: 10px;
+    padding: 0;
     box-sizing: border-box;
     position: relative;
     user-select: none;
@@ -279,9 +311,9 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 
 .panel-idle-header {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: flex-start;
-    padding: 0;
+    padding: 0 5px;
     height: 14px;
     min-height: 14px;
     flex-shrink: 0;
@@ -727,12 +759,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 /* =========================================================================
    MEDIA POOL PANEL (QUADRANT 2)
    ========================================================================= */
-.media-pool-panel {
-    width: 100%; height: 100%; display: flex; flex-direction: column;
-    padding: 10px; background: var(--panel); box-sizing: border-box;
-    position: relative; user-select: none; overflow: hidden;
-}
-
 .mp-grid {
     display: grid;
     grid-template-columns: repeat(4, 191px);
@@ -741,12 +767,8 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     width: 100%;
 }
 
-.mp-grid.one-row {
-    grid-template-rows: 96px;
-}
-
 .mp-slot {
-    background: #181818;
+    background: var(--panel2);
     border: 1px solid var(--atem-border);
     border-radius: var(--ui-radius);
     display: flex;
@@ -765,7 +787,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .mp-thumb-container {
     flex: 1;
     min-height: 0;
-    background: #1a1a1a;
+    background: var(--atem-bg);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -796,11 +818,11 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid var(--atem-border);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: rgba(255,255,255,0.15);
+    color: var(--muted);
     font-size: 13px;
     font-weight: 600;
 }
@@ -814,7 +836,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 .mp-label-bar {
     height: 20px;
-    background: #242424;
+    background: var(--atem-hl);
     display: flex;
     align-items: center;
     padding: 0 4px;
@@ -823,8 +845,8 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 }
 
 .mp-label-num {
-    border: 1px solid rgba(255,255,255,0.15);
-    color: rgba(255,255,255,0.4);
+    border: 1px solid var(--atem-border);
+    color: var(--muted);
     padding: 0 3px;
     font-size: 9px;
     border-radius: 2px;
@@ -832,7 +854,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 }
 
 .mp-label-text {
-    color: var(--muted);
+    color: var(--text);
     font-size: 10px;
     white-space: nowrap;
     overflow: hidden;
@@ -843,62 +865,89 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 /* =========================================================================
    ATEM SWITCHER BUS CSS (QUADRANT 3)
    ========================================================================= */
-.atem-constellation-panel { 
-    width: 100%; 
-    height: 100%; 
-    display: flex; 
-    flex-direction: column; 
-    justify-content: center; 
-    padding: 10px; 
-    background: var(--panel); 
-    box-sizing: border-box; 
-    font-family: var(--le-font-family); 
-    color: var(--text); 
-    user-select: none; 
-    overflow: hidden; 
-}
 
-/* Connection Status Indicator in Program row - flush with right edge of Input 10 button (5px from box border) */
+/* Connection Status Indicator in Program row */
 .atem-bus-status { 
-    display: inline-flex; 
+    display: flex; 
     align-items: center; 
     gap: 6px; 
-    margin: 0 !important;
-    padding-right: 5px !important;
+    margin: 0;
+    padding: 0;
     height: 14px;
-    line-height: 14px;
 }
 .atem-bus-online-dot { 
-    width: 8px; 
-    height: 8px; 
-    min-width: 8px;
+    width: 7px; 
+    height: 7px; 
+    min-width: 7px;
     border-radius: 50%; 
     background: var(--green); 
-    display: inline-block; 
-    flex-shrink: 0; 
-    vertical-align: middle;
+    display: block; 
 }
 .atem-bus-online-dot.offline { background: var(--red); }
-.atem-bus-ip { 
-    font-size: 11px; 
-    color: var(--muted); 
-    font-family: var(--le-font-family); 
-    font-weight: 500; 
-    line-height: 14px;
+
+/* Unified Typography Core for all Header Elements */
+.atem-section-title,
+.macro-action-text-btn,
+.atem-bus-ip {
+    font-family: var(--le-font-family);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    line-height: 11px; /* Exact match to font size removes flex baseline jumping */
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    display: block;
 }
 
-/* Content Layout: 4 rows spaced out equally, centered perfectly at 424px internal height */
-.atem-bus-content-layout { 
-    display: flex; 
-    flex-direction: column; 
-    justify-content: center;
-    align-items: center;
-    gap: 16px;
-    flex: 1; 
-    min-height: 0; 
+.macro-action-text-btn {
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+.macro-action-text-btn:hover:not(:disabled) {
+    color: var(--text);
+}
+.macro-action-text-btn.active-orange { color: var(--orange-hl) !important; opacity: 1; }
+.macro-action-text-btn.active-green { color: #2e7d32 !important; opacity: 1; }
+.macro-action-text-btn.active-red { color: #d32f2f !important; opacity: 1; }
+.macro-action-text-btn.disabled { opacity: 0.35; cursor: default !important; pointer-events: none; }
+
+/* Global Header Flex Row Containers */
+.atem-section-header-row,
+.macro-compact-header-row {
+    display: flex;
+    align-items: center; /* Center horizontally ignoring internal box models */
+    justify-content: space-between;
+    width: 786px;
+    height: 14px;
+    margin: 0 auto 4px auto;
+    padding: 0 5px; /* Global 5px inset matching the button edges */
+    box-sizing: border-box;
+}
+
+.atem-flex-row .atem-section-header-row {
     width: 100%;
-    height: 100%;
-    overflow: hidden; 
+    padding: 0 5px;
+}
+
+/* Flex Groups inside Headers */
+.macro-title-group,
+.macro-actions-group {
+    display: flex;
+    align-items: center;
+    height: 14px;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+}
+
+.macro-page-buttons {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 /* 74px x 36px Widened Grid Button Dimensions */
@@ -927,26 +976,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     opacity: 0.35 !important;
     pointer-events: none !important;
     cursor: default !important;
-}
-
-/* Multiline Button Label */
-.btn-multiline {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    line-height: 1.1;
-    pointer-events: none;
-}
-.btn-multiline span {
-    font-size: 11px;
-    font-weight: var(--device-font-weight);
-    font-family: var(--le-font-family);
-}
-.btn-multiline .btn-subtext {
-    font-size: 9px;
-    font-weight: 700;
-    opacity: 0.9;
 }
 
 /* Tally Active States */
@@ -992,33 +1021,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     display: flex;
     flex-direction: column;
     width: 786px;
-}
-
-/* Program Header Row: baseline alignment for perfect horizontal font alignment */
-.atem-section-header-row {
-    display: flex;
-    align-items: flex-end; 
-    justify-content: space-between;
-    width: 100%;
-    height: 14px;
-    margin: 0 0 4px 0;
-    padding: 0;
-}
-
-/* Titles: removed margin-bottom to ensure absolute bottom anchor in flex-end */
-.atem-section-title {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--muted);
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    text-align: left;
-    margin: 0 !important;
-    padding-left: 5px !important;
-    height: 14px;
-    line-height: 14px;
-    display: flex;
-    align-items: flex-end;
 }
 
 .router-label { color: var(--orange-hl); }
@@ -1121,68 +1123,35 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-bus-lock-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
 .atem-bus-lock-desc strong { color: var(--text); font-family: monospace; }
 
-/* =========================================================================
-   ATEM MACROS PANEL (QUADRANT 4)
-   ========================================================================= */
-.atem-macros-panel.compact-layout {
+/* CORE ABSOLUTE 424px PARITY ARCHITECTURE */
+.panel-layout-frame {
+    width: 786px;
+    height: 424px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    position: relative;
+    box-sizing: border-box;
+}
+
+/* Global Quadrant Inner Normalization */
+.quadrant-master-panel {
     width: 100%; 
     height: 100%; 
     display: flex; 
     flex-direction: column; 
     justify-content: center; 
+    align-items: center;
     padding: 10px; 
     background: var(--panel); 
-    box-sizing: border-box;
+    box-sizing: border-box; 
     font-family: var(--le-font-family); 
     color: var(--text); 
     user-select: none; 
     overflow: hidden; 
 }
 
-/* Header row matches Program row baseline and 14px text metrics exactly */
-.macro-compact-header-row {
-    display: flex; 
-    align-items: flex-end; 
-    justify-content: space-between;
-    width: 786px;
-    margin: 0 auto 4px auto;
-    height: 14px;
-    padding: 0;
-}
-
-.macro-actions-group {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 !important;
-    padding-right: 5px !important;
-    height: 14px;
-}
-
-.macro-action-text-btn {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    font-family: var(--le-font-family);
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--muted);
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    transition: color 0.15s ease, background 0.15s ease;
-    padding: 2px 6px;
-    border-radius: 4px;
-}
-.macro-action-text-btn:hover:not(:disabled) {
-    background: rgba(150, 150, 150, 0.15);
-    color: var(--text);
-}
-.macro-action-text-btn.active-orange { color: var(--orange-hl) !important; opacity: 1; }
-.macro-action-text-btn.active-green { color: #2e7d32 !important; opacity: 1; }
-.macro-action-text-btn.active-red { color: #d32f2f !important; opacity: 1; }
-.macro-action-text-btn.disabled { opacity: 0.35; cursor: default !important; pointer-events: none; }
-
-/* Enclosed bounding box: 786px wide with 4px padding all around */
+/* MACRO PANEL OVERRIDES */
 .macro-section-box {
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.05);
@@ -1206,7 +1175,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     align-content: start; 
 }
 
-/* Buttons designed identically to Mixer switcher buttons (36px height) */
 .macro-compact-btn {
     background: var(--panel2);
     border: 1px solid var(--atem-border) !important;
@@ -1235,7 +1203,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     height: 100%;
 }
 
-/* Fixed number width: 24px */
 .macro-compact-num {
     font-family: var(--le-font-family);
     font-size: var(--le-font-size);
@@ -1248,7 +1215,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     line-height: 1;
 }
 
-/* Left-justified macro text preserving original casing */
 .macro-compact-text {
     font-family: var(--le-font-family);
     font-size: var(--le-font-size);

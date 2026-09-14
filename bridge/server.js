@@ -1,5 +1,5 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.26)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.25)
 // =========================================================================
 // Bidirectional switcher bus, macro execution, aux router, DSK, FTB, and Media Pool.
 
@@ -12,8 +12,8 @@ const BRIDGE_PORT = 8080;
 const VITE_PORT = 3000;
 const startTime = Date.now();
 
-console.log(`[ATEM Bridge v3.26] Starting bridge service...`);
-console.log(`[ATEM Bridge v3.26] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v3.25] Starting bridge service...`);
+console.log(`[ATEM Bridge v3.25] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 let atem = new Atem();
 let isAtemConnected = false;
@@ -36,7 +36,7 @@ let mediaPlayers = [
     { sourceType: 1, stillIndex: 1, clipIndex: 0 }
 ];
 
-// Single-threaded Sequential Data Transfer Queue (ATEM UDP hardware can only handle 1 transfer at a time)
+// Single-threaded Sequential Data Transfer Queue
 let isTransferring = false;
 const transferQueue = [];
 
@@ -56,7 +56,7 @@ function processTransferQueue() {
         })
         .finally(() => {
             isTransferring = false;
-            setTimeout(processTransferQueue, 350); // 350ms breather between transfers to prevent ATEM UDP drop
+            setTimeout(processTransferQueue, 100); 
         });
 }
 
@@ -187,7 +187,6 @@ function setupAtemListeners() {
         console.log(`[ATEM Bridge] >>> DISCONNECTED: Lost UDP link to physical ATEM at ${ATEM_IP} <<<`);
         broadcastState();
         
-        // Automatic reconnection loop
         if (!reconnectTimer) {
             reconnectTimer = setTimeout(() => {
                 reconnectTimer = null;
@@ -348,7 +347,6 @@ wss.on('connection', (ws) => {
     });
 });
 
-// Watchdog: Grace period of 30 seconds before terminating on Vite loss
 setInterval(() => {
     const req = http.get(`http://localhost:${VITE_PORT}`, () => {});
     req.on('error', (err) => {
