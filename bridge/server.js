@@ -1,5 +1,5 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.22)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.21)
 // =========================================================================
 // Bidirectional switcher bus, macro execution, aux router, DSK, FTB, and Media Pool.
 
@@ -12,8 +12,8 @@ const BRIDGE_PORT = 8080;
 const VITE_PORT = 3000;
 const startTime = Date.now();
 
-console.log(`[ATEM Bridge v3.22] Starting bridge service...`);
-console.log(`[ATEM Bridge v3.22] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v3.21] Starting bridge service...`);
+console.log(`[ATEM Bridge v3.21] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 let atem = new Atem();
 let isAtemConnected = false;
@@ -184,7 +184,6 @@ wss.on('connection', (ws) => {
             } else if (data.action === 'SET_TRANSITION_RATE' && data.rate !== undefined) {
                 atem.setMixTransitionSettings({ rate: parseInt(data.rate, 10) || 30 }, 0).catch(e => {});
             } else if (data.action === 'UPLOAD_STILL' && data.rgbaBase64) {
-                // Upload logic: Decode base64 RGBA back to Buffer and push to ATEM
                 const buffer = Buffer.from(data.rgbaBase64, 'base64');
                 console.log(`[ATEM Bridge] Uploading image to ATEM Still Slot ${data.index + 1}...`);
                 atem.dataTransferManager.uploadStill(data.index, buffer, data.name, '').then(() => {
@@ -193,27 +192,65 @@ wss.on('connection', (ws) => {
                 }).catch(e => console.error('[ATEM Bridge] Still upload failed:', e.message));
                 
             } else if (data.action === 'GET_STILL' && data.index !== undefined) {
-                // Download logic: Fetch from ATEM, wrap in BMP header, encode base64, send to UI
                 if (atem.dataTransferManager && typeof atem.dataTransferManager.downloadStill === 'function') {
                     atem.dataTransferManager.downloadStill(data.index).then(buffer => {
                         if (buffer && buffer.length > 0) {
-                            const width = 1920; const height = 1080;
-                            const fileSize = 54 + buffer.length;
+                            const width = 1920; 
+                            const height = 1080;
+                            const pixelCount = width * height;
+                            let rgbaBuffer;
+                            
+                            // ATEM Constellation uses YUV 4:2:2 (UYVY) so the buffer is 1920x1080x2 bytes
+                            if (buffer.length === pixelCount * 2) {
+                                rgbaBuffer = Buffer.alloc(pixelCount * 4);
+                                for (let i = 0, j = 0; i < buffer.length; i += 4, j += 8) {
+                                    const u = buffer[i];
+                                    const y0 = buffer[i+1];
+                                    const v = buffer[i+2];
+                                    const y1 = buffer[i+3];
+
+                                    const c = y0 - 16;
+                                    const d = u - 128;
+                                    const e = v - 128;
+                                    const c2 = y1 - 16;
+
+                                    // Pixel 1 (BGRA output for BMP)
+                                    rgbaBuffer[j+0] = Math.max(0, Math.min(255, (298 * c + 516 * d + 128) >> 8)); // B
+                                    rgbaBuffer[j+1] = Math.max(0, Math.min(255, (298 * c - 100 * d - 208 * e + 128) >> 8)); // G
+                                    rgbaBuffer[j+2] = Math.max(0, Math.min(255, (298 * c + 409 * e + 128) >> 8)); // R
+                                    rgbaBuffer[j+3] = 255; // A
+
+                                    // Pixel 2 (BGRA output for BMP)
+                                    rgbaBuffer[j+4] = Math.max(0, Math.min(255, (298 * c2 + 516 * d + 128) >> 8)); // B
+                                    rgbaBuffer[j+5] = Math.max(0, Math.min(255, (298 * c2 - 100 * d - 208 * e + 128) >> 8)); // G
+                                    rgbaBuffer[j+6] = Math.max(0, Math.min(255, (298 * c2 + 409 * e + 128) >> 8)); // R
+                                    rgbaBuffer[j+7] = 255; // A
+                                }
+                            } else if (buffer.length === pixelCount * 4) { // Fallback for RGBA decoding ATEMs
+                                rgbaBuffer = Buffer.alloc(pixelCount * 4);
+                                for (let i = 0; i < buffer.length; i += 4) {
+                                    rgbaBuffer[i]   = buffer[i+2]; // B
+                                    rgbaBuffer[i+1] = buffer[i+1]; // G
+                                    rgbaBuffer[i+2] = buffer[i];   // R
+                                    rgbaBuffer[i+3] = buffer[i+3]; // A
+                                }
+                            } else {
+                                console.error(`[ATEM Bridge] Unknown image buffer length: ${buffer.length}`);
+                                return;
+                            }
+
+                            const fileSize = 54 + rgbaBuffer.length;
                             const bmp = Buffer.alloc(fileSize);
                             bmp.write('BM', 0);
                             bmp.writeUInt32LE(fileSize, 2);
                             bmp.writeUInt32LE(54, 10);
                             bmp.writeUInt32LE(40, 14);
                             bmp.writeUInt32LE(width, 18);
-                            bmp.writeInt32LE(-height, 22);
+                            bmp.writeInt32LE(-height, 22); // Top-down negative height
                             bmp.writeUInt16LE(1, 26);
                             bmp.writeUInt16LE(32, 28);
-                            for(let i=0; i<buffer.length; i+=4) {
-                                bmp[54+i] = buffer[i+2]; // B
-                                bmp[54+i+1] = buffer[i+1]; // G
-                                bmp[54+i+2] = buffer[i]; // R
-                                bmp[54+i+3] = buffer[i+3]; // A
-                            }
+                            rgbaBuffer.copy(bmp, 54);
+                            
                             ws.send(JSON.stringify({ type: 'STILL_DATA', index: data.index, data: 'data:image/bmp;base64,' + bmp.toString('base64') }));
                         }
                     }).catch(e => {});

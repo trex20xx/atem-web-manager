@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.21)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.23)
  * =========================================================================
  */
 
@@ -735,7 +735,8 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 .mp-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(4, 191px);
+    grid-template-rows: repeat(4, 96px);
     gap: 4px;
     width: 100%;
 }
@@ -748,7 +749,8 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     flex-direction: column;
     overflow: hidden;
     position: relative;
-    aspect-ratio: 16/9;
+    height: 96px;
+    width: 191px;
 }
 .mp-slot.drag-over {
     border-color: var(--orange-hl);

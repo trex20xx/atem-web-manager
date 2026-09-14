@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.22)
+// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.21)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -94,7 +94,7 @@ const MediaPool = () => {
         e.preventDefault();
         setDragActive(null);
 
-        if (type !== 'still') return; // ATEM libraries currently only support Still uploads reliably over network
+        if (type !== 'still') return;
 
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
             const file = e.dataTransfer.files[0];
@@ -158,7 +158,22 @@ const MediaPool = () => {
         }
     };
 
-    const MediaSlot = ({ index, type, startIndex = 0 }) => {
+    const handlePanelWheel = (e) => {
+        const now = Date.now();
+        if (now - lastWheelTimeRef.current < 35) return;
+        
+        if (Math.abs(e.deltaY) > 1 || Math.abs(e.deltaX) > 1) {
+            lastWheelTimeRef.current = now;
+            if (e.deltaY > 0 || e.deltaX > 0) {
+                setCurrentPage(2);
+            } else if (e.deltaY < 0 || e.deltaX < 0) {
+                setCurrentPage(1);
+            }
+        }
+    };
+    const lastWheelTimeRef = useRef(0);
+
+    const MediaSlot = ({ index, type, startIndex = 0, gridRow, gridCol }) => {
         const slotNumber = startIndex + index + 1;
         const dropId = `${type}-${index}`;
         const isDragOver = dragActive === dropId;
@@ -180,7 +195,7 @@ const MediaPool = () => {
                 onDragOver={(e) => handleDragOver(e, dropId)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, slotNumber - 1, type)}
-                style={{ opacity: isUploading ? 0.5 : 1 }}
+                style={{ opacity: isUploading ? 0.5 : 1, gridRow: gridRow, gridColumn: gridCol }}
             >
                 <div className="mp-thumb-container">
                     {displaySrc ? (
@@ -202,10 +217,10 @@ const MediaPool = () => {
     };
 
     return (
-        <div className="atem-macros-panel compact-layout">
+        <div className="atem-macros-panel compact-layout" onWheel={handlePanelWheel}>
             <div className="macro-compact-header-row">
                 <div className="macro-title-group" style={{ display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
-                    <div className="atem-section-title">MEDIA · CLIPS</div>
+                    <div className="atem-section-title">STILLS</div>
                     <div className="macro-page-buttons" style={{ display: 'flex', gap: '4px' }}>
                         {[1, 2].map((pageNum) => (
                             <button
@@ -222,44 +237,30 @@ const MediaPool = () => {
 
             <div className="atem-bus-content-layout">
                 {currentPage === 1 ? (
-                    <div className="atem-section-wrapper" style={{ width: '786px', margin: '0 auto' }}>
-                        <div className="atem-section-header-row">
-                            <div className="atem-section-title">MEDIA · STILLS</div>
-                        </div>
-                        <div className="macro-section-box">
-                            <div className="mp-grid">
-                                {Array.from({ length: 16 }).map((_, idx) => (
-                                    <MediaSlot key={`still-${idx}`} index={idx} type="still" startIndex={0} />
-                                ))}
-                            </div>
+                    <div className="macro-section-box">
+                        <div className="mp-grid">
+                            {Array.from({ length: 16 }).map((_, idx) => (
+                                <MediaSlot key={`still-${idx}`} index={idx} type="still" startIndex={0} />
+                            ))}
                         </div>
                     </div>
                 ) : (
-                    <div className="atem-section-wrapper" style={{ width: '786px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <div>
-                            <div className="atem-section-header-row">
-                                <div className="atem-section-title">MEDIA · STILLS</div>
+                    <div className="macro-section-box">
+                        <div className="mp-grid">
+                            {/* Stills 17-20 on Row 1 (Grid Row 1) */}
+                            {Array.from({ length: 4 }).map((_, idx) => (
+                                <MediaSlot key={`still-p2-${idx}`} index={idx} type="still" startIndex={16} gridRow={1} gridCol={idx + 1} />
+                            ))}
+
+                            {/* Clips Title on Row 2 (Grid Row 2) */}
+                            <div className="atem-section-title" style={{ gridRow: 2, gridColumn: '1 / -1', alignSelf: 'end', marginTop: '12px', marginBottom: '-4px' }}>
+                                CLIPS
                             </div>
-                            <div className="macro-section-box">
-                                <div className="mp-grid">
-                                    {Array.from({ length: 4 }).map((_, idx) => (
-                                        <MediaSlot key={`still-p2-${idx}`} index={idx} type="still" startIndex={16} />
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <div className="atem-section-header-row">
-                                <div className="atem-section-title">CLIPS</div>
-                            </div>
-                            <div className="macro-section-box">
-                                <div className="mp-grid">
-                                    {Array.from({ length: 4 }).map((_, idx) => (
-                                        <MediaSlot key={`clip-${idx}`} index={idx} type="clip" startIndex={0} />
-                                    ))}
-                                </div>
-                            </div>
+
+                            {/* Clips 1-4 on Row 3 (Grid Row 3) */}
+                            {Array.from({ length: 4 }).map((_, idx) => (
+                                <MediaSlot key={`clip-${idx}`} index={idx} type="clip" startIndex={0} gridRow={3} gridCol={idx + 1} />
+                            ))}
                         </div>
                     </div>
                 )}

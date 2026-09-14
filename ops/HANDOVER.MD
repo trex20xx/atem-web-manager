@@ -1,6 +1,6 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-Current Version: v3.11
-Architecture: React 18, Vite, Native CSS Variables, Componentized Hooks, Pure Sliding Animations, Fullscreen Toggle, ATEM Macro Matrix (Quadrant 4, 100-macro 3-page scroller), Integrated Bottom Action & Aux Routing Bar, Auto-Watchdog Bridge Daemon, Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Modular Runtime-Synced Changelogs, Streamlined 4-Action Master CLI Suite.
+Current Version: v3.24
+Architecture: React 18, Vite, Native CSS Variables, Componentized Hooks, Pure Sliding Animations, Fullscreen Toggle, ATEM Macro Matrix (Quadrant 4), Integrated Bottom Action & Aux Routing Bar, Auto-Watchdog Bridge Daemon, Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Modular Runtime-Synced Changelogs, Streamlined 4-Action Master CLI Suite.
 
 ---
 
@@ -52,6 +52,7 @@ Architecture: React 18, Vite, Native CSS Variables, Componentized Hooks, Pure Sl
     │   ├── HANDOVER.MD                # Master documentation and spec (THIS FILE)
     │   ├── SYSTEM_INSTRUCTIONS.MD     # System instructions specification for Google AI Studio
     │   ├── OPS.BAT                    # Master Windows CLI (Run & Evaluate, Wipe, Export, Exit)
+    │   ├── git-workflow.bat           # Direct standalone Git sync utility
     │   └── OPS.SH                     # Master macOS/Linux CLI (Run & Evaluate, Wipe, Export, Exit)
     │
     ├── bridge/                        # Node.js Hardware Bridge
@@ -67,8 +68,8 @@ Architecture: React 18, Vite, Native CSS Variables, Componentized Hooks, Pure Sl
         ├── components/            
         │   ├── UI/                    # Skeleton, GlobalTooltip, ErrorBoundary, QuadrantContextMenu
         │   ├── Sidebar/               # Sidebar, SearchBar, DeviceList, DeviceRow, ColorDropdown, BottomActionBtn
-        │   ├── Multiview/             # QuadrantGrid, Panel (Routes 1. STREAM, 2. MEDIA POOL, 3. MIXER, 5. MACROS COMPACT))
-        │   ├── Panels/                # AtemConstellationBus.jsx, AtemMacrosCompact.jsx (Hardware-locked to 192.168.10.240)
+        │   ├── Multiview/             # QuadrantGrid, Panel (Routes 1. STREAM, 2. MEDIA POOL, 3. MIXER, 5. MACROS COMPACT)
+        │   ├── Panels/                # AtemConstellationBus.jsx, AtemMacrosCompact.jsx, MediaPool.jsx
         │   ├── VideoPlayer/           # Player, OverlayDrawer, QualityMenu, SnapshotEngine
         │   └── Settings/              # SettingsModal
         └── hooks/                     # useDevices, useDragDrop, useLocalStorage
