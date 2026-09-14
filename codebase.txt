@@ -176,7 +176,7 @@ server.bind(ATEM_PORT, EMULATOR_IP, () => {
  
 === FILE: bridge/server.js === 
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.21)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.25)
 // =========================================================================
 // Bidirectional switcher bus, macro execution, aux router, DSK, FTB, and Media Pool.
 
@@ -189,8 +189,8 @@ const BRIDGE_PORT = 8080;
 const VITE_PORT = 3000;
 const startTime = Date.now();
 
-console.log(`[ATEM Bridge v3.21] Starting bridge service...`);
-console.log(`[ATEM Bridge v3.21] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v3.25] Starting bridge service...`);
+console.log(`[ATEM Bridge v3.25] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 let atem = new Atem();
 let isAtemConnected = false;
@@ -207,6 +207,67 @@ let currentAux = [1, 2, 3, 4, 5, 6];
 let dsk = { onAir: false, inTransition: false, autoOnAir: false, tie: false, rate: 30 };
 let ftb = { inTransition: false, isFullyBlack: false, rate: 30 };
 let mediaPool = { stills: [], clips: [] };
+let mediaPlayers = [
+    { sourceType: 1, stillIndex: 0, clipIndex: 0 },
+    { sourceType: 1, stillIndex: 1, clipIndex: 0 }
+];
+
+// Helper: Downscale a raw RGBA buffer to a crisp 320x180 BMP data URI
+function downscaleRgbaToThumbnailBmp(rgbaBuffer, srcWidth = 1920, srcHeight = 1080, targetWidth = 320, targetHeight = 180) {
+    const scaleX = srcWidth / targetWidth;
+    const scaleY = srcHeight / targetHeight;
+    const thumbRgba = Buffer.alloc(targetWidth * targetHeight * 4);
+    
+    for (let y = 0; y < targetHeight; y++) {
+        const srcY = Math.floor(y * scaleY);
+        for (let x = 0; x < targetWidth; x++) {
+            const srcX = Math.floor(x * scaleX);
+            const srcIdx = (srcY * srcWidth + srcX) * 4;
+            const dstIdx = (y * targetWidth + x) * 4;
+            
+            thumbRgba[dstIdx]     = rgbaBuffer[srcIdx + 2]; // B
+            thumbRgba[dstIdx + 1] = rgbaBuffer[srcIdx + 1]; // G
+            thumbRgba[dstIdx + 2] = rgbaBuffer[srcIdx];     // R
+            thumbRgba[dstIdx + 3] = rgbaBuffer[srcIdx + 3]; // A
+        }
+    }
+    
+    const fileSize = 54 + thumbRgba.length;
+    const bmp = Buffer.alloc(fileSize);
+    bmp.write('BM', 0);
+    bmp.writeUInt32LE(fileSize, 2);
+    bmp.writeUInt32LE(54, 10);
+    bmp.writeUInt32LE(40, 14);
+    bmp.writeUInt32LE(targetWidth, 18);
+    bmp.writeInt32LE(-targetHeight, 22); // Top-down negative height
+    bmp.writeUInt16LE(1, 26);
+    bmp.writeUInt16LE(32, 28);
+    thumbRgba.copy(bmp, 54);
+    
+    return 'data:image/bmp;base64,' + bmp.toString('base64');
+}
+
+function fetchStill(index) {
+    if (typeof atem.downloadStill === 'function') {
+        atem.downloadStill(index, 'rgba')
+            .then(rgbaBuffer => {
+                let width = 1920;
+                let height = 1080;
+                if (rgbaBuffer.length === 1280 * 720 * 4) { width = 1280; height = 720; }
+                else if (rgbaBuffer.length === 3840 * 2160 * 4) { width = 3840; height = 2160; }
+                
+                const bmpDataUri = downscaleRgbaToThumbnailBmp(rgbaBuffer, width, height, 320, 180);
+                
+                const payload = JSON.stringify({ type: 'STILL_DATA', index, data: bmpDataUri });
+                wss.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) client.send(payload);
+                });
+            })
+            .catch(e => {
+                console.warn(`[ATEM Bridge] downloadStill(${index}) failed:`, e.message || e);
+            });
+    }
+}
 
 function setupAtemListeners() {
     atem.on('receivedCommand', (command) => {
@@ -315,11 +376,17 @@ function broadcastState(targetWs = null) {
         if (atem && atem.state && atem.state.media) {
             if (atem.state.media.stillPool) mediaPool.stills = atem.state.media.stillPool.map(s => ({ isUsed: s.isUsed, name: s.fileName || '' }));
             if (atem.state.media.clipPool) mediaPool.clips = atem.state.media.clipPool.map(c => ({ isUsed: c.isUsed, name: c.name || '' }));
+            if (atem.state.media.players) {
+                mediaPlayers = [0, 1].map(i => {
+                    const p = atem.state.media.players[i];
+                    return p ? { sourceType: p.sourceType, stillIndex: p.stillIndex, clipIndex: p.clipIndex } : { sourceType: 1, stillIndex: i, clipIndex: 0 };
+                });
+            }
         }
 
         const payload = JSON.stringify({
             type: 'STATE', hardwareConnected, pgm: currentPgm, pvw: currentPvw, inTransition: currentInTransition, transitionRate: currentTransitionRate,
-            transitionSelection: currentTransitionSelection, uskOnAir: currentUskOnAir, auxSources: currentAux, dsk, ftb, macroPlayer, macroProperties, mediaPool
+            transitionSelection: currentTransitionSelection, uskOnAir: currentUskOnAir, auxSources: currentAux, dsk, ftb, macroPlayer, macroProperties, mediaPool, mediaPlayers
         });
 
         if (targetWs && targetWs.readyState === WebSocket.OPEN) {
@@ -332,7 +399,7 @@ function broadcastState(targetWs = null) {
 function handleHardwareCommand(cmd) {
     if (!cmd) return false;
     const raw = cmd.rawName || (cmd.constructor ? cmd.constructor.name : '');
-    if (raw === 'PrgI' || raw.includes('ProgramInput') || raw === 'PrvI' || raw.includes('PreviewInput') || raw === 'TrPr' || raw === 'TrPs' || raw.includes('TransitionPosition') || raw === 'TMxr' || raw.includes('TransitionMix') || raw.includes('TransitionProperties') || raw === 'AuxS' || raw.includes('AuxSource') || raw.includes('Upstream') || raw === 'KeOn' || raw.includes('MixEffectKeyOnAir') || raw.includes('Downstream') || raw.includes('FadeToBlack') || raw.includes('Ftb') || raw === 'MRPr' || raw.includes('Macro') || raw.includes('MediaPool')) {
+    if (raw === 'PrgI' || raw.includes('ProgramInput') || raw === 'PrvI' || raw.includes('PreviewInput') || raw === 'TrPr' || raw === 'TrPs' || raw.includes('TransitionPosition') || raw === 'TMxr' || raw.includes('TransitionMix') || raw.includes('TransitionProperties') || raw === 'AuxS' || raw.includes('AuxSource') || raw.includes('Upstream') || raw === 'KeOn' || raw.includes('MixEffectKeyOnAir') || raw.includes('Downstream') || raw.includes('FadeToBlack') || raw.includes('Ftb') || raw === 'MRPr' || raw.includes('Macro') || raw.includes('MediaPool') || raw.includes('MediaPlayer')) {
         return true;
     }
     return false;
@@ -363,74 +430,27 @@ wss.on('connection', (ws) => {
             } else if (data.action === 'UPLOAD_STILL' && data.rgbaBase64) {
                 const buffer = Buffer.from(data.rgbaBase64, 'base64');
                 console.log(`[ATEM Bridge] Uploading image to ATEM Still Slot ${data.index + 1}...`);
-                atem.dataTransferManager.uploadStill(data.index, buffer, data.name, '').then(() => {
-                    console.log(`[ATEM Bridge] Upload complete for Slot ${data.index + 1}`);
-                    broadcastState();
-                }).catch(e => console.error('[ATEM Bridge] Still upload failed:', e.message));
-                
+                if (typeof atem.uploadStill === 'function') {
+                    atem.uploadStill(data.index, buffer, data.name || `Still ${data.index + 1}`, '')
+                        .then(() => {
+                            console.log(`[ATEM Bridge] Upload successful for Slot ${data.index + 1}`);
+                            setTimeout(() => fetchStill(data.index), 1000);
+                        })
+                        .catch(e => console.error('[ATEM Bridge] Still upload failed:', e.message || e));
+                }
             } else if (data.action === 'GET_STILL' && data.index !== undefined) {
-                if (atem.dataTransferManager && typeof atem.dataTransferManager.downloadStill === 'function') {
-                    atem.dataTransferManager.downloadStill(data.index).then(buffer => {
-                        if (buffer && buffer.length > 0) {
-                            const width = 1920; 
-                            const height = 1080;
-                            const pixelCount = width * height;
-                            let rgbaBuffer;
-                            
-                            // ATEM Constellation uses YUV 4:2:2 (UYVY) so the buffer is 1920x1080x2 bytes
-                            if (buffer.length === pixelCount * 2) {
-                                rgbaBuffer = Buffer.alloc(pixelCount * 4);
-                                for (let i = 0, j = 0; i < buffer.length; i += 4, j += 8) {
-                                    const u = buffer[i];
-                                    const y0 = buffer[i+1];
-                                    const v = buffer[i+2];
-                                    const y1 = buffer[i+3];
-
-                                    const c = y0 - 16;
-                                    const d = u - 128;
-                                    const e = v - 128;
-                                    const c2 = y1 - 16;
-
-                                    // Pixel 1 (BGRA output for BMP)
-                                    rgbaBuffer[j+0] = Math.max(0, Math.min(255, (298 * c + 516 * d + 128) >> 8)); // B
-                                    rgbaBuffer[j+1] = Math.max(0, Math.min(255, (298 * c - 100 * d - 208 * e + 128) >> 8)); // G
-                                    rgbaBuffer[j+2] = Math.max(0, Math.min(255, (298 * c + 409 * e + 128) >> 8)); // R
-                                    rgbaBuffer[j+3] = 255; // A
-
-                                    // Pixel 2 (BGRA output for BMP)
-                                    rgbaBuffer[j+4] = Math.max(0, Math.min(255, (298 * c2 + 516 * d + 128) >> 8)); // B
-                                    rgbaBuffer[j+5] = Math.max(0, Math.min(255, (298 * c2 - 100 * d - 208 * e + 128) >> 8)); // G
-                                    rgbaBuffer[j+6] = Math.max(0, Math.min(255, (298 * c2 + 409 * e + 128) >> 8)); // R
-                                    rgbaBuffer[j+7] = 255; // A
-                                }
-                            } else if (buffer.length === pixelCount * 4) { // Fallback for RGBA decoding ATEMs
-                                rgbaBuffer = Buffer.alloc(pixelCount * 4);
-                                for (let i = 0; i < buffer.length; i += 4) {
-                                    rgbaBuffer[i]   = buffer[i+2]; // B
-                                    rgbaBuffer[i+1] = buffer[i+1]; // G
-                                    rgbaBuffer[i+2] = buffer[i];   // R
-                                    rgbaBuffer[i+3] = buffer[i+3]; // A
-                                }
-                            } else {
-                                console.error(`[ATEM Bridge] Unknown image buffer length: ${buffer.length}`);
-                                return;
-                            }
-
-                            const fileSize = 54 + rgbaBuffer.length;
-                            const bmp = Buffer.alloc(fileSize);
-                            bmp.write('BM', 0);
-                            bmp.writeUInt32LE(fileSize, 2);
-                            bmp.writeUInt32LE(54, 10);
-                            bmp.writeUInt32LE(40, 14);
-                            bmp.writeUInt32LE(width, 18);
-                            bmp.writeInt32LE(-height, 22); // Top-down negative height
-                            bmp.writeUInt16LE(1, 26);
-                            bmp.writeUInt16LE(32, 28);
-                            rgbaBuffer.copy(bmp, 54);
-                            
-                            ws.send(JSON.stringify({ type: 'STILL_DATA', index: data.index, data: 'data:image/bmp;base64,' + bmp.toString('base64') }));
-                        }
-                    }).catch(e => {});
+                fetchStill(data.index);
+            } else if (data.action === 'SET_MEDIA_PLAYER_SOURCE' && data.player !== undefined) {
+                const playerIdx = parseInt(data.player, 10);
+                const props = {};
+                if (data.sourceType !== undefined) props.sourceType = data.sourceType;
+                if (data.stillIndex !== undefined) props.stillIndex = data.stillIndex;
+                if (data.clipIndex !== undefined) props.clipIndex = data.clipIndex;
+                
+                if (typeof atem.setMediaPlayerSource === 'function') {
+                    atem.setMediaPlayerSource(props, playerIdx)
+                        .then(() => broadcastState())
+                        .catch(e => console.error('[ATEM Bridge] setMediaPlayerSource error:', e.message || e));
                 }
             }
         } catch (err) {}
@@ -744,7 +764,7 @@ export default App;
 === FILE: src/index.css === 
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.23)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.25)
  * =========================================================================
  */
 
@@ -1485,6 +1505,10 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     width: 100%;
 }
 
+.mp-grid.one-row {
+    grid-template-rows: 96px;
+}
+
 .mp-slot {
     background: #181818;
     border: 1px solid var(--atem-border);
@@ -1495,6 +1519,8 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     position: relative;
     height: 96px;
     width: 191px;
+    box-sizing: border-box;
+    cursor: pointer;
 }
 .mp-slot.drag-over {
     border-color: var(--orange-hl);
@@ -1508,6 +1534,26 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     align-items: center;
     justify-content: center;
     position: relative;
+    overflow: hidden;
+}
+
+.mp-badge {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    line-height: 1;
 }
 
 .mp-empty-circle {
@@ -1526,7 +1572,8 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .mp-thumbnail {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    background: #000000;
 }
 
 .mp-label-bar {
@@ -2020,10 +2067,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
  
 === FILE: src/version.js === 
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.23)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.25)
 // =========================================================================
 
-export const APP_VERSION = 'v3.23';
+export const APP_VERSION = 'v3.25';
  
 === FILE: src/components/Multiview/Panel.jsx === 
 import React, { useState } from 'react';
@@ -3406,7 +3453,7 @@ export default AtemMacrosCompact;
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.21)
+// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.25)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -3416,17 +3463,25 @@ const MediaPool = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [atemStills, setAtemStills] = useState([]);
     const [atemClips, setAtemClips] = useState([]);
+    const [mediaPlayers, setMediaPlayers] = useState([
+        { sourceType: 1, stillIndex: 0, clipIndex: 0 },
+        { sourceType: 1, stillIndex: 1, clipIndex: 0 }
+    ]);
     
-    // Stores downloaded ATEM thumbnail base64 data strings (keyed by index)
+    // MP 1 and MP 2 target selection: null, 1, or 2
+    const [selectedMp, setSelectedMp] = useState(null);
+
+    // Downloaded thumbnails from ATEM (data:image/bmp;base64,...)
     const [downloadedStills, setDownloadedStills] = useState({});
     
-    // Stores locally dragged temporary previews before upload finishes
+    // Locally dropped immediate previews
     const [localPreviews, setLocalPreviews] = useState({});
     const [dragActive, setDragActive] = useState(null);
     const [uploadingSlot, setUploadingSlot] = useState(null);
 
     const wsRef = useRef(null);
     const reconnectTimerRef = useRef(null);
+    const lastWheelTimeRef = useRef(0);
 
     useEffect(() => {
         const initWebSocket = () => {
@@ -3444,7 +3499,7 @@ const MediaPool = () => {
                         if (data.mediaPool) {
                             if (data.mediaPool.stills) {
                                 setAtemStills(data.mediaPool.stills);
-                                // Trigger a fetch for any used still we don't have yet
+                                // Request image data for populated slots that haven't been loaded yet
                                 data.mediaPool.stills.forEach((still, idx) => {
                                     if (still.isUsed && !downloadedStills[idx]) {
                                         wsRef.current.send(JSON.stringify({ action: 'GET_STILL', ip: LOCKED_ATEM_IP, index: idx }));
@@ -3452,6 +3507,9 @@ const MediaPool = () => {
                                 });
                             }
                             if (data.mediaPool.clips) setAtemClips(data.mediaPool.clips);
+                        }
+                        if (data.mediaPlayers && Array.isArray(data.mediaPlayers)) {
+                            setMediaPlayers(data.mediaPlayers);
                         }
                         if (data.type === 'STILL_DATA' && data.data) {
                             setDownloadedStills(prev => ({ ...prev, [data.index]: data.data }));
@@ -3486,6 +3544,20 @@ const MediaPool = () => {
         };
     }, [downloadedStills]);
 
+    const handlePanelWheel = (e) => {
+        const now = Date.now();
+        if (now - lastWheelTimeRef.current < 45) return;
+        
+        if (Math.abs(e.deltaY) > 1 || Math.abs(e.deltaX) > 1) {
+            lastWheelTimeRef.current = now;
+            if (e.deltaY > 0 || e.deltaX > 0) {
+                setCurrentPage(2);
+            } else if (e.deltaY < 0 || e.deltaX < 0) {
+                setCurrentPage(1);
+            }
+        }
+    };
+
     const handleDragOver = (e, dropId) => {
         e.preventDefault();
         setDragActive(dropId);
@@ -3508,13 +3580,11 @@ const MediaPool = () => {
             reader.onload = (ev) => {
                 const dataUrl = ev.target.result;
                 
-                // Show temporary local preview instantly
                 setLocalPreviews(prev => ({
                     ...prev,
                     [`${type}-${index}`]: { src: dataUrl, name: file.name }
                 }));
 
-                // Process image for ATEM Upload (requires raw 1920x1080 RGBA array)
                 const img = new Image();
                 img.onload = () => {
                     setUploadingSlot(index);
@@ -3523,11 +3593,9 @@ const MediaPool = () => {
                     canvas.height = 1080;
                     const ctx = canvas.getContext('2d');
                     
-                    // Draw black background (in case of transparency)
                     ctx.fillStyle = '#000000';
                     ctx.fillRect(0, 0, 1920, 1080);
                     
-                    // Center and scale image to fit 1920x1080
                     const scale = Math.min(1920 / img.width, 1080 / img.height);
                     const w = img.width * scale;
                     const h = img.height * scale;
@@ -3537,7 +3605,6 @@ const MediaPool = () => {
                     
                     const rgba = ctx.getImageData(0, 0, 1920, 1080).data;
                     
-                    // Fast convert 8MB Uint8Array to Base64
                     const chunk = 8192;
                     let binary = '';
                     for (let i = 0; i < rgba.length; i += chunk) {
@@ -3555,7 +3622,7 @@ const MediaPool = () => {
                         }));
                     }
                     
-                    setTimeout(() => setUploadingSlot(null), 2000);
+                    setTimeout(() => setUploadingSlot(null), 2500);
                 };
                 img.src = dataUrl;
             };
@@ -3563,50 +3630,57 @@ const MediaPool = () => {
         }
     };
 
-    const handlePanelWheel = (e) => {
-        const now = Date.now();
-        if (now - lastWheelTimeRef.current < 35) return;
-        
-        if (Math.abs(e.deltaY) > 1 || Math.abs(e.deltaX) > 1) {
-            lastWheelTimeRef.current = now;
-            if (e.deltaY > 0 || e.deltaX > 0) {
-                setCurrentPage(2);
-            } else if (e.deltaY < 0 || e.deltaX < 0) {
-                setCurrentPage(1);
-            }
+    const handleSlotClick = (slotIndex, type) => {
+        if (!selectedMp) return;
+
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+                action: 'SET_MEDIA_PLAYER_SOURCE',
+                ip: LOCKED_ATEM_IP,
+                player: selectedMp - 1, // 0 for MP 1, 1 for MP 2
+                sourceType: type === 'still' ? 1 : 2,
+                stillIndex: type === 'still' ? slotIndex : 0,
+                clipIndex: type === 'clip' ? slotIndex : 0
+            }));
         }
     };
-    const lastWheelTimeRef = useRef(0);
 
-    const MediaSlot = ({ index, type, startIndex = 0, gridRow, gridCol }) => {
+    const MediaSlot = ({ index, type, startIndex = 0 }) => {
         const slotNumber = startIndex + index + 1;
-        const dropId = `${type}-${index}`;
+        const actualSlotIndex = startIndex + index;
+        const dropId = `${type}-${actualSlotIndex}`;
         const isDragOver = dragActive === dropId;
-        const isUploading = uploadingSlot === index && type === 'still';
+        const isUploading = uploadingSlot === actualSlotIndex && type === 'still';
 
-        const atemData = type === 'still' ? atemStills[slotNumber - 1] : atemClips[slotNumber - 1];
+        const atemData = type === 'still' ? atemStills[actualSlotIndex] : atemClips[actualSlotIndex];
         const localPreview = localPreviews[dropId];
-        const downloadedImg = type === 'still' ? downloadedStills[slotNumber - 1] : null;
+        const downloadedImg = type === 'still' ? downloadedStills[actualSlotIndex] : null;
 
         const isUsed = atemData ? atemData.isUsed : false;
         const displayName = localPreview ? localPreview.name : (atemData ? atemData.name : '');
-        
-        // Priority: 1. Local drag preview, 2. Downloaded ATEM image
         const displaySrc = localPreview ? localPreview.src : downloadedImg;
+
+        // MP 1 and MP 2 status badges
+        const isMp1 = mediaPlayers[0] && (type === 'still' ? (mediaPlayers[0].sourceType === 1 && mediaPlayers[0].stillIndex === actualSlotIndex) : (mediaPlayers[0].sourceType === 2 && mediaPlayers[0].clipIndex === actualSlotIndex));
+        const isMp2 = mediaPlayers[1] && (type === 'still' ? (mediaPlayers[1].sourceType === 1 && mediaPlayers[1].stillIndex === actualSlotIndex) : (mediaPlayers[1].sourceType === 2 && mediaPlayers[1].clipIndex === actualSlotIndex));
 
         return (
             <div 
                 className={`mp-slot ${isDragOver ? 'drag-over' : ''}`}
                 onDragOver={(e) => handleDragOver(e, dropId)}
                 onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, slotNumber - 1, type)}
-                style={{ opacity: isUploading ? 0.5 : 1, gridRow: gridRow, gridColumn: gridCol }}
+                onDrop={(e) => handleDrop(e, actualSlotIndex, type)}
+                onClick={() => handleSlotClick(actualSlotIndex, type)}
+                style={{ opacity: isUploading ? 0.5 : 1 }}
             >
+                {isMp1 && <div className="mp-badge" style={{ left: '4px' }}>1</div>}
+                {isMp2 && <div className="mp-badge" style={{ left: isMp1 ? '24px' : '4px' }}>2</div>}
+
                 <div className="mp-thumb-container">
                     {displaySrc ? (
                         <img src={displaySrc} alt={`Slot ${slotNumber}`} className="mp-thumbnail" />
                     ) : (
-                        <div className="mp-empty-circle" style={{ borderColor: isUsed ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.08)' }}>
+                        <div className="mp-empty-circle" style={{ borderColor: isUsed ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.08)' }}>
                             {isUploading ? 'UP...' : slotNumber}
                         </div>
                     )}
@@ -3614,7 +3688,7 @@ const MediaPool = () => {
                 {(isUsed || displayName) && (
                     <div className="mp-label-bar">
                         <span className="mp-label-num">{slotNumber.toString().padStart(2, '0')}</span>
-                        <span className="mp-label-text">{displayName || `Used Slot ${slotNumber}`}</span>
+                        <span className="mp-label-text">{displayName || `Slot ${slotNumber}`}</span>
                     </div>
                 )}
             </div>
@@ -3623,6 +3697,7 @@ const MediaPool = () => {
 
     return (
         <div className="atem-macros-panel compact-layout" onWheel={handlePanelWheel}>
+            {/* Header row with titles, page buttons, and MP 1 / MP 2 buttons */}
             <div className="macro-compact-header-row">
                 <div className="macro-title-group" style={{ display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
                     <div className="atem-section-title">STILLS</div>
@@ -3638,38 +3713,61 @@ const MediaPool = () => {
                         ))}
                     </div>
                 </div>
+
+                <div className="macro-actions-group">
+                    <button 
+                        className={`macro-action-text-btn ${selectedMp === 1 ? 'active-orange' : ''}`}
+                        onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
+                        data-description="Select Media Player 1 to assign still/clip"
+                    >
+                        MP 1
+                    </button>
+                    <button 
+                        className={`macro-action-text-btn ${selectedMp === 2 ? 'active-orange' : ''}`}
+                        onClick={() => setSelectedMp(prev => prev === 2 ? null : 2)}
+                        data-description="Select Media Player 2 to assign still/clip"
+                    >
+                        MP 2
+                    </button>
+                </div>
             </div>
 
-            <div className="atem-bus-content-layout">
-                {currentPage === 1 ? (
-                    <div className="macro-section-box">
-                        <div className="mp-grid">
-                            {Array.from({ length: 16 }).map((_, idx) => (
-                                <MediaSlot key={`still-${idx}`} index={idx} type="still" startIndex={0} />
+            {/* Page 1: Stills 1-16 */}
+            {currentPage === 1 && (
+                <div className="macro-section-box">
+                    <div className="mp-grid">
+                        {Array.from({ length: 16 }).map((_, idx) => (
+                            <MediaSlot key={`still-${idx}`} index={idx} type="still" startIndex={0} />
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Page 2: Stills 17-20 and Clips 1-4 */}
+            {currentPage === 2 && (
+                <div style={{ display: 'flex', flexDirection: 'column', width: '786px', margin: '0 auto' }}>
+                    {/* Section 1: Stills 17-20 */}
+                    <div className="macro-section-box" style={{ marginBottom: '76px' }}>
+                        <div className="mp-grid one-row">
+                            {Array.from({ length: 4 }).map((_, idx) => (
+                                <MediaSlot key={`still-p2-${idx}`} index={idx} type="still" startIndex={16} />
                             ))}
                         </div>
                     </div>
-                ) : (
+
+                    {/* Section 2: Clips 1-4 with exact title spacing */}
+                    <div className="atem-section-header-row">
+                        <div className="atem-section-title">CLIPS</div>
+                    </div>
                     <div className="macro-section-box">
-                        <div className="mp-grid">
-                            {/* Stills 17-20 on Row 1 (Grid Row 1) */}
+                        <div className="mp-grid one-row">
                             {Array.from({ length: 4 }).map((_, idx) => (
-                                <MediaSlot key={`still-p2-${idx}`} index={idx} type="still" startIndex={16} gridRow={1} gridCol={idx + 1} />
-                            ))}
-
-                            {/* Clips Title on Row 2 (Grid Row 2) */}
-                            <div className="atem-section-title" style={{ gridRow: 2, gridColumn: '1 / -1', alignSelf: 'end', marginTop: '12px', marginBottom: '-4px' }}>
-                                CLIPS
-                            </div>
-
-                            {/* Clips 1-4 on Row 3 (Grid Row 3) */}
-                            {Array.from({ length: 4 }).map((_, idx) => (
-                                <MediaSlot key={`clip-${idx}`} index={idx} type="clip" startIndex={0} gridRow={3} gridCol={idx + 1} />
+                                <MediaSlot key={`clip-${idx}`} index={idx} type="clip" startIndex={0} />
                             ))}
                         </div>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
         </div>
     );
 };

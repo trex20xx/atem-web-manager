@@ -1,5 +1,5 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.21)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.25)
 // =========================================================================
 // Bidirectional switcher bus, macro execution, aux router, DSK, FTB, and Media Pool.
 
@@ -12,8 +12,8 @@ const BRIDGE_PORT = 8080;
 const VITE_PORT = 3000;
 const startTime = Date.now();
 
-console.log(`[ATEM Bridge v3.21] Starting bridge service...`);
-console.log(`[ATEM Bridge v3.21] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v3.25] Starting bridge service...`);
+console.log(`[ATEM Bridge v3.25] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 let atem = new Atem();
 let isAtemConnected = false;
@@ -30,6 +30,67 @@ let currentAux = [1, 2, 3, 4, 5, 6];
 let dsk = { onAir: false, inTransition: false, autoOnAir: false, tie: false, rate: 30 };
 let ftb = { inTransition: false, isFullyBlack: false, rate: 30 };
 let mediaPool = { stills: [], clips: [] };
+let mediaPlayers = [
+    { sourceType: 1, stillIndex: 0, clipIndex: 0 },
+    { sourceType: 1, stillIndex: 1, clipIndex: 0 }
+];
+
+// Helper: Downscale a raw RGBA buffer to a crisp 320x180 BMP data URI
+function downscaleRgbaToThumbnailBmp(rgbaBuffer, srcWidth = 1920, srcHeight = 1080, targetWidth = 320, targetHeight = 180) {
+    const scaleX = srcWidth / targetWidth;
+    const scaleY = srcHeight / targetHeight;
+    const thumbRgba = Buffer.alloc(targetWidth * targetHeight * 4);
+    
+    for (let y = 0; y < targetHeight; y++) {
+        const srcY = Math.floor(y * scaleY);
+        for (let x = 0; x < targetWidth; x++) {
+            const srcX = Math.floor(x * scaleX);
+            const srcIdx = (srcY * srcWidth + srcX) * 4;
+            const dstIdx = (y * targetWidth + x) * 4;
+            
+            thumbRgba[dstIdx]     = rgbaBuffer[srcIdx + 2]; // B
+            thumbRgba[dstIdx + 1] = rgbaBuffer[srcIdx + 1]; // G
+            thumbRgba[dstIdx + 2] = rgbaBuffer[srcIdx];     // R
+            thumbRgba[dstIdx + 3] = rgbaBuffer[srcIdx + 3]; // A
+        }
+    }
+    
+    const fileSize = 54 + thumbRgba.length;
+    const bmp = Buffer.alloc(fileSize);
+    bmp.write('BM', 0);
+    bmp.writeUInt32LE(fileSize, 2);
+    bmp.writeUInt32LE(54, 10);
+    bmp.writeUInt32LE(40, 14);
+    bmp.writeUInt32LE(targetWidth, 18);
+    bmp.writeInt32LE(-targetHeight, 22); // Top-down negative height
+    bmp.writeUInt16LE(1, 26);
+    bmp.writeUInt16LE(32, 28);
+    thumbRgba.copy(bmp, 54);
+    
+    return 'data:image/bmp;base64,' + bmp.toString('base64');
+}
+
+function fetchStill(index) {
+    if (typeof atem.downloadStill === 'function') {
+        atem.downloadStill(index, 'rgba')
+            .then(rgbaBuffer => {
+                let width = 1920;
+                let height = 1080;
+                if (rgbaBuffer.length === 1280 * 720 * 4) { width = 1280; height = 720; }
+                else if (rgbaBuffer.length === 3840 * 2160 * 4) { width = 3840; height = 2160; }
+                
+                const bmpDataUri = downscaleRgbaToThumbnailBmp(rgbaBuffer, width, height, 320, 180);
+                
+                const payload = JSON.stringify({ type: 'STILL_DATA', index, data: bmpDataUri });
+                wss.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) client.send(payload);
+                });
+            })
+            .catch(e => {
+                console.warn(`[ATEM Bridge] downloadStill(${index}) failed:`, e.message || e);
+            });
+    }
+}
 
 function setupAtemListeners() {
     atem.on('receivedCommand', (command) => {
@@ -138,11 +199,17 @@ function broadcastState(targetWs = null) {
         if (atem && atem.state && atem.state.media) {
             if (atem.state.media.stillPool) mediaPool.stills = atem.state.media.stillPool.map(s => ({ isUsed: s.isUsed, name: s.fileName || '' }));
             if (atem.state.media.clipPool) mediaPool.clips = atem.state.media.clipPool.map(c => ({ isUsed: c.isUsed, name: c.name || '' }));
+            if (atem.state.media.players) {
+                mediaPlayers = [0, 1].map(i => {
+                    const p = atem.state.media.players[i];
+                    return p ? { sourceType: p.sourceType, stillIndex: p.stillIndex, clipIndex: p.clipIndex } : { sourceType: 1, stillIndex: i, clipIndex: 0 };
+                });
+            }
         }
 
         const payload = JSON.stringify({
             type: 'STATE', hardwareConnected, pgm: currentPgm, pvw: currentPvw, inTransition: currentInTransition, transitionRate: currentTransitionRate,
-            transitionSelection: currentTransitionSelection, uskOnAir: currentUskOnAir, auxSources: currentAux, dsk, ftb, macroPlayer, macroProperties, mediaPool
+            transitionSelection: currentTransitionSelection, uskOnAir: currentUskOnAir, auxSources: currentAux, dsk, ftb, macroPlayer, macroProperties, mediaPool, mediaPlayers
         });
 
         if (targetWs && targetWs.readyState === WebSocket.OPEN) {
@@ -155,7 +222,7 @@ function broadcastState(targetWs = null) {
 function handleHardwareCommand(cmd) {
     if (!cmd) return false;
     const raw = cmd.rawName || (cmd.constructor ? cmd.constructor.name : '');
-    if (raw === 'PrgI' || raw.includes('ProgramInput') || raw === 'PrvI' || raw.includes('PreviewInput') || raw === 'TrPr' || raw === 'TrPs' || raw.includes('TransitionPosition') || raw === 'TMxr' || raw.includes('TransitionMix') || raw.includes('TransitionProperties') || raw === 'AuxS' || raw.includes('AuxSource') || raw.includes('Upstream') || raw === 'KeOn' || raw.includes('MixEffectKeyOnAir') || raw.includes('Downstream') || raw.includes('FadeToBlack') || raw.includes('Ftb') || raw === 'MRPr' || raw.includes('Macro') || raw.includes('MediaPool')) {
+    if (raw === 'PrgI' || raw.includes('ProgramInput') || raw === 'PrvI' || raw.includes('PreviewInput') || raw === 'TrPr' || raw === 'TrPs' || raw.includes('TransitionPosition') || raw === 'TMxr' || raw.includes('TransitionMix') || raw.includes('TransitionProperties') || raw === 'AuxS' || raw.includes('AuxSource') || raw.includes('Upstream') || raw === 'KeOn' || raw.includes('MixEffectKeyOnAir') || raw.includes('Downstream') || raw.includes('FadeToBlack') || raw.includes('Ftb') || raw === 'MRPr' || raw.includes('Macro') || raw.includes('MediaPool') || raw.includes('MediaPlayer')) {
         return true;
     }
     return false;
@@ -186,74 +253,27 @@ wss.on('connection', (ws) => {
             } else if (data.action === 'UPLOAD_STILL' && data.rgbaBase64) {
                 const buffer = Buffer.from(data.rgbaBase64, 'base64');
                 console.log(`[ATEM Bridge] Uploading image to ATEM Still Slot ${data.index + 1}...`);
-                atem.dataTransferManager.uploadStill(data.index, buffer, data.name, '').then(() => {
-                    console.log(`[ATEM Bridge] Upload complete for Slot ${data.index + 1}`);
-                    broadcastState();
-                }).catch(e => console.error('[ATEM Bridge] Still upload failed:', e.message));
-                
+                if (typeof atem.uploadStill === 'function') {
+                    atem.uploadStill(data.index, buffer, data.name || `Still ${data.index + 1}`, '')
+                        .then(() => {
+                            console.log(`[ATEM Bridge] Upload successful for Slot ${data.index + 1}`);
+                            setTimeout(() => fetchStill(data.index), 1000);
+                        })
+                        .catch(e => console.error('[ATEM Bridge] Still upload failed:', e.message || e));
+                }
             } else if (data.action === 'GET_STILL' && data.index !== undefined) {
-                if (atem.dataTransferManager && typeof atem.dataTransferManager.downloadStill === 'function') {
-                    atem.dataTransferManager.downloadStill(data.index).then(buffer => {
-                        if (buffer && buffer.length > 0) {
-                            const width = 1920; 
-                            const height = 1080;
-                            const pixelCount = width * height;
-                            let rgbaBuffer;
-                            
-                            // ATEM Constellation uses YUV 4:2:2 (UYVY) so the buffer is 1920x1080x2 bytes
-                            if (buffer.length === pixelCount * 2) {
-                                rgbaBuffer = Buffer.alloc(pixelCount * 4);
-                                for (let i = 0, j = 0; i < buffer.length; i += 4, j += 8) {
-                                    const u = buffer[i];
-                                    const y0 = buffer[i+1];
-                                    const v = buffer[i+2];
-                                    const y1 = buffer[i+3];
-
-                                    const c = y0 - 16;
-                                    const d = u - 128;
-                                    const e = v - 128;
-                                    const c2 = y1 - 16;
-
-                                    // Pixel 1 (BGRA output for BMP)
-                                    rgbaBuffer[j+0] = Math.max(0, Math.min(255, (298 * c + 516 * d + 128) >> 8)); // B
-                                    rgbaBuffer[j+1] = Math.max(0, Math.min(255, (298 * c - 100 * d - 208 * e + 128) >> 8)); // G
-                                    rgbaBuffer[j+2] = Math.max(0, Math.min(255, (298 * c + 409 * e + 128) >> 8)); // R
-                                    rgbaBuffer[j+3] = 255; // A
-
-                                    // Pixel 2 (BGRA output for BMP)
-                                    rgbaBuffer[j+4] = Math.max(0, Math.min(255, (298 * c2 + 516 * d + 128) >> 8)); // B
-                                    rgbaBuffer[j+5] = Math.max(0, Math.min(255, (298 * c2 - 100 * d - 208 * e + 128) >> 8)); // G
-                                    rgbaBuffer[j+6] = Math.max(0, Math.min(255, (298 * c2 + 409 * e + 128) >> 8)); // R
-                                    rgbaBuffer[j+7] = 255; // A
-                                }
-                            } else if (buffer.length === pixelCount * 4) { // Fallback for RGBA decoding ATEMs
-                                rgbaBuffer = Buffer.alloc(pixelCount * 4);
-                                for (let i = 0; i < buffer.length; i += 4) {
-                                    rgbaBuffer[i]   = buffer[i+2]; // B
-                                    rgbaBuffer[i+1] = buffer[i+1]; // G
-                                    rgbaBuffer[i+2] = buffer[i];   // R
-                                    rgbaBuffer[i+3] = buffer[i+3]; // A
-                                }
-                            } else {
-                                console.error(`[ATEM Bridge] Unknown image buffer length: ${buffer.length}`);
-                                return;
-                            }
-
-                            const fileSize = 54 + rgbaBuffer.length;
-                            const bmp = Buffer.alloc(fileSize);
-                            bmp.write('BM', 0);
-                            bmp.writeUInt32LE(fileSize, 2);
-                            bmp.writeUInt32LE(54, 10);
-                            bmp.writeUInt32LE(40, 14);
-                            bmp.writeUInt32LE(width, 18);
-                            bmp.writeInt32LE(-height, 22); // Top-down negative height
-                            bmp.writeUInt16LE(1, 26);
-                            bmp.writeUInt16LE(32, 28);
-                            rgbaBuffer.copy(bmp, 54);
-                            
-                            ws.send(JSON.stringify({ type: 'STILL_DATA', index: data.index, data: 'data:image/bmp;base64,' + bmp.toString('base64') }));
-                        }
-                    }).catch(e => {});
+                fetchStill(data.index);
+            } else if (data.action === 'SET_MEDIA_PLAYER_SOURCE' && data.player !== undefined) {
+                const playerIdx = parseInt(data.player, 10);
+                const props = {};
+                if (data.sourceType !== undefined) props.sourceType = data.sourceType;
+                if (data.stillIndex !== undefined) props.stillIndex = data.stillIndex;
+                if (data.clipIndex !== undefined) props.clipIndex = data.clipIndex;
+                
+                if (typeof atem.setMediaPlayerSource === 'function') {
+                    atem.setMediaPlayerSource(props, playerIdx)
+                        .then(() => broadcastState())
+                        .catch(e => console.error('[ATEM Bridge] setMediaPlayerSource error:', e.message || e));
                 }
             }
         } catch (err) {}
