@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.29)
+// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.30)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -193,7 +193,7 @@ const MediaPool = () => {
         }
     };
 
-    const MediaSlot = ({ index, type, startIndex = 0, gridRow, gridCol }) => {
+    const MediaSlot = ({ index, type, startIndex = 0 }) => {
         const slotNumber = startIndex + index + 1;
         const actualSlotIndex = startIndex + index;
         const dropId = `${type}-${actualSlotIndex}`;
@@ -218,7 +218,7 @@ const MediaPool = () => {
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, actualSlotIndex, type)}
                 onClick={() => handleSlotClick(actualSlotIndex, type)}
-                style={{ opacity: isUploading ? 0.5 : 1, gridRow: gridRow, gridColumn: gridCol }}
+                style={{ opacity: isUploading ? 0.5 : 1 }}
             >
                 {isMp1 && <div className="mp-badge" style={{ left: '4px' }}>1</div>}
                 {isMp2 && <div className="mp-badge" style={{ left: isMp1 ? '24px' : '4px' }}>2</div>}
@@ -227,7 +227,7 @@ const MediaPool = () => {
                     {displaySrc ? (
                         <img src={displaySrc} alt={`Slot ${slotNumber}`} className="mp-thumbnail" />
                     ) : (
-                        <div className="mp-empty-circle" style={{ borderColor: isUsed ? 'var(--atem-border)' : 'var(--atem-border)' }}>
+                        <div className="mp-empty-circle">
                             {isUploading ? 'UP...' : slotNumber}
                         </div>
                     )}
@@ -244,40 +244,41 @@ const MediaPool = () => {
 
     return (
         <div className="quadrant-master-panel" onWheel={handlePanelWheel}>
-            <div className="panel-layout-frame">
-                <div className="macro-compact-header-row">
-                    <div className="macro-title-group">
-                        <span className="atem-section-title">STILLS</span>
-                        <div className="macro-page-buttons">
-                            {[1, 2].map((pageNum) => (
-                                <button
-                                    key={`mp-page-btn-${pageNum}`}
-                                    className={`macro-action-text-btn ${currentPage === pageNum ? 'active-orange' : ''}`}
-                                    onClick={() => setCurrentPage(pageNum)}
-                                >
-                                    {pageNum}
-                                </button>
-                            ))}
+            {currentPage === 1 ? (
+                /* Page 1: Stills 1-16 (Strict 4x4 Grid in 424px Frame) */
+                <div className="panel-layout-frame">
+                    <div className="macro-compact-header-row">
+                        <div className="macro-title-group">
+                            <span className="atem-section-title">STILLS</span>
+                            <div className="macro-page-buttons">
+                                {[1, 2].map((pageNum) => (
+                                    <button
+                                        key={`mp-page-btn-${pageNum}`}
+                                        className={`macro-action-text-btn ${currentPage === pageNum ? 'active-orange' : ''}`}
+                                        onClick={() => setCurrentPage(pageNum)}
+                                    >
+                                        {pageNum}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="macro-actions-group">
+                            <button 
+                                className={`macro-action-text-btn ${selectedMp === 1 ? 'active-orange' : ''}`}
+                                onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
+                            >
+                                MP1
+                            </button>
+                            <button 
+                                className={`macro-action-text-btn ${selectedMp === 2 ? 'active-orange' : ''}`}
+                                onClick={() => setSelectedMp(prev => prev === 2 ? null : 2)}
+                            >
+                                MP2
+                            </button>
                         </div>
                     </div>
 
-                    <div className="macro-actions-group">
-                        <button 
-                            className={`macro-action-text-btn ${selectedMp === 1 ? 'active-orange' : ''}`}
-                            onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
-                        >
-                            MP 1
-                        </button>
-                        <button 
-                            className={`macro-action-text-btn ${selectedMp === 2 ? 'active-orange' : ''}`}
-                            onClick={() => setSelectedMp(prev => prev === 2 ? null : 2)}
-                        >
-                            MP 2
-                        </button>
-                    </div>
-                </div>
-
-                {currentPage === 1 ? (
                     <div className="macro-section-box">
                         <div className="mp-grid">
                             {Array.from({ length: 16 }).map((_, idx) => (
@@ -285,27 +286,69 @@ const MediaPool = () => {
                             ))}
                         </div>
                     </div>
-                ) : (
-                    <div className="macro-section-box">
-                        <div className="mp-grid-page-2">
-                            {/* Stills 17-20 aligned vertically to slots 1-4 */}
-                            {Array.from({ length: 4 }).map((_, idx) => (
-                                <MediaSlot key={`still-p2-${idx}`} index={idx} type="still" startIndex={16} gridRow={1} gridCol={idx + 1} />
-                            ))}
+                </div>
+            ) : (
+                /* Page 2: Stills 17-20 in Row 1, Clips 1-4 in Row 4 (Strict 424px Frame with space-between) */
+                <div className="panel-layout-frame" style={{ justifyContent: 'space-between' }}>
+                    {/* SECTION 1: STILLS 17-20 (ROW 1) */}
+                    <div>
+                        <div className="macro-compact-header-row">
+                            <div className="macro-title-group">
+                                <span className="atem-section-title">STILLS</span>
+                                <div className="macro-page-buttons">
+                                    {[1, 2].map((pageNum) => (
+                                        <button
+                                            key={`mp-page-btn-p2-${pageNum}`}
+                                            className={`macro-action-text-btn ${currentPage === pageNum ? 'active-orange' : ''}`}
+                                            onClick={() => setCurrentPage(pageNum)}
+                                        >
+                                            {pageNum}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
 
-                            {/* CLIPS Title shifted to sit directly over Row 4 (Clips 1-4) with exactly 4px margin-bottom */}
-                            <span className="atem-section-title" style={{ gridRow: 2, gridColumn: '1 / -1', alignSelf: 'end' }}>
-                                CLIPS
-                            </span>
+                            <div className="macro-actions-group">
+                                <button 
+                                    className={`macro-action-text-btn ${selectedMp === 1 ? 'active-orange' : ''}`}
+                                    onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
+                                >
+                                    MP1
+                                </button>
+                                <button 
+                                    className={`macro-action-text-btn ${selectedMp === 2 ? 'active-orange' : ''}`}
+                                    onClick={() => setSelectedMp(prev => prev === 2 ? null : 2)}
+                                >
+                                    MP2
+                                </button>
+                            </div>
+                        </div>
 
-                            {/* Clips 1-4 locked strictly to the bottom row (13-16 position) */}
-                            {Array.from({ length: 4 }).map((_, idx) => (
-                                <MediaSlot key={`clip-${idx}`} index={idx} type="clip" startIndex={0} gridRow={3} gridCol={idx + 1} />
-                            ))}
+                        <div className="macro-section-box">
+                            <div className="mp-grid-single-row">
+                                {Array.from({ length: 4 }).map((_, idx) => (
+                                    <MediaSlot key={`still-p2-${idx}`} index={idx} type="still" startIndex={16} />
+                                ))}
+                            </div>
                         </div>
                     </div>
-                )}
-            </div>
+
+                    {/* SECTION 2: CLIPS 1-4 (ROW 4) */}
+                    <div>
+                        <div className="atem-section-header-row">
+                            <span className="atem-section-title">CLIPS</span>
+                        </div>
+
+                        <div className="macro-section-box">
+                            <div className="mp-grid-single-row">
+                                {Array.from({ length: 4 }).map((_, idx) => (
+                                    <MediaSlot key={`clip-${idx}`} index={idx} type="clip" startIndex={0} />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
