@@ -15,7 +15,7 @@ trap cleanup_bridge EXIT INT TERM
 while true; do
     clear
     echo "========================================================================="
-    echo "ATEM WEB MANAGER - OPERATIONS SUITE (v3.17)"
+    echo "ATEM WEB MANAGER - OPERATIONS SUITE (v3.21)"
     echo "========================================================================="
     echo "[1] RUN & EVALUATE  - Launch Vite Frontend & Node Bridge Daemon"
     echo "[2] MERGE TO MAIN   - Merge this feature branch into 'main'"
@@ -131,7 +131,7 @@ while true; do
             CURRENT_BRANCH=$(git branch --show-current)
             if [ "$CURRENT_BRANCH" == "main" ]; then
                 git add -A
-                git commit -m "%CMSG%"
+                git commit -m "$CMSG"
                 git push origin main
                 echo "Main branch updated and pushed."
             else
@@ -150,7 +150,7 @@ while true; do
         3)
             echo ""
             echo "[WIPE] Securing workspace..."
-            if [ -f ".atem_workspace_token" * ]; then
+            if [ -f ".atem_workspace_token" ]; then
                 rm -rf node_modules
                 rm -rf bridge/node_modules
                 rm -rf dist

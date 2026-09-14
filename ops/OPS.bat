@@ -1,82 +1,101 @@
 @echo off
-setlocal EnableExtensions
-cd /d "%~dp0\.."
+setlocal
 
-:: 1. Explicit Portable Node.js Path Registration & Fallback
-set "DEFAULT_PORTABLE_NODE=C:\Users\robert.mirt\Downloads\APPS\INSTALLED\node-v24.20.0-win-x64"
+:: =============================================================================
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v2.70)
+:: =============================================================================
 
-if exist ".atem_node_path" (
-    set /p CUSTOM_NODE_PATH=<.atem_node_path
-) else if exist "%DEFAULT_PORTABLE_NODE%\node.exe" (
-    set "CUSTOM_NODE_PATH=%DEFAULT_PORTABLE_NODE%"
-    echo %DEFAULT_PORTABLE_NODE%>.atem_node_path
+:: Establish Project Root context
+set "SCRIPT_DIR=%~dp0"
+if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
+for %%I in ("%SCRIPT_DIR%") do (
+    if /I "%%~nxI"=="ops" (
+        set "PROJECT_ROOT=%%~dpI"
+    ) else (
+        set "PROJECT_ROOT=%SCRIPT_DIR%"
+    )
 )
-
-if not "%CUSTOM_NODE_PATH%"=="" (
-    set "PATH=%CUSTOM_NODE_PATH%;%PATH%"
-)
-
-set "NODE_EXE=node"
-if not "%CUSTOM_NODE_PATH%"=="" if exist "%CUSTOM_NODE_PATH%\node.exe" set "NODE_EXE=%CUSTOM_NODE_PATH%\node.exe"
-
-call "%NODE_EXE%" -v >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo Node.js executable not responding.
-    set /p NEW_NODE_PATH="Enter the absolute directory path containing node.exe: "
-    goto SAVE_NODE_PATH
-)
-goto START_PYTHON
-
-:SAVE_NODE_PATH
-echo %NEW_NODE_PATH%>.atem_node_path
-set "CUSTOM_NODE_PATH=%NEW_NODE_PATH%"
-set "PATH=%CUSTOM_NODE_PATH%;%PATH%"
-set "NODE_EXE=%CUSTOM_NODE_PATH%\node.exe"
-
-:START_PYTHON
-if exist "public" (
-    echo [OPS] Starting Python static server for /public on Port 8000...
-    powershell -WindowStyle Hidden -Command "Start-Process python -ArgumentList '-m', 'http.server', '8000', '--directory', 'public' -WindowStyle Hidden"
-)
+if "%PROJECT_ROOT:~-1%"=="\" set "PROJECT_ROOT=%PROJECT_ROOT:~0,-1%"
+cd /d "%PROJECT_ROOT%"
 
 :MENU
 cls
-echo =========================================================================
-echo ATEM WEB MANAGER - OPERATIONS SUITE (v3.17)
-echo =========================================================================
-echo [1] RUN ^& EVALUATE  - Launch Vite Frontend ^& Node Bridge Daemon
-echo [2] MERGE TO MAIN   - Merge this feature branch into 'main',
-echo                       push to GitHub, and delete feature branch.
-echo [3] WIPE            - Securely clear caches, node_modules, and dist
-echo [4] EXPORT          - Serialize codebase to codebase.txt
-echo [5] EXIT            - Terminate
-echo =========================================================================
-set /p choice="Select an option (1-5): "
+echo =================================================================
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v2.70)       
+echo =================================================================
+echo   [1] RUN ^& EVALUATE  (Vite + Daemon, Auto-Export ^& Evaluation)
+echo   [2] WIPE            (Token-Verified Complete Directory Erasure)
+echo   [3] EXPORT          (Serialize workspace to codebase.txt)
+echo   [4] EXIT
+echo =================================================================
+set /p CHOICE=" Select action (1-4): "
 
-if "%choice%"=="1" goto RUN_EVAL
-if "%choice%"=="2" goto MERGE_MAIN
-if "%choice%"=="3" goto WIPE
-if "%choice%"=="4" goto EXPORT
-if "%choice%"=="5" goto QUIT
-
+if "%CHOICE%"=="1" goto RUN_EVAL
+if "%CHOICE%"=="2" goto WIPE
+if "%CHOICE%"=="3" goto EXPORT
+if "%CHOICE%"=="4" goto QUIT
 goto MENU
 
+:SETUP_NODE_ENV
+call node -v >nul 2>&1
+if %ERRORLEVEL% equ 0 (
+    set "NODE_CMD=node"
+    set "NPM_CMD=npm"
+    goto :eof
+)
+
+if not exist "%PROJECT_ROOT%\.atem_node_path" goto PROMPT_NODE_PATH
+set /p CACHED_NODE_DIR=<"%PROJECT_ROOT%\.atem_node_path"
+if exist "%CACHED_NODE_DIR%\node.exe" (
+    set "PATH=%CACHED_NODE_DIR%;%PATH%"
+    set "NODE_CMD=%CACHED_NODE_DIR%\node.exe"
+    set "NPM_CMD=%CACHED_NODE_DIR%\npm.cmd"
+    goto :eof
+)
+
+:PROMPT_NODE_PATH
+echo.
+echo =================================================================
+echo                 NODE.JS ENVIRONMENT REQUIRED
+echo =================================================================
+echo  'node' and 'npm' were not detected in your global system PATH.
+echo  Please enter the full folder path containing node.exe and npm.cmd
+echo  (e.g. C:\Tools\Node or C:\Users\user\Downloads\node-v20-win-x64):
+echo =================================================================
+set "USER_NODE_DIR="
+set /p USER_NODE_DIR=" Enter path: "
+if "%USER_NODE_DIR%"=="" goto MENU
+set "USER_NODE_DIR=%USER_NODE_DIR:"=%"
+
+if not exist "%USER_NODE_DIR%\node.exe" (
+    echo [ERROR] node.exe was not found in: "%USER_NODE_DIR%"
+    pause
+    goto MENU
+)
+
+echo %USER_NODE_DIR%>"%PROJECT_ROOT%\.atem_node_path"
+set "PATH=%USER_NODE_DIR%;%PATH%"
+set "NODE_CMD=%USER_NODE_DIR%\node.exe"
+set "NPM_CMD=%USER_NODE_DIR%\npm.cmd"
+echo [OK] Node.js path saved to .atem_node_path
+goto :eof
+
 :CHECK_DEPENDENCIES
-if not exist "node_modules\vite\" (
+if not exist "%PROJECT_ROOT%\node_modules\vite\" (
     echo.
     echo =================================================================
     echo      FRESH CLONE DETECTED - INSTALLING FRONTEND DEPENDENCIES     
     echo =================================================================
-    call npm install
+    call "%NPM_CMD%" install
 )
-if not exist "bridge\node_modules\" (
+if not exist "%PROJECT_ROOT%\bridge\node_modules\" (
     echo.
     echo =================================================================
     echo      INSTALLING ATEM BRIDGE BACKEND DEPENDENCIES                
     echo =================================================================
-    cd /d "bridge"
-    call npm install
-    cd /d "%~dp0\.."
+    cd /d "%PROJECT_ROOT%\bridge"
+    call "%NPM_CMD%" install
+    cd /d "%PROJECT_ROOT%"
 )
 goto :eof
 
@@ -86,7 +105,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "$m='ops\CHANGELOG.MD'; i
 goto :eof
 
 :CLEANUP_PORTS
-powershell -NoProfile -ExecutionPolicy Bypass -Command "8080, 3000, 8000 | ForEach-Object { $p = (Get-NetTCPConnection -LocalPort $_ -State Listen -ErrorAction SilentlyContinue).OwningProcess; if ($p) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue } }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "8080, 3000 | ForEach-Object { $p = (Get-NetTCPConnection -LocalPort $_ -State Listen -ErrorAction SilentlyContinue).OwningProcess; if ($p) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue } }"
 goto :eof
 
 :EXPORT_CODEBASE
@@ -99,7 +118,7 @@ echo ^>^>^> Successfully serialized workspace to codebase.txt ^<^<^<
 goto :eof
 
 :RUN_EVAL
-echo.
+call :SETUP_NODE_ENV
 call :CHECK_DEPENDENCIES
 call :SYNC_CHANGELOG
 call :CLEANUP_PORTS
@@ -107,11 +126,11 @@ call :EXPORT_CODEBASE
 
 if exist "bridge\server.js" (
     echo ^>^>^> Starting ATEM Hardware Bridge Daemon on Port 8080 in background...
-    powershell -NoProfile -WindowStyle Hidden -Command "Start-Process -FilePath '%NODE_EXE%' -ArgumentList 'server.js' -WorkingDirectory '%~dp0\..\bridge' -WindowStyle Hidden"
+    powershell -NoProfile -WindowStyle Hidden -Command "Start-Process '%NODE_CMD%' -ArgumentList 'server.js' -WorkingDirectory '%PROJECT_ROOT%\bridge' -WindowStyle Hidden"
 )
 
 echo ^>^>^> Starting Frontend Server on Port 3000 with auto-launch...
-call npm run dev
+call "%NPM_CMD%" run dev
 
 call :CLEANUP_PORTS
 
@@ -123,7 +142,7 @@ echo =================================================================
 echo  Active Branch: %CURRENT_BRANCH%
 echo -----------------------------------------------------------------
 echo   [1] MERGE TO MAIN   - Merge this feature branch into 'main',
-echo                         push to GitHub, and preserve branch.
+echo                         push to GitHub, and delete feature branch.
 echo.
 echo   [2] PUSH TO BRANCH  - Keep working on this branch. Commit and
 echo                         push progress to GitHub without merging.
@@ -142,15 +161,10 @@ if "%EVAL_CHOICE%"=="3" goto REVERT_DISCARD
 goto MENU
 
 :MERGE_MAIN
-echo.
+set "CMSG="
 set /p CMSG=" Enter iteration description / commit message: "
 if "%CMSG%"=="" set "CMSG=feat: iteration update"
 
-:: Exclude large files and remove from tracking before commit/merge
-git rm --cached public/Top.mp4 2>nul
-echo public/Top.mp4 >> .gitignore
-
-for /f "delims=" %%I in ('git branch --show-current') do set "CURRENT_BRANCH=%%I"
 if "%CURRENT_BRANCH%"=="main" (
     git add -A
     git commit -m "%CMSG%"
@@ -164,21 +178,19 @@ if "%CURRENT_BRANCH%"=="main" (
     git pull origin main
     git merge %CURRENT_BRANCH% --no-edit
     git push origin main
-    git checkout %CURRENT_BRANCH%
-    echo ^>^>^> Feature branch successfully merged into main (branch preserved). ^<^<^<
+    git branch -d %CURRENT_BRANCH%
+    git push origin --delete %CURRENT_BRANCH% 2>nul
+    echo ^>^>^> Feature branch successfully merged into main and pruned. ^<^<^<
 )
 pause
 goto MENU
 
 :PUSH_BRANCH
-echo.
+git add -A
+set "CMSG="
 set /p CMSG=" Enter commit message: "
 if "%CMSG%"=="" set "CMSG=wip: evaluation checkpoint"
-git rm --cached public/Top.mp4 2>nul
-echo public/Top.mp4 >> .gitignore
-git add -A
 git commit -m "%CMSG%"
-for /f "delims=" %%I in ('git branch --show-current') do set "CURRENT_BRANCH=%%I"
 git push origin %CURRENT_BRANCH%
 echo ^>^>^> Committed and pushed to %CURRENT_BRANCH%. ^<^<^<
 pause
@@ -197,7 +209,7 @@ echo.
 echo =================================================================
 echo                   SECURE WORKSPACE WIPE PROTOCOL                 
 echo =================================================================
-set "TOKEN_FILE=.atem_workspace_token"
+set "TOKEN_FILE=%PROJECT_ROOT%\.atem_workspace_token"
 set "REQUIRED_KEY=ATEM_MANAGER_SECURE_WIPE_KEY_2026"
 
 if not exist "%TOKEN_FILE%" (
@@ -216,7 +228,7 @@ set /p CONFIRM=" Type 'WIPE' to completely destroy this project directory: "
 if "%CONFIRM%"=="WIPE" (
     call :CLEANUP_PORTS
     cd ..
-    rmdir /S /Q "atem-web-manager"
+    rmdir /S /Q "%PROJECT_ROOT%"
     echo ^>^>^> Project workspace successfully erased. ^<^<^<
     exit /b 0
 )
