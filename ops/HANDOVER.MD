@@ -1,11 +1,11 @@
 # ATEM WEB MANAGER - MASTER SPECIFICATION & HANDOVER
-Current Version: v3.24
-Architecture: React 18, Vite, Native CSS Variables, Componentized Hooks, Pure Sliding Animations, Fullscreen Toggle, ATEM Macro Matrix (Quadrant 4), Integrated Bottom Action & Aux Routing Bar, Auto-Watchdog Bridge Daemon, Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Modular Runtime-Synced Changelogs, Streamlined 4-Action Master CLI Suite.
+Current Version: v3.33
+Architecture: React 18, Vite, Native CSS Variables, Componentized Hooks, Pure Sliding Animations, Fullscreen Toggle, ATEM Macro Matrix (Quadrant 4, 100-macro 3-page scroller), Integrated Bottom Action & Aux Routing Bar, Auto-Watchdog Bridge Daemon, Full Bidirectional Hardware Bridge, Decoupled Versioning Module, Modular Runtime-Synced Changelogs, Streamlined 4-Action Master CLI Suite.
 
 ---
 
 ## 1. STRICT RULES OF ENGAGEMENT (PERMANENT PROTOCOL)
-1. CONDITIONAL VERSION INCREMENT: Increment the application version number using two-segment vX.XX notation across file headers, metadata, ops/HANDOVER.MD, and src/version.js ONLY if files are actively modified. Do not increment the version or output files for purely conversational replies, explanations, or missing descriptors. Never use semantic three-dot decimals.
+1. CONDITIONAL VERSION INCREMENT: Increment the application version number using two-segment vX.XX notation across file headers, metadata, ops/HANDOVER.MD, and src/version.js ONLY if codebase or documentation files are actively modified. Do not increment the version or output files for purely conversational replies, explanations, or missing descriptors. Never use semantic three-dot decimals.
 2. NO UNREQUESTED CHANGES: Never modify existing functionality, logic, or design unless explicitly requested.
 3. MODULAR CHANGELOG & TOKEN CONSERVATION: Never output the full ops/CHANGELOG.MD file in chat responses unless explicitly requested by the user, in order to preserve context tokens. Deliver individual iteration changelogs exclusively inside ops/CHANGELOG/vX.XX.md for automated synchronization by the CLI suite.
 4. 100% COMPLETE MODIFIED FILES ONLY: Always output full, complete files ready to copy-paste directly. Never output diffs, snippets, placeholders, or partial updates. Only output files that were actively created or modified. If no files are changed (e.g., answering a question), do not output any code blocks.

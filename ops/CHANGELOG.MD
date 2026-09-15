@@ -1,5 +1,139 @@
 # ATEM WEB MANAGER - Complete Version History
 
+## [v3.33] - Complete Historical Archive Restoration
+- Restored and reconstructed the complete `CHANGELOG.MD` history spanning v1.72 to v3.33 per explicit user request, permanently consolidating all modular updates back into the master timeline.
+- Synchronized application version to v3.33.
+
+## [v3.32] - AI Handover Generation
+- Generated comprehensive AI handover package including the full operational `CHANGELOG.MD`, `SYSTEM_INSTRUCTIONS.MD`, and `HANDOVER.MD` files to establish a clean context window.
+
+## [v3.31] - Media Pool Page 2 Vertical Consistency & Bounding Box Constraints
+- Eliminated the vertical stacking compression anomaly on Media Pool Page 2. Both Stills 17-20 (Row 1) and Clips 1-4 (Row 4) now utilize the horizontal `.mp-grid-single-row` CSS grid.
+- Stills 17-20 are placed in their own bounding box on the 1st row (Y = 23px to 119px), identical to Stills 1-4 on Page 1.
+- Clips 1-4 are placed in their own bounding box on the 4th row (Y = 323px to 419px), identical to the bottom row on Page 1.
+- The `CLIPS` section header sits directly above the clips bounding box at the exact standardized 4px margin distance. Rows 2 and 3 remain completely empty (176px of clean vertical space) via `justify-content: space-between` inside the locked `424px` `.panel-layout-frame`.
+- Standardized bounding box geometry: Enforced `4px` padding inside `.macro-section-box` and `4px` gap horizontally and vertically between all slots.
+
+## [v3.30] - Perfect 424px Centralization & Flexbox Alignment
+- Resolved the vertical alignment of Media Pool Page 2 by replacing broken CSS grid row definitions with a flexbox architecture powered by `justify-content: space-between` inside the fixed `424px` `.panel-layout-frame`.
+- Preserved perfect quadrant margin parity: Both Page 1 and Page 2 are strictly locked to `786px` width × `424px` height and centered vertically inside the quadrant panel.
+
+## [v3.29] - Top-Alignment Offset Fix
+- Solved the top-alignment layout anomaly: `justify-content: flex-start` was restored to `.panel-layout-frame` across both Media Pool and Macro panels, ensuring headers stay permanently pinned to the absolute top of the 424px rigid frame.
+- Restructured `MediaPool.jsx` Page 2 entirely around a unified `grid-template-rows: 96px 14px 96px` 4x4 matrix representation.
+
+## [v3.28] - ATEM UDP Transfer Saturation Fix & UI Responsiveness
+- Overhauled raw YUV decoding in `bridge/server.js`: Removed synchronous loops freezing the Node Event Loop. Implemented an ultra-fast combined decimation-decoder `downscaleYuvToThumbnailBmp()` dropping decode times to under 2ms.
+- Enforced `trafficPauseUntil` inside `bridge/server.js`: Clicking any Mixer button pauses background downloads for 500ms, giving full UDP bandwidth to the switcher cut command, ensuring the ATEM reacts instantly.
+- Wrapped `broadcastState()` in a 20ms throttle so the physical ATEM cannot freeze the React frontend by flooding 50 UDP packets in a millisecond.
+
+## [v3.27] - Typography Weights & Batch Menu Sync
+- Corrected the inactive grey mapping: The `STOP` button now properly tracks active state parity with the `PLAY` button.
+- Repaired the `App.jsx` settings gear icon utilizing standard clean Material SVG geometry with `fill="currentColor"`.
+
+## [v3.26] - WebSocket Infinite Loop Resolution & Reconnection Engine
+- Resolved an infinite WebSocket disconnection storm in `MediaPool.jsx` caused by `downloadedStills` in the `useEffect` dependency array.
+- Built an asynchronous sequential transfer queue with `isTransferring` locking in `bridge/server.js` preventing ATEM UDP transfer collisions.
+
+## [v3.25] - Typography Parity & Hardware Download Links
+- Re-aligned `.macro-title-group`, `.macro-actions-group`, and `.atem-section-title` in `index.css` strictly using `align-items: baseline`.
+- Removed hardcoded dark hex colors from Media Pool slots and replaced them with standard UI CSS variables (`var(--atem-bg)`, `var(--panel2)`) for Light Theme UI support.
+- Upgraded `bridge/server.js` to call `atem.downloadStill(index, 'rgba')` directly.
+
+## [v3.24] - Hardware YUV to BMP Intercept
+- ATEM YUV 4:2:2 Hardware Decoding: Engineered a custom byte-level YUV (UYVY) to RGB conversion algorithm inside `bridge/server.js` (`GET_STILL`). The bridge mathematically decodes the YUV luma/chroma values into BGRA pixel arrays, packages them with a 54-byte BMP header, and streams them to the UI.
+
+## [v3.23] - Standalone Git Workflow
+- Created a dedicated, standalone clean script `ops\git-workflow.bat` that performs staging, committing, pushing, switching to main, pulling, merging, and returning to the feature branch cleanly without any complex menu parser bugs.
+
+## [v3.22] - Initial Media Pool Transfer Engineering
+- Wrapped `MediaPool.jsx` inner grids completely inside `<div className="atem-bus-content-layout">` enforcing identical 424px total centering math.
+- Engineered bi-directional Media Pool Data Transfer in `bridge/server.js`.
+
+## [v3.21] - Global Font Normalization
+- Imported standard Google Web Font `Roboto` at the top of `index.css` to fix macOS vs Windows font discrepancies.
+
+## [v3.20] - Media Pool 4x4 Scaffold & Emulator Setting
+- Added ATEM Switcher / Emulator IP configuration input box to the General tab of the Settings modal.
+- Implemented `MediaPool.jsx` mimicking the official ATEM Software layout with a fixed 4x4 grid.
+
+## [v3.19] - Base Media Pool Grid & Emulator
+- Implemented a complete ATEM Virtual Hardware Emulator (`bridge/emulator.js`) that binds to UDP port 9910.
+- Implemented `MediaPool.jsx` featuring a 4x4 grid (16 slots) layout consistent with the macro compact panel design.
+
+## [v3.18] - Git Handover & File Suppression Rules
+- Provided clean, step-by-step terminal commands to re-initialize Git from scratch (`git init`).
+- Updated Rule 3 to also suppress the output of `ops/HANDOVER.MD` alongside `CHANGELOG.MD` in standard conversational responses.
+
+## [v3.17] - Large File Tracking Purge
+- Built-in automatic removal of tracked large files (`git rm --cached public/Top.mp4`) and `.gitignore` safety appending directly into `OPS.BAT` and `OPS.SH`.
+
+## [v3.16] - CLI Top.mp4 Purge Guide
+- Provided the exact Git commands (`git reset` and `git rm --cached`) to purge the oversized `public/Top.mp4` file (167.98 MB) from staging and Git tracking.
+
+## [v3.15] - Batch Variable Decoupling
+- Fixed the Windows batch parser crash (`. was unexpected at this time`) inside `OPS.BAT` by cleanly decoupling variable declaration from `set /p` prompts.
+
+## [v3.14] - Portable Node.js Explicit Pathing
+- Hardcoded exact portable Node.js directory path directly into `OPS.BAT` to guarantee instantaneous resolution of `node.exe` and `npm.cmd`.
+
+## [v3.13] - PowerShell Parameter Fix
+- Fixed the PowerShell `Start-Process` argument error by explicitly providing `-FilePath '%NODE_EXE%'` and `-ArgumentList 'server.js'`.
+
+## [v3.12] - Python Static Server Integration
+- Upgraded `OPS.BAT` to automatically launch a background Python static server serving the `/public` folder on port `8000` during `RUN & EVALUATE`.
+
+## [v3.11] - Media Pool Pagination & None Exclusivity
+- Replaced the old full 100-macro panel with the refined compact layout, and added 3 page buttons (`1`, `2`, `3`).
+- Enabled mouse wheel scrolling across the Macros panel to seamlessly flip through pages.
+- Integrated `NONE` (ID 0) into Quadrant Context Menu and Settings Multiview dropdowns.
+
+## [v3.10] - Safe Git Merge Strategy
+- Refactored all Git merge workflows across `ops/OPS.SH` and `ops/OPS.BAT` to never delete feature branches upon merging into `main`.
+
+## [v3.09] - OPS.BAT Execution Pipeline Reconstruction
+- Completely reconstructed `OPS.BAT` to fully integrate the custom PowerShell sync commands, port cleanup macros, and codebase exports back into the requested Menu flow.
+
+## [v3.08] - Portable Node.js Restoration
+- Restored the portable Node.js auto-detection and caching mechanism (`.atem_node_path`) into `ops/OPS.BAT`.
+
+## [v3.07] - Stop Button Parity & SVG Repair
+- Corrected the STOP button disabled logic (`disabled={!macroPlayer.isRunning}`) so it turns to standard inactive muted grey (opacity 0.35).
+- Repaired the `App.jsx` settings gear icon utilizing standard clean Material SVG geometry with `fill="currentColor"`.
+
+## [v3.06] - Chromium Native Zoom Visual Counter-measure
+- Added visual counter-measures in `App.jsx` (`document.body.style.zoom = 1 / window.devicePixelRatio`) resolving physical browser native UI zooming on Chromium browsers.
+
+## [v3.05] - Conditional Versioning Protocol
+- Updated Rule 1 (Conditional Version Increment): Version numbers will now only increment if actual codebase or documentation files are actively modified.
+
+## [v3.04] - Iteration Descriptor Enforcement
+- Corrected the procedural oversight from the previous iteration by acknowledging the missing mandatory iteration descriptor.
+
+## [v3.03] - Absolute 424px Panel Centering Math
+- Diagnosed vertical misalignment: Restored the exact `424px` content block height mathematically to the Mixer panel by wrapping all lower section titles into identical `.atem-section-header-row` wrappers (restoring the 4px height).
+
+## [v3.02] - Mixer Vertical Alignment Calculation
+- Recalculated the native height of the 4 Mixer rows to be exactly 376px. Replaced `space-between` with a hardcoded `gap: 16px` between the rows to hit 424px.
+
+## [v3.01] - Flex-End Text Alignment
+- Fixed MACROS section title vertical alignment: applied `align-items: flex-end` to both the Mixer and Macro headers, anchoring the 14px text flush to the absolute bottom of the container.
+
+## [v3.00] - Macro Button Standardized Gaps
+- Fixed vertical gap in `AtemMacrosCompact.jsx` grid from `5px` to `4px` (`gap: 4px !important`) to match horizontal spacing.
+
+## [v2.99] - Tooltip Dynamic Multi-Line Overflows
+- Configured dynamic tooltips: when hovering over macro buttons, if notes exist from the real ATEM or if the name overflows, the tooltip displays the name on row 1, a horizontal divider line, and the description underneath.
+
+## [v2.98] - Path-Only Headers
+- Updated absolute file header format to exclude the "FILE:" prefix.
+
+## [v2.97] - Token Conservation Rules
+- Integrated Token-Saving Rule: Suppressed full `ops/CHANGELOG.MD` delivery in standard responses unless explicitly requested by the user.
+
+## [v2.96] - Google AI Studio Integration
+- Formulated and documented complete System Instructions block tailored specifically for Google AI Studio's right sidebar "Run settings".
+
 ## [v2.95] - Macro Width Symmetrization, Title Harmonization & Available-Space Centering
 - Symmetrized the compact macro panel to the 786px width standard and 10px panel padding, widening buttons across 4 columns to 191px each.
 - Renamed panel title to MACROS and unified title styling with the PROGRAM section (14px line-height, 4px margin-bottom, 5px left-alignment).
@@ -517,7 +651,7 @@
 
 ## [v2.16.0] - Compact Apple Switch Icons, Fade-Toggle Version Tag & Alignment Precision
 - Embedded responsive SVG Sun and Moon icons directly inside the sliding Apple-style theme toggle switch.
-- Scaled Apple switch geometry to 36px Ã— 20px to match the proportions of the adjacent settings gear.
+- Scaled Apple switch geometry to 36px × 20px to match the proportions of the adjacent settings gear.
 - Added smooth opacity fade transition (0.3s) to the version tag, allowing click-to-hide and click-to-reveal.
 - Anchored multiview quadrant grid left alignment to match the sidebar's uncollapsed left boundary when the sidebar collapses.
 
@@ -564,8 +698,8 @@
 - Restored settings gear icon to the bottom-right corner (`bottom: 16px; right: 16px`).
 - Mathematically centered edit buttons (`.edit-btn`, `.group-edit-btn`) with exact 4px equidistant top, bottom, and right padding inside `30px` pill rows.
 - Standardized all edit panel inputs (`Name`, `IP`, `Group`, `Color`, `Description`) with pill-rounded geometry (`24px`).
-- Added "Clear Color" (`Ã—`) button inside the Color Dropdown to reset colors to transparent ("No Color").
-- Implemented right-click quadrant context menu routing specific Quadrant numbers (1â€“4) into target slots.
+- Added "Clear Color" (`×`) button inside the Color Dropdown to reset colors to transparent ("No Color").
+- Implemented right-click quadrant context menu routing specific Quadrant numbers (1–4) into target slots.
 - Added Tally LED brightness global settings slider.
 
 ## [v2.06.0] - Synchronization & Full Rollup Release
