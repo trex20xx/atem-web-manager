@@ -1,2 +1,2 @@
-v3.44
-Consolidated unified GitHub Operations menu at post-run termination and upfront CLI, ESC key single-stroke navigation/exit, removed cache wipe, and polished remote branch/tag telemetry.
+v3.45
+Restored standard interactive text input prompts with Enter confirmation across all CLI menus, enabling empty-Enter / 0 / q instant cancellation and root exit.

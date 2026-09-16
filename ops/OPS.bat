@@ -2,14 +2,14 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.44)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.45)
 :: =============================================================================
 :: This CLI manages the end-to-end development lifecycle:
 :: 1. Self-contained portable Node.js runtime resolution and integrity verification.
 :: 2. Dual-package dependency installations (frontend Vite + backend ATEM driver).
 :: 3. Background hardware bridge daemon management with automated port cleanup.
 :: 4. Consolidated GitHub Operations menu with automated branching, tagging, and merges.
-:: 5. Instant ESC key navigation across menus and exit at root.
+:: 5. Standard interactive text prompts with Enter submission and empty-Enter cancellation.
 :: 6. Token-guarded workspace cleaning and silent scratch re-cloning via ghost scripts.
 :: =============================================================================
 
@@ -30,12 +30,13 @@ cd /d "%PROJECT_ROOT%"
 
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :MENU
-:: DESCRIPTION: Master navigation dashboard. Supports ESC key to instantly exit.
+:: DESCRIPTION: Master navigation dashboard. Standard prompt with Enter confirmation.
+:: Pressing Enter on an empty line or entering 0 / q exits cleanly.
 :: -----------------------------------------------------------------------------
 :MENU
 cls
 echo -----------------------------------------------------------------
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.44)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.45)       
 echo -----------------------------------------------------------------
 echo   [1] RUN ^& EVALUATE     (Vite + Daemon, Auto-Export ^& Evaluation)
 echo   [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)
@@ -43,12 +44,12 @@ echo   [3] WIPE ^& RE-CLONE    (Token-Verified Total Scratch Re-Clone)
 echo   [4] EXPORT CODEBASE    (Serialize workspace to codebase.txt)
 echo   [5] EXIT               (Terminate session)
 echo -----------------------------------------------------------------
-
 set "CHOICE="
-for /f "delims=" %%k in ('powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "$host.UI.RawUI.FlushInputBuffer(); Write-Host -NoNewline ' Select action (1-5, or ESC to exit): '; $k=[Console]::ReadKey($true); if ($k.Key -eq 'Escape') { 'ESC' } else { Write-Host $k.KeyChar; [string]$k.KeyChar }"') do set "CHOICE=%%k"
+set /p CHOICE=" Select action (1-5, or press Enter/0 to exit): "
 
-if "%CHOICE%"=="ESC" goto QUIT
+if "%CHOICE%"=="" goto QUIT
+if "%CHOICE%"=="0" goto QUIT
+if /I "%CHOICE%"=="q" goto QUIT
 if "%CHOICE%"=="1" goto RUN_EVAL
 if "%CHOICE%"=="2" goto GITHUB_OPS
 if "%CHOICE%"=="3" goto WIPE_RECLONE
@@ -141,7 +142,7 @@ if %ERRORLEVEL% equ 0 (
 
 echo.
 echo -----------------------------------------------------------------
-echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.44)                
+echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.45)                
 echo -----------------------------------------------------------------
 echo  Node.js was not found on your system or in bin\node.
 echo  Downloading official portable Node.js LTS (v20.18.0 x64)...
@@ -259,7 +260,7 @@ set "DESC_FILE=%PROJECT_ROOT%\ops\DESCRIPTOR.txt"
 
 set "DETECTED_VER="
 for /f "usebackq tokens=2 delims='" %%v in (`powershell -NoProfile -Command "Select-String -Path 'src\version.js' -Pattern 'v[0-9]+\.[0-9]+' | ForEach-Object { $_.Matches.Value }"`) do set "DETECTED_VER=%%v"
-if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.44"
+if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.45"
 
 if not exist "%DESC_FILE%" goto MANUAL_PROMPT
 
@@ -287,7 +288,8 @@ echo -----------------------------------------------------------------
 echo  [1] Enter commit description manually
 echo  [2] Abort to download/replace ops\DESCRIPTOR.txt
 echo -----------------------------------------------------------------
-set /p MISMATCH_CHOICE=" Select (1-2): "
+set "MISMATCH_CHOICE="
+set /p MISMATCH_CHOICE=" Select (1-2, or Enter to abort): "
 if "%MISMATCH_CHOICE%"=="1" goto MANUAL_PROMPT
 exit /b 1
 
@@ -323,7 +325,7 @@ goto GITHUB_OPS
 :: FUNCTION: :GITHUB_OPS
 :: DESCRIPTION: Consolidated unified Git management dashboard.
 :: Accessible both upfront and automatically after stopping Vite.
-:: Supports pressing ESC to return to the main menu.
+:: Standard interactive prompt with Enter confirmation (or press Enter/0 to return).
 :: -----------------------------------------------------------------------------
 :GITHUB_OPS
 call :CLEANUP_PORTS
@@ -344,12 +346,12 @@ echo   [5] WIPE ^& RE-CLONE   (Token-Verified Total Scratch Re-Clone)
 echo   [6] REVERT ^& DISCARD  (Discard uncommitted changes and clean)
 echo   [7] RETURN TO MENU    (Return to main operations menu)
 echo -----------------------------------------------------------------
-
 set "GCHOICE="
-for /f "delims=" %%k in ('powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "$host.UI.RawUI.FlushInputBuffer(); Write-Host -NoNewline ' Select Git action (1-7, or ESC to return): '; $k=[Console]::ReadKey($true); if ($k.Key -eq 'Escape') { 'ESC' } else { Write-Host $k.KeyChar; [string]$k.KeyChar }"') do set "GCHOICE=%%k"
+set /p GCHOICE=" Select Git action (1-7, or press Enter/0 to return): "
 
-if "%GCHOICE%"=="ESC" goto MENU
+if "%GCHOICE%"=="" goto MENU
+if "%GCHOICE%"=="0" goto MENU
+if /I "%GCHOICE%"=="q" goto MENU
 if "%GCHOICE%"=="1" goto MERGE_MAIN
 if "%GCHOICE%"=="2" goto PUSH_BRANCH
 if "%GCHOICE%"=="3" goto SWITCH_BRANCH
@@ -446,7 +448,7 @@ goto GITHUB_OPS
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :SWITCH_BRANCH
 :: DESCRIPTION: Fetches remote history and displays live branch and tag lists
-:: with commit descriptions and relative timestamps. Supports ESC to cancel.
+:: with commit descriptions and relative timestamps. Press Enter to cancel.
 :: -----------------------------------------------------------------------------
 :SWITCH_BRANCH
 cls
@@ -480,13 +482,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "}"
 echo.
 echo -----------------------------------------------------------------
-
 set "TARGET_BRANCH="
-for /f "delims=" %%k in ('powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "$host.UI.RawUI.FlushInputBuffer(); Write-Host -NoNewline ' Enter branch or tag to checkout (or press ESC to cancel): '; $ans=''; while($true) { $k=[Console]::ReadKey($true); if ($k.Key -eq 'Escape') { Write-Host ''; 'ESC'; break } elseif ($k.Key -eq 'Enter') { Write-Host ''; $ans; break } elseif ($k.Key -eq 'Backspace') { if ($ans.Length -gt 0) { $ans=$ans.Substring(0,$ans.Length-1); Write-Host -NoNewline \"`b `b\" } } elseif ($k.KeyChar -ge 32) { $ans+=$k.KeyChar; Write-Host -NoNewline $k.KeyChar } }"') do set "TARGET_BRANCH=%%k"
+set /p TARGET_BRANCH=" Enter branch or tag to checkout (or press Enter/0 to cancel): "
 
-if "%TARGET_BRANCH%"=="ESC" goto GITHUB_OPS
 if "%TARGET_BRANCH%"=="" goto GITHUB_OPS
+if "%TARGET_BRANCH%"=="0" goto GITHUB_OPS
+if /I "%TARGET_BRANCH%"=="q" goto GITHUB_OPS
 git checkout %TARGET_BRANCH%
 pause
 goto GITHUB_OPS
@@ -498,8 +499,9 @@ goto GITHUB_OPS
 :CREATE_BRANCH
 echo.
 set "NEW_BRANCH="
-set /p NEW_BRANCH=" Enter new feature branch name: "
+set /p NEW_BRANCH=" Enter new feature branch name (or press Enter to cancel): "
 if "%NEW_BRANCH%"=="" goto GITHUB_OPS
+if "%NEW_BRANCH%"=="0" goto GITHUB_OPS
 git checkout -b %NEW_BRANCH%
 echo ^>^>^> Switched to new branch '%NEW_BRANCH%'. ^<^<^<
 pause

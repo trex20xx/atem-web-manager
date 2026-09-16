@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # =============================================================================
-# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / POSIX) (v3.44)
+# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / POSIX) (v3.45)
 # =============================================================================
 # Manages runtime resolution, Vite + bridge daemon execution, consolidated
-# GitHub Operations menu, instant ESC key navigation, and release tagging.
+# GitHub Operations menu, Enter confirmation, and empty-Enter cancellation.
 # =============================================================================
 
 cd "$(dirname "$0")/.." || exit
@@ -66,7 +66,7 @@ verify_token() {
 resolve_commit_msg() {
     DESC_FILE="$PROJECT_ROOT/ops/DESCRIPTOR.txt"
     DETECTED_VER=$(grep -o "v[0-9]\+\.[0-9]\+" src/version.js | head -n 1)
-    if [ -z "$DETECTED_VER" ]; then DETECTED_VER="v3.44"; fi
+    if [ -z "$DETECTED_VER" ]; then DETECTED_VER="v3.45"; fi
 
     if [ -f "$DESC_FILE" ]; then
         FILE_VER=$(head -n 1 "$DESC_FILE" | tr -d '\r\n')
@@ -87,7 +87,7 @@ resolve_commit_msg() {
             echo " [1] Enter commit message manually"
             echo " [2] Abort to download/replace ops/DESCRIPTOR.txt"
             echo "-----------------------------------------------------------------"
-            read -p " Select (1-2): " MISMATCH_CHOICE
+            read -p " Select (1-2, or Enter to abort): " MISMATCH_CHOICE
             if [ "$MISMATCH_CHOICE" != "1" ]; then
                 return 1
             fi
@@ -167,10 +167,9 @@ github_operations() {
         echo "  [6] REVERT & DISCARD  (Discard uncommitted changes and clean)"
         echo "  [7] RETURN TO MENU    (Return to main operations menu)"
         echo "-----------------------------------------------------------------"
-        read -rsn1 -p " Select Git action (1-7, or ESC to return): " GCHOICE
-        echo ""
+        read -p " Select Git action (1-7, or press Enter/0 to return): " GCHOICE
 
-        if [ "$GCHOICE" = $'\e' ] || [ "$GCHOICE" = "7" ]; then
+        if [ -z "$GCHOICE" ] || [ "$GCHOICE" = "0" ] || [ "$GCHOICE" = "7" ] || [ "$GCHOICE" = "q" ]; then
             return
         fi
 
@@ -232,15 +231,15 @@ github_operations() {
                 git for-each-ref --sort=-*creatordate refs/tags/ --format="%(refname:short)|%(subject)|%(*committerdate:relative)" | awk -F'|' '!seen[$1]++ { printf "  [tag]    %-12s :: %s (%s)\n", $1, $2, $3 }'
                 echo ""
                 echo "-----------------------------------------------------------------"
-                read -p "Enter branch or tag to checkout (or press ESC to cancel): " TARGET_BRANCH
-                if [ -n "$TARGET_BRANCH" ] && [ "$TARGET_BRANCH" != $'\e' ]; then
+                read -p "Enter branch or tag to checkout (or press Enter to cancel): " TARGET_BRANCH
+                if [ -n "$TARGET_BRANCH" ] && [ "$TARGET_BRANCH" != "0" ]; then
                     git checkout "$TARGET_BRANCH"
                     read -p "Press Enter to continue..."
                 fi
                 ;;
             4)
-                read -p "Enter new feature branch name: " NEW_BRANCH
-                if [ -n "$NEW_BRANCH" ]; then
+                read -p "Enter new feature branch name (or press Enter to cancel): " NEW_BRANCH
+                if [ -n "$NEW_BRANCH" ] && [ "$NEW_BRANCH" != "0" ]; then
                     git checkout -b "$NEW_BRANCH"
                     echo ">>> Switched to new branch '$NEW_BRANCH'. <<<"
                     read -p "Press Enter to continue..."
@@ -264,7 +263,7 @@ github_operations() {
 while true; do
     clear
     echo "-------------------------------------------------------------------------"
-    echo "ATEM WEB MANAGER - OPERATIONS SUITE (v3.44)"
+    echo "ATEM WEB MANAGER - OPERATIONS SUITE (v3.45)"
     echo "-------------------------------------------------------------------------"
     echo "[1] RUN & EVALUATE     - Launch Vite Frontend & Node Bridge Daemon"
     echo "[2] GITHUB OPERATIONS  - Merge to Main, Push Branch, Switch"
@@ -272,10 +271,9 @@ while true; do
     echo "[4] EXPORT CODEBASE    - Serialize codebase to codebase.txt"
     echo "[5] EXIT               - Terminate session"
     echo "-------------------------------------------------------------------------"
-    read -rsn1 -p "Select an option (1-5, or ESC to exit): " choice
-    echo ""
+    read -p "Select an option (1-5, or press Enter/0 to exit): " choice
 
-    if [ "$choice" = $'\e' ] || [ "$choice" = "5" ]; then
+    if [ -z "$choice" ] || [ "$choice" = "0" ] || [ "$choice" = "5" ] || [ "$choice" = "q" ]; then
         cleanup_bridge
         exit 0
     fi
