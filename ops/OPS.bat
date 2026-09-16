@@ -2,7 +2,7 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.40)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.41)
 :: =============================================================================
 
 taskkill /f /fi "WINDOWTITLE eq ATEM_GHOST_WIPER*" >nul 2>&1
@@ -21,16 +21,16 @@ cd /d "%PROJECT_ROOT%"
 
 :MENU
 cls
-echo =================================================================
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.40)       
-echo =================================================================
+echo -----------------------------------------------------------------
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.41)       
+echo -----------------------------------------------------------------
 echo   [1] RUN ^& EVALUATE     (Vite + Daemon, Auto-Export ^& Evaluation)
 echo   [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)
 echo   [3] WIPE ^& RE-CLONE    (Token-Verified Total Scratch Re-Clone)
 echo   [4] WIPE LOCAL CACHES  (Token-Verified Cache ^& Build Erasure)
 echo   [5] EXPORT CODEBASE    (Serialize workspace to codebase.txt)
 echo   [6] EXIT
-echo =================================================================
+echo -----------------------------------------------------------------
 set /p CHOICE=" Select action (1-6): "
 
 if "%CHOICE%"=="1" goto RUN_EVAL
@@ -47,10 +47,10 @@ set "REQUIRED_KEY=ATEM_MANAGER_SECURE_WIPE_KEY_2026"
 
 if not exist "%TOKEN_FILE%" (
     echo.
-    echo =================================================================
+    echo -----------------------------------------------------------------
     echo  [SECURITY ABORT] Missing token: .atem_workspace_token not found!
     echo  Wipe refused to prevent deleting unintended drive directories.
-    echo =================================================================
+    echo -----------------------------------------------------------------
     pause
     exit /b 1
 )
@@ -59,10 +59,10 @@ set "FOUND_KEY="
 set /p FOUND_KEY=<"%TOKEN_FILE%"
 if not "%FOUND_KEY%"=="%REQUIRED_KEY%" (
     echo.
-    echo =================================================================
+    echo -----------------------------------------------------------------
     echo  [SECURITY ABORT] Invalid security key inside .atem_workspace_token!
     echo  Wipe refused to prevent deleting unintended drive directories.
-    echo =================================================================
+    echo -----------------------------------------------------------------
     pause
     exit /b 1
 )
@@ -116,18 +116,18 @@ if %ERRORLEVEL% equ 0 (
 )
 
 echo.
-echo =================================================================
-echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.40)                
-echo =================================================================
+echo -----------------------------------------------------------------
+echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.41)                
+echo -----------------------------------------------------------------
 echo  Node.js was not found on your system or in bin\node.
 echo  Downloading official portable Node.js LTS (v20.18.0 x64)...
-echo =================================================================
+echo -----------------------------------------------------------------
 
 set "DL_ZIP=%PROJECT_ROOT%\bin\node_setup.zip"
 set "EXT_DIR=%PROJECT_ROOT%\bin\node_setup_ext"
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "$ProgressPreference = 'SilentlyContinue';" ^
+    "$frames = @('⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏');" ^
     "$url = 'https://nodejs.org/dist/v20.18.0/node-v20.18.0-win-x64.zip';" ^
     "$zip = '%DL_ZIP%';" ^
     "$ext = '%EXT_DIR%';" ^
@@ -169,16 +169,16 @@ goto :eof
 :CHECK_DEPENDENCIES
 if not exist "%PROJECT_ROOT%\node_modules\vite\" (
     echo.
-    echo =================================================================
+    echo -----------------------------------------------------------------
     echo      FRESH CLONE DETECTED - INSTALLING FRONTEND DEPENDENCIES     
-    echo =================================================================
+    echo -----------------------------------------------------------------
     call "%NPM_CMD%" install
 )
 if not exist "%PROJECT_ROOT%\bridge\node_modules\" (
     echo.
-    echo =================================================================
+    echo -----------------------------------------------------------------
     echo      INSTALLING ATEM BRIDGE BACKEND DEPENDENCIES                
-    echo =================================================================
+    echo -----------------------------------------------------------------
     cd /d "%PROJECT_ROOT%\bridge"
     call "%NPM_CMD%" install
     cd /d "%PROJECT_ROOT%"
@@ -196,11 +196,18 @@ goto :eof
 
 :EXPORT_CODEBASE
 echo.
-echo =================================================================
+echo -----------------------------------------------------------------
 echo        SERIALIZING CODEBASE FOR AI HANDOVER (codebase.txt)       
-echo =================================================================
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$out='codebase.txt'; $all=@(); @('index.html','vite.config.js','package.json') | ForEach-Object { if (Test-Path $_) { $all += ('=== FILE: ' + $_ + ' === '); $all += (Get-Content $_ -Raw); $all += ' ' } }; if (Test-Path 'bridge') { Get-ChildItem -Path 'bridge' -File | Where-Object { $_.Name -ne 'package-lock.json' } | ForEach-Object { $all += ('=== FILE: bridge/' + $_.Name + ' === '); $all += (Get-Content $_.FullName -Raw); $all += ' ' } }; if (Test-Path 'src') { $baseLen=(Get-Location).Path.Length + 1; Get-ChildItem -Path 'src' -Recurse -File | Where-Object { $_.Extension -match '^\.(js|jsx|css)$' } | ForEach-Object { $rel=$_.FullName.Substring($baseLen).Replace('\', '/'); $all += ('=== FILE: ' + $rel + ' === '); $all += (Get-Content $_.FullName -Raw); $all += ' ' } }; [System.IO.File]::WriteAllLines((Join-Path (Get-Location) $out), $all, [System.Text.Encoding]::UTF8);"
-echo ^>^>^> Successfully serialized workspace to codebase.txt ^<^<^<
+echo -----------------------------------------------------------------
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$frames = @('⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏');" ^
+    "$out='codebase.txt'; $all=@();" ^
+    "Write-Host -NoNewline '  ⠋ Serializing project modules...';" ^
+    "@('index.html','vite.config.js','package.json') | ForEach-Object { if (Test-Path $_) { $all += ('=== FILE: ' + $_ + ' === '); $all += (Get-Content $_ -Raw); $all += ' ' } };" ^
+    "if (Test-Path 'bridge') { Get-ChildItem -Path 'bridge' -File | Where-Object { $_.Name -ne 'package-lock.json' } | ForEach-Object { $all += ('=== FILE: bridge/' + $_.Name + ' === '); $all += (Get-Content $_.FullName -Raw); $all += ' ' } };" ^
+    "if (Test-Path 'src') { $baseLen=(Get-Location).Path.Length + 1; Get-ChildItem -Path 'src' -Recurse -File | Where-Object { $_.Extension -match '^\.(js|jsx|css)$' } | ForEach-Object { $rel=$_.FullName.Substring($baseLen).Replace('\', '/'); $all += ('=== FILE: ' + $rel + ' === '); $all += (Get-Content $_.FullName -Raw); $all += ' ' } };" ^
+    "[System.IO.File]::WriteAllLines((Join-Path (Get-Location) $out), $all, [System.Text.Encoding]::UTF8);" ^
+    "Write-Host \"`r  ✔ Serialized workspace to codebase.txt [DONE]  \";"
 goto :eof
 
 :RESOLVE_COMMIT_MSG
@@ -209,7 +216,7 @@ set "DESC_FILE=%PROJECT_ROOT%\ops\DESCRIPTOR.txt"
 
 set "DETECTED_VER="
 for /f "usebackq tokens=2 delims='" %%v in (`powershell -NoProfile -Command "Select-String -Path 'src\version.js' -Pattern 'v[0-9]+\.[0-9]+' | ForEach-Object { $_.Matches.Value }"`) do set "DETECTED_VER=%%v"
-if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.40"
+if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.41"
 
 if not exist "%DESC_FILE%" goto MANUAL_PROMPT
 
@@ -230,13 +237,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
 if %ERRORLEVEL% equ 0 exit /b 0
 
 echo.
-echo =================================================================
+echo -----------------------------------------------------------------
 echo  [WARNING] Descriptor file version does not match src/version.js!
 echo  src/version.js:      %DETECTED_VER%
-echo =================================================================
+echo -----------------------------------------------------------------
 echo  [1] Enter commit description manually
 echo  [2] Abort to download/replace ops\DESCRIPTOR.txt
-echo =================================================================
+echo -----------------------------------------------------------------
 set /p MISMATCH_CHOICE=" Select (1-2): "
 if "%MISMATCH_CHOICE%"=="1" goto MANUAL_PROMPT
 exit /b 1
@@ -267,9 +274,9 @@ for /f "delims=" %%b in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set "CURRE
 if "%CURRENT_BRANCH%"=="" set "CURRENT_BRANCH=unknown"
 
 echo.
-echo =================================================================
+echo -----------------------------------------------------------------
 echo                   EVALUATION / REVERT PIPELINE                   
-echo =================================================================
+echo -----------------------------------------------------------------
 echo  Active Branch: %CURRENT_BRANCH%
 echo -----------------------------------------------------------------
 echo   [1] MERGE TO MAIN   - Commit, push feature branch, tag release,
@@ -281,7 +288,7 @@ echo.
 echo   [3] REVERT ^& DISCARD- Discard uncommitted changes (git reset/clean).
 echo.
 echo   [4] RETURN TO MENU  - Return to main operations menu.
-echo =================================================================
+echo -----------------------------------------------------------------
 set /p EVAL_CHOICE=" Select post-run action (1-4): "
 
 if "%EVAL_CHOICE%"=="1" goto MERGE_MAIN
@@ -295,9 +302,9 @@ for /f "delims=" %%b in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set "CURRE
 if "%CURRENT_BRANCH%"=="" set "CURRENT_BRANCH=unknown"
 
 cls
-echo =================================================================
+echo -----------------------------------------------------------------
 echo                        GITHUB OPERATIONS                         
-echo =================================================================
+echo -----------------------------------------------------------------
 echo  Active Branch: %CURRENT_BRANCH%
 echo -----------------------------------------------------------------
 echo   [1] MERGE TO MAIN        - Auto-branch, commit, push branch, tag,
@@ -315,7 +322,7 @@ echo   [5] REVERT ^& DISCARD     - Reset active branch back to clean
 echo                              HEAD state (git reset --hard ^& clean).
 echo.
 echo   [6] RETURN TO MENU       - Return to main operations menu.
-echo =================================================================
+echo -----------------------------------------------------------------
 set /p GCHOICE=" Select Git action (1-6): "
 
 if "%GCHOICE%"=="1" goto MERGE_MAIN
@@ -349,13 +356,13 @@ if /I "%CURRENT_BRANCH%"=="main" (
     git merge "%DETECTED_VER%" --no-edit
     git push origin main
     echo.
-    echo =================================================================
+    echo -----------------------------------------------------------------
     echo  Iteration successfully published:
     echo  - Feature branch '%DETECTED_VER%' published on GitHub.
     echo  - Release tag '%DETECTED_VER%' published on GitHub.
     echo  - Changes merged into 'main' and pushed.
     echo  - Active working branch is now 'main'.
-    echo =================================================================
+    echo -----------------------------------------------------------------
     pause
     goto MENU
 )
@@ -373,13 +380,13 @@ git pull origin main 2>nul
 git merge "%CURRENT_BRANCH%" --no-edit
 git push origin main
 echo.
-echo =================================================================
+echo -----------------------------------------------------------------
 echo  Iteration successfully published:
 echo  - Feature branch '%CURRENT_BRANCH%' published on GitHub.
 echo  - Release tag '%DETECTED_VER%' published on GitHub.
 echo  - Changes merged into 'main' and pushed.
 echo  - Active working branch is now 'main'.
-echo =================================================================
+echo -----------------------------------------------------------------
 pause
 goto MENU
 
@@ -400,13 +407,29 @@ goto MENU
 
 :SWITCH_BRANCH
 cls
-echo =================================================================
+echo -----------------------------------------------------------------
 echo                    AVAILABLE BRANCHES ^& HISTORY                  
-echo =================================================================
+echo -----------------------------------------------------------------
 echo.
-powershell -NoProfile -ExecutionPolicy Bypass -Command "git for-each-ref --sort=-committerdate refs/heads/ --format='  [branch] %(refname:short) :: %(subject) (%(committerdate:relative))'; git for-each-ref --sort=-committerdate refs/tags/ --format='  [tag]    %(refname:short) :: %(subject) (%(committerdate:relative))'"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "Write-Host -NoNewline '  ⠋ Fetching latest branch telemetry from GitHub...';" ^
+    "git fetch --all --prune --tags > $null 2>&1;" ^
+    "Write-Host \"`r                                                          `r\";" ^
+    "$refs = git for-each-ref --sort=-committerdate refs/heads/ refs/remotes/origin/ refs/tags/ --format='%%(refname:short)|%%(subject)|%%(committerdate:relative)';" ^
+    "$seen = @{};" ^
+    "foreach ($r in $refs) {" ^
+    "    if ($r -match 'HEAD') { continue };" ^
+    "    $parts = $r.Split('|');" ^
+    "    $rawName = $parts[0];" ^
+    "    $name = $rawName.Replace('origin/', '');" ^
+    "    if ($seen.ContainsKey($name)) { continue };" ^
+    "    $seen[$name] = $true;" ^
+    "    $subj = if ($parts.Count -gt 1) { $parts[1] } else { '' };" ^
+    "    $date = if ($parts.Count -gt 2) { $parts[2] } else { '' };" ^
+    "    Write-Host ('  * ' + $name.PadRight(10) + ' :: ' + $subj + ' (' + $date + ')');" ^
+    "}"
 echo.
-echo =================================================================
+echo -----------------------------------------------------------------
 set "TARGET_BRANCH="
 set /p TARGET_BRANCH=" Enter branch or tag to checkout (or press Enter to cancel): "
 if "%TARGET_BRANCH%"=="" goto GITHUB_OPS
@@ -437,12 +460,12 @@ call :VERIFY_TOKEN
 if %ERRORLEVEL% neq 0 goto MENU
 
 echo.
-echo =================================================================
+echo -----------------------------------------------------------------
 echo             TOTAL WORKSPACE WIPE ^& RE-CLONE PROTOCOL             
-echo =================================================================
+echo -----------------------------------------------------------------
 echo  WARNING: This will completely destroy this folder and clone a
 echo  fresh copy from GitHub. Run this ONLY when you want a clean reset.
-echo =================================================================
+echo -----------------------------------------------------------------
 
 set "REPO_URL="
 for /f "delims=" %%u in ('git config --get remote.origin.url 2^>nul') do set "REPO_URL=%%u"
@@ -454,7 +477,7 @@ for %%I in ("%PROJECT_ROOT%") do set "FOLDER_NAME=%%~nxI"
 
 echo  Remote Repository: %REPO_URL%
 echo  Target Folder:     %PROJECT_ROOT%
-echo =================================================================
+echo -----------------------------------------------------------------
 set /p WIPE_CONFIRM=" Type 'RECLONE' to execute (or press Enter to cancel): "
 if not "%WIPE_CONFIRM%"=="RECLONE" (
     echo ^>^>^> Wipe and re-clone aborted. ^<^<^<
@@ -468,43 +491,33 @@ set "GHOST_BAT=%USERPROFILE%\atem_ghost_reclone.bat"
 (
     echo @echo off
     echo title ATEM_GHOST_WIPER
-    echo echo [GHOST] Terminating lingering background port handles...
     echo powershell -NoProfile -Command "8080, 3000, 8000 | ForEach-Object { $p = (Get-NetTCPConnection -LocalPort $_ -State Listen -ErrorAction SilentlyContinue).OwningProcess; if ($p) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue } }"
     echo timeout /t 2 /nobreak ^>nul
     echo if not exist "%PROJECT_ROOT%\.atem_workspace_token" ^(
-    echo     echo [GHOST SECURITY ABORT] Token file missing from target directory! Aborting deletion.
-    echo     pause
     echo     del "%%~f0" ^>nul 2^>^&1
     echo     exit
     echo ^)
-    echo echo [GHOST] Deleting old project directory: "%PROJECT_ROOT%"...
     echo rmdir /S /Q "%PROJECT_ROOT%" ^>nul 2^>^&1
-    echo echo [GHOST] Cloning fresh repository from GitHub...
     echo cd /d "%PARENT_DIR%"
-    echo git clone "%REPO_URL%" "%FOLDER_NAME%"
-    echo echo.
-    echo echo =================================================================
-    echo echo  Fresh clone complete: %PARENT_DIR%\%FOLDER_NAME%
-    echo echo  You can now open the folder in VS Code and run ops\OPS.bat.
-    echo echo =================================================================
-    echo echo  Press any key to close this window...
-    echo pause ^>nul
+    echo git clone "%REPO_URL%" "%FOLDER_NAME%" ^>nul 2^>^&1
     echo del "%%~f0" ^>nul 2^>^&1
     echo exit
 ) > "%GHOST_BAT%"
 
-echo ^>^>^> Spawning ghost cloner...
-start "" cmd /c "%GHOST_BAT%"
-exit /b 0
+echo ^>^>^> Starting silent background wipe and fresh re-clone...
+powershell -NoProfile -WindowStyle Hidden -Command "Start-Process cmd -ArgumentList '/c \"%GHOST_BAT%\"' -WindowStyle Hidden"
+echo ^>^>^> Session closing. Your workspace is being freshly re-cloned.
+timeout /t 2 /nobreak >nul
+exit
 
 :WIPE_CACHES
 call :VERIFY_TOKEN
 if %ERRORLEVEL% neq 0 goto MENU
 
 echo.
-echo =================================================================
+echo -----------------------------------------------------------------
 echo                   CLEAR LOCAL CACHES ^& BUILD ARTIFACTS           
-echo =================================================================
+echo -----------------------------------------------------------------
 call :CLEANUP_PORTS
 if exist "%PROJECT_ROOT%\node_modules" rmdir /S /Q "%PROJECT_ROOT%\node_modules"
 if exist "%PROJECT_ROOT%\bridge\node_modules" rmdir /S /Q "%PROJECT_ROOT%\bridge\node_modules"

@@ -28,10 +28,10 @@ verify_token() {
 
     if [ ! -f "$TOKEN_FILE" ]; then
         echo ""
-        echo "================================================================="
+        echo "-----------------------------------------------------------------"
         echo " [SECURITY ABORT] Missing token: .atem_workspace_token not found!"
         echo " Wipe refused to prevent deleting unintended directories."
-        echo "================================================================="
+        echo "-----------------------------------------------------------------"
         read -p "Press Enter to continue..."
         return 1
     fi
@@ -39,10 +39,10 @@ verify_token() {
     FOUND_KEY=$(head -n 1 "$TOKEN_FILE" | tr -d '\r\n')
     if [ "$FOUND_KEY" != "$REQUIRED_KEY" ]; then
         echo ""
-        echo "================================================================="
+        echo "-----------------------------------------------------------------"
         echo " [SECURITY ABORT] Invalid security key inside .atem_workspace_token!"
         echo " Wipe refused to prevent deleting unintended directories."
-        echo "================================================================="
+        echo "-----------------------------------------------------------------"
         read -p "Press Enter to continue..."
         return 1
     fi
@@ -59,7 +59,7 @@ verify_token() {
 resolve_commit_msg() {
     DESC_FILE="$PROJECT_ROOT/ops/DESCRIPTOR.txt"
     DETECTED_VER=$(grep -o "v[0-9]\+\.[0-9]\+" src/version.js | head -n 1)
-    if [ -z "$DETECTED_VER" ]; then DETECTED_VER="v3.40"; fi
+    if [ -z "$DETECTED_VER" ]; then DETECTED_VER="v3.41"; fi
 
     if [ -f "$DESC_FILE" ]; then
         FILE_VER=$(head -n 1 "$DESC_FILE" | tr -d '\r\n')
@@ -72,14 +72,14 @@ resolve_commit_msg() {
             return 0
         else
             echo ""
-            echo "================================================================="
+            echo "-----------------------------------------------------------------"
             echo " [WARNING] Descriptor version mismatch!"
             echo " src/version.js:      $DETECTED_VER"
             echo " ops/DESCRIPTOR.txt:  $FILE_VER"
-            echo "================================================================="
+            echo "-----------------------------------------------------------------"
             echo " [1] Enter commit message manually"
             echo " [2] Abort to download/replace ops/DESCRIPTOR.txt"
-            echo "================================================================="
+            echo "-----------------------------------------------------------------"
             read -p " Select (1-2): " MISMATCH_CHOICE
             if [ "$MISMATCH_CHOICE" != "1" ]; then
                 return 1
@@ -96,12 +96,12 @@ wipe_reclone() {
     verify_token || return
 
     clear
-    echo "================================================================="
+    echo "-----------------------------------------------------------------"
     echo "             TOTAL WORKSPACE WIPE & RE-CLONE PROTOCOL            "
-    echo "================================================================="
+    echo "-----------------------------------------------------------------"
     echo " WARNING: This will completely destroy this folder and clone a"
     echo " fresh copy from GitHub. Run this ONLY when you want a clean reset."
-    echo "================================================================="
+    echo "-----------------------------------------------------------------"
 
     REPO_URL=$(git config --get remote.origin.url 2>/dev/null)
     if [ -z "$REPO_URL" ]; then
@@ -113,7 +113,7 @@ wipe_reclone() {
 
     echo " Remote Repository: $REPO_URL"
     echo " Target Folder:     $PROJECT_ROOT"
-    echo "================================================================="
+    echo "-----------------------------------------------------------------"
     read -p " Type 'RECLONE' to execute (or press Enter to cancel): " CONFIRM
 
     if [ "$CONFIRM" != "RECLONE" ]; then
@@ -123,21 +123,21 @@ wipe_reclone() {
     fi
 
     cleanup_bridge
-    echo ">>> Spawning detached ghost wiper & re-cloner..."
+    echo ">>> Starting silent background wipe and fresh re-clone..."
 
     nohup bash -c "
         sleep 1
         kill \$(lsof -t -i:8080 -i:3000 -i:8000) 2>/dev/null
         if [ ! -f '$PROJECT_ROOT/.atem_workspace_token' ]; then
-            echo '[GHOST ABORT] Security token missing from target directory!'
             exit 1
         fi
         rm -rf '$PROJECT_ROOT'
         cd '$PARENT_DIR'
-        git clone '$REPO_URL' '$FOLDER_NAME'
-        echo '>>> Fresh clone complete. Workspace is ready.'
+        git clone '$REPO_URL' '$FOLDER_NAME' >/dev/null 2>&1
     " >/dev/null 2>&1 &
 
+    echo ">>> Session closing. Your workspace is being freshly re-cloned."
+    sleep 2
     exit 0
 }
 
@@ -147,9 +147,9 @@ github_operations() {
         if [ -z "$CURRENT_BRANCH" ]; then CURRENT_BRANCH="unknown"; fi
 
         clear
-        echo "================================================================="
+        echo "-----------------------------------------------------------------"
         echo "                      GITHUB OPERATIONS                          "
-        echo "================================================================="
+        echo "-----------------------------------------------------------------"
         echo " Active Branch: $CURRENT_BRANCH"
         echo "-----------------------------------------------------------------"
         echo "  [1] MERGE TO MAIN        - Auto-branch, commit, push branch, tag,"
@@ -167,7 +167,7 @@ github_operations() {
         echo "                             HEAD state (git reset --hard & clean)."
         echo ""
         echo "  [6] RETURN TO MENU       - Return to main operations menu."
-        echo "================================================================="
+        echo "-----------------------------------------------------------------"
         read -p " Select Git action (1-6): " GCHOICE
 
         case $GCHOICE in
@@ -215,14 +215,16 @@ github_operations() {
                 ;;
             3)
                 clear
-                echo "================================================================="
+                echo "-----------------------------------------------------------------"
                 echo "                    AVAILABLE BRANCHES & HISTORY                  "
-                echo "================================================================="
+                echo "-----------------------------------------------------------------"
                 echo ""
-                git for-each-ref --sort=-committerdate refs/heads/ --format="  [branch] %(refname:short) :: %(subject) (%(committerdate:relative))"
-                git for-each-ref --sort=-committerdate refs/tags/ --format="  [tag]    %(refname:short) :: %(subject) (%(committerdate:relative))"
+                printf "  ⠋ Fetching latest branch telemetry from GitHub..."
+                git fetch --all --prune --tags >/dev/null 2>&1
+                printf "\r                                                          \r"
+                git for-each-ref --sort=-committerdate refs/heads/ refs/remotes/origin/ refs/tags/ --format="%(refname:short)|%(subject)|%(committerdate:relative)" | awk -F'|' '!seen[$1]++ { gsub(/^origin\//,"",$1); printf "  * %-10s :: %s (%s)\n", $1, $2, $3 }'
                 echo ""
-                echo "================================================================="
+                echo "-----------------------------------------------------------------"
                 read -p "Enter branch or tag to checkout (or press Enter to cancel): " TARGET_BRANCH
                 if [ -n "$TARGET_BRANCH" ]; then
                     git checkout "$TARGET_BRANCH"
@@ -254,16 +256,16 @@ github_operations() {
 
 while true; do
     clear
-    echo "========================================================================="
-    echo "ATEM WEB MANAGER - OPERATIONS SUITE (v3.40)"
-    echo "========================================================================="
+    echo "-------------------------------------------------------------------------"
+    echo "ATEM WEB MANAGER - OPERATIONS SUITE (v3.41)"
+    echo "-------------------------------------------------------------------------"
     echo "[1] RUN & EVALUATE     - Launch Vite Frontend & Node Bridge Daemon"
     echo "[2] GITHUB OPERATIONS  - Merge to Main, Push Branch, Switch"
     echo "[3] WIPE & RE-CLONE    - Token-Verified Total Scratch Re-Clone"
     echo "[4] WIPE LOCAL CACHES  - Token-Verified Cache & Build Erasure"
     echo "[5] EXPORT CODEBASE    - Serialize codebase to codebase.txt"
     echo "[6] EXIT               - Terminate"
-    echo "========================================================================="
+    echo "-------------------------------------------------------------------------"
     read -p "Select an option (1-6): " choice
 
     case $choice in
@@ -299,9 +301,9 @@ while true; do
             if [ -z "$CURRENT_BRANCH" ]; then CURRENT_BRANCH="unknown"; fi
 
             echo ""
-            echo "================================================================="
+            echo "-----------------------------------------------------------------"
             echo "                  EVALUATION / REVERT PIPELINE                   "
-            echo "================================================================="
+            echo "-----------------------------------------------------------------"
             echo " Active Branch: $CURRENT_BRANCH"
             echo "-----------------------------------------------------------------"
             echo "  [1] MERGE TO MAIN   - Commit, push feature branch, tag release,"
@@ -313,7 +315,7 @@ while true; do
             echo "  [3] REVERT & DISCARD- Discard uncommitted changes (git reset/clean)."
             echo ""
             echo "  [4] RETURN TO MENU  - Return to main operations menu."
-            echo "================================================================="
+            echo "-----------------------------------------------------------------"
             read -p " Select post-run action (1-4): " EVAL_CHOICE
 
             if [ "$EVAL_CHOICE" = "1" ]; then

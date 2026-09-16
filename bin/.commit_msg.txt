@@ -1,1 +1,1 @@
-﻿Automated descriptor file ingestion engine with version.js parity verification, automatic iteration branch creation, GitHub multi-branch preservation, and branch history listing.
+﻿Unified single-line menu geometry, silent background ghost wiping, live remote GitHub branch history with commit descriptions, and embedded animated loaders.
