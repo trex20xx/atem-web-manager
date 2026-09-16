@@ -4,13 +4,13 @@ import DeviceList from './DeviceList';
 import BottomActionBtn from './BottomActionBtn';
 
 // =========================================================================
-// ATEM WEB MANAGER - SIDEBAR COMPONENT (v3.62)
+// ATEM WEB MANAGER - SIDEBAR COMPONENT (v3.65)
 // =========================================================================
-// Supports docked in-flow navigation and gapless 100vh full-height overlay
-// sliding in collapsed mode with left-edge hover reveal.
+// Receives dynamic 'top' and 'height' coordinates from App.jsx to guarantee
+// perfect vertical alignment with the 16:9 multiview quadrants when docked.
 
 const Sidebar = ({ 
-    height, showActionButton, enableDragDrop, forceUppercase, 
+    top, height, showActionButton, enableDragDrop, forceUppercase, 
     deviceState, variant = 'classic', isCollapsed, isRevealed, setIsRevealed
 }) => {
     const [isHovered, setIsHovered] = useState(false);
@@ -18,7 +18,10 @@ const Sidebar = ({
     return (
         <aside 
             className={`sidebar variant-${variant} ${isCollapsed ? 'collapsed' : ''} ${isRevealed ? 'revealed' : ''}`} 
-            style={{ height: isCollapsed ? '100vh' : `${height}px` }}
+            style={{ 
+                height: isCollapsed ? '100vh' : `${height}px`,
+                top: isCollapsed ? '0px' : `${top}px`
+            }}
             onMouseEnter={() => {
                 setIsHovered(true);
                 if (isCollapsed && setIsRevealed) setIsRevealed(true);

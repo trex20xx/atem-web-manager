@@ -9,7 +9,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { APP_VERSION } from './version';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v3.63)
+// ATEM WEB MANAGER - MASTER LAYOUT (v3.65)
 // =========================================================================
 
 function App() {
@@ -35,7 +35,7 @@ function App() {
   const [isToolbarRevealed, setIsToolbarRevealed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   
-  const [dashboardStyle, setDashboardStyle] = useState({ width: '100%', height: '100%' });
+  const [dashboardStyle, setDashboardStyle] = useState({ width: '100%', height: '100%', top: 50 });
 
   const deviceState = useDevices();
   const { 
@@ -46,7 +46,7 @@ function App() {
   const connectedDevice = deviceState.devices.find(d => d.status === 'online');
   const isConnected = !!connectedDevice;
 
-  // Real-time aspect ratio lock syncing: cleanly calculates absolute padding insets
+  // Real-time aspect ratio lock syncing & Absolute Padding Interpolation
   const handleResize = () => {
     const isDocked = !isSidebarCollapsed;
     const paddingLeft = isDocked ? 284 : 16;
@@ -64,9 +64,16 @@ function App() {
       width = height * 16 / 9;
     }
 
+    const quadH = Math.max(100, Math.round(height));
+    const quadW = Math.max(100, Math.round(width));
+    
+    // Calculates the exact Y-axis offset of the quadrant grid to synchronize the sidebar vertically
+    const quadTop = paddingTop + (availableHeight - quadH) / 2;
+
     setDashboardStyle({
-      width: Math.max(100, Math.round(width)),
-      height: Math.max(100, Math.round(height))
+      width: quadW,
+      height: quadH,
+      top: quadTop
     });
   };
 
@@ -169,6 +176,14 @@ function App() {
   const hasCustomName = activeDevice && activeDevice.name && activeDevice.name.trim() !== '' && activeDevice.name !== activeDevice.ip;
   const hasCustomGroup = activeDevice && activeDevice.group && activeDevice.group.trim() !== '' && activeDevice.group.toUpperCase() !== 'UNGROUPED';
   const deviceIp = activeDevice ? activeDevice.ip : '192.168.10.240';
+
+  const titleParts = [];
+  if (hasCustomName) titleParts.push(activeDevice.name.trim());
+  if (hasCustomGroup) titleParts.push(activeDevice.group.trim());
+  titleParts.push(deviceIp);
+
+  const rawHeaderTitle = titleParts.join(' · ');
+  const headerTitle = forceUppercase ? rawHeaderTitle.toUpperCase() : rawHeaderTitle;
 
   return (
     <div className="app-root-container">
@@ -301,6 +316,8 @@ function App() {
 
       <div className={`dashboard ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <Sidebar 
+          top={dashboardStyle.top}
+          height={dashboardStyle.height}
           showActionButton={showActionButton}
           enableDragDrop={enableDragDrop}
           forceUppercase={forceUppercase}

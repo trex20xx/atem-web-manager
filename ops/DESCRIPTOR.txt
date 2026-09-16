@@ -1,2 +1,2 @@
-v3.64
-Synchronized CLI scripts to complete zero-jitter CSS padding-inset layout, default disconnected routing, backtick hotkey, Cmd+, capture, and corrected timeline versioning.
+v3.65
+Synchronized sidebar docked geometry to perfectly match quadrant height, implemented 100vh animated vertical scaling during collapse, and tuned transform offsets for zero-overlap synchronized sliding.
