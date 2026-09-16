@@ -1,2 +1,2 @@
-v3.55
-Removed Hardware Lock Enforced warning modal from AtemMacrosCompact, implementing muted standby mode (opacity: 0.35, pointer-events: none, no buttons lit) when disconnected and smooth active activation upon connection.
+v3.56
+Implemented muted standby mode (opacity: 0.35, pointer-events: none, no buttons or badges lit) for MediaPool when disconnected and forwarded connectedDevice in Panel.jsx.

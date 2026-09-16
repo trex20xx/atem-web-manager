@@ -2,17 +2,22 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.50)
+// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.56)
 // =========================================================================
 // Hardware-Locked IP: 192.168.10.240
-// Features persistent localStorage thumbnail caching (0ms reload on app launch),
-// single-flight sequential downloading with SYNC button & click-to-fetch,
-// and drag-and-drop RGBA still uploading.
+// Lifecycle States:
+//   - Disconnected: Muted Standby Mode (opacity: 0.35, pointer-events: none,
+//                   NO buttons or badges lit, neutral unpressed slot circles)
+//   - Connected: Active Mode (opacity: 1, pointer-events: auto, live thumbnails,
+//                 file labels, and active media player routing badges)
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
 
-const MediaPool = () => {
+const MediaPool = ({ connectedDevice }) => {
+    // Determine active connection state
+    const isPanelActive = Boolean(connectedDevice && connectedDevice.ip === LOCKED_ATEM_IP);
+
     const [currentPage, setCurrentPage] = useState(1);
     const [atemStills, setAtemStills] = useState([]);
     const [atemClips, setAtemClips] = useState([]);
@@ -41,6 +46,7 @@ const MediaPool = () => {
     const watchdogTimerRef = useRef(null);
 
     const processDownloadQueue = useCallback(() => {
+        if (!isPanelActive) return;
         if (inFlightIdxRef.current !== null || pendingQueueRef.current.length === 0) {
             if (pendingQueueRef.current.length === 0) {
                 setIsSyncing(false);
@@ -69,17 +75,18 @@ const MediaPool = () => {
                 processDownloadQueue();
             }
         }, 8000);
-    }, []);
+    }, [isPanelActive]);
 
-    // Manual fetch trigger for a single slot or batch sync
     const triggerSlotFetch = useCallback((idx) => {
+        if (!isPanelActive) return;
         if (!pendingQueueRef.current.includes(idx) && inFlightIdxRef.current !== idx) {
             pendingQueueRef.current.push(idx);
             processDownloadQueue();
         }
-    }, [processDownloadQueue]);
+    }, [isPanelActive, processDownloadQueue]);
 
     const handleSyncAllStills = () => {
+        if (!isPanelActive) return;
         atemStillsRef.current.forEach((still, idx) => {
             if (still.isUsed) {
                 triggerSlotFetch(idx);
@@ -179,6 +186,8 @@ const MediaPool = () => {
     }, [processDownloadQueue, cachedThumbnails, setCachedThumbnails]);
 
     const handlePanelWheel = (e) => {
+        if (!isPanelActive) return;
+
         const now = Date.now();
         if (now - lastWheelTimeRef.current < 45) return;
         
@@ -193,6 +202,7 @@ const MediaPool = () => {
     };
 
     const handleDragOver = (e, dropId) => {
+        if (!isPanelActive) return;
         e.preventDefault();
         setDragActive(dropId);
     };
@@ -202,6 +212,7 @@ const MediaPool = () => {
     };
 
     const handleDrop = (e, index, type) => {
+        if (!isPanelActive) return;
         e.preventDefault();
         setDragActive(null);
 
@@ -265,6 +276,8 @@ const MediaPool = () => {
     };
 
     const handleSlotClick = (slotIndex, type) => {
+        if (!isPanelActive) return;
+
         // If an image is used but not yet cached, click immediately fetches it
         if (type === 'still' && atemStills[slotIndex]?.isUsed && !cachedThumbnails[slotIndex]) {
             triggerSlotFetch(slotIndex);
@@ -288,19 +301,19 @@ const MediaPool = () => {
         const slotNumber = startIndex + index + 1;
         const actualSlotIndex = startIndex + index;
         const dropId = `${type}-${actualSlotIndex}`;
-        const isDragOver = dragActive === dropId;
-        const isUploading = uploadingSlot === actualSlotIndex && type === 'still';
+        const isDragOver = isPanelActive && dragActive === dropId;
+        const isUploading = isPanelActive && uploadingSlot === actualSlotIndex && type === 'still';
 
-        const atemData = type === 'still' ? atemStills[actualSlotIndex] : atemClips[actualSlotIndex];
-        const localPreview = localPreviews[dropId];
-        const cachedRecord = type === 'still' ? cachedThumbnails[actualSlotIndex] : null;
+        const atemData = isPanelActive ? (type === 'still' ? atemStills[actualSlotIndex] : atemClips[actualSlotIndex]) : null;
+        const localPreview = isPanelActive ? localPreviews[dropId] : null;
+        const cachedRecord = (isPanelActive && type === 'still') ? cachedThumbnails[actualSlotIndex] : null;
 
         const isUsed = atemData ? atemData.isUsed : false;
         const displayName = localPreview ? localPreview.name : (atemData ? atemData.name : '');
         const displaySrc = localPreview ? localPreview.src : (cachedRecord ? cachedRecord.src : null);
 
-        const isMp1 = mediaPlayers[0] && (type === 'still' ? (mediaPlayers[0].sourceType === 1 && mediaPlayers[0].stillIndex === actualSlotIndex) : (mediaPlayers[0].sourceType === 2 && mediaPlayers[0].clipIndex === actualSlotIndex));
-        const isMp2 = mediaPlayers[1] && (type === 'still' ? (mediaPlayers[1].sourceType === 1 && mediaPlayers[1].stillIndex === actualSlotIndex) : (mediaPlayers[1].sourceType === 2 && mediaPlayers[1].clipIndex === actualSlotIndex));
+        const isMp1 = isPanelActive && mediaPlayers[0] && (type === 'still' ? (mediaPlayers[0].sourceType === 1 && mediaPlayers[0].stillIndex === actualSlotIndex) : (mediaPlayers[0].sourceType === 2 && mediaPlayers[0].clipIndex === actualSlotIndex));
+        const isMp2 = isPanelActive && mediaPlayers[1] && (type === 'still' ? (mediaPlayers[1].sourceType === 1 && mediaPlayers[1].stillIndex === actualSlotIndex) : (mediaPlayers[1].sourceType === 2 && mediaPlayers[1].clipIndex === actualSlotIndex));
 
         return (
             <div 
@@ -310,7 +323,7 @@ const MediaPool = () => {
                 onDrop={(e) => handleDrop(e, actualSlotIndex, type)}
                 onClick={() => handleSlotClick(actualSlotIndex, type)}
                 style={{ opacity: isUploading ? 0.5 : 1 }}
-                title={isUsed && !displaySrc ? "Click to fetch image from ATEM" : undefined}
+                title={isPanelActive && isUsed && !displaySrc ? "Click to fetch image from ATEM" : undefined}
             >
                 {isMp1 && <div className="mp-badge" style={{ left: '4px' }}>1</div>}
                 {isMp2 && <div className="mp-badge" style={{ left: isMp1 ? '24px' : '4px' }}>2</div>}
@@ -324,7 +337,7 @@ const MediaPool = () => {
                         </div>
                     )}
                 </div>
-                {(isUsed || displayName) && (
+                {isPanelActive && (isUsed || displayName) && (
                     <div className="mp-label-bar">
                         <span className="mp-label-num">{slotNumber.toString().padStart(2, '0')}</span>
                         <span className="mp-label-text">{displayName || `Slot ${slotNumber}`}</span>
@@ -338,7 +351,14 @@ const MediaPool = () => {
         <div className="quadrant-master-panel" onWheel={handlePanelWheel}>
             {currentPage === 1 ? (
                 /* PAGE 1: STILLS 1-16 (Strict 4x4 Grid in 424px Frame) */
-                <div className="panel-layout-frame">
+                <div 
+                    className="panel-layout-frame"
+                    style={{
+                        opacity: isPanelActive ? 1 : 0.35,
+                        pointerEvents: isPanelActive ? 'auto' : 'none',
+                        transition: 'opacity 0.25s ease'
+                    }}
+                >
                     <div className="macro-compact-header-row">
                         <div className="macro-title-group">
                             <span className="atem-section-title">STILLS</span>
@@ -346,7 +366,7 @@ const MediaPool = () => {
                                 {[1, 2].map((pageNum) => (
                                     <button
                                         key={`mp-page-btn-${pageNum}`}
-                                        className={`macro-action-text-btn ${currentPage === pageNum ? 'active-orange' : ''}`}
+                                        className={`macro-action-text-btn ${isPanelActive && currentPage === pageNum ? 'active-orange' : ''}`}
                                         onClick={() => setCurrentPage(pageNum)}
                                     >
                                         {pageNum}
@@ -357,20 +377,20 @@ const MediaPool = () => {
 
                         <div className="macro-actions-group">
                             <button 
-                                className={`macro-action-text-btn ${isSyncing ? 'active-orange' : ''}`}
+                                className={`macro-action-text-btn ${isPanelActive && isSyncing ? 'active-orange' : ''}`}
                                 onClick={handleSyncAllStills}
                                 title="Fetch thumbnails from ATEM"
                             >
-                                {isSyncing ? 'SYNCING...' : 'SYNC'}
+                                {isPanelActive && isSyncing ? 'SYNCING...' : 'SYNC'}
                             </button>
                             <button 
-                                className={`macro-action-text-btn ${selectedMp === 1 ? 'active-orange' : ''}`}
+                                className={`macro-action-text-btn ${isPanelActive && selectedMp === 1 ? 'active-orange' : ''}`}
                                 onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
                             >
                                 MP1
                             </button>
                             <button 
-                                className={`macro-action-text-btn ${selectedMp === 2 ? 'active-orange' : ''}`}
+                                className={`macro-action-text-btn ${isPanelActive && selectedMp === 2 ? 'active-orange' : ''}`}
                                 onClick={() => setSelectedMp(prev => prev === 2 ? null : 2)}
                             >
                                 MP2
@@ -388,7 +408,15 @@ const MediaPool = () => {
                 </div>
             ) : (
                 /* PAGE 2: STILLS 17-20 in Row 1, CLIPS 1-4 in Row 4 (424px Frame with space-between) */
-                <div className="panel-layout-frame" style={{ justifyContent: 'space-between' }}>
+                <div 
+                    className="panel-layout-frame" 
+                    style={{ 
+                        justifyContent: 'space-between',
+                        opacity: isPanelActive ? 1 : 0.35,
+                        pointerEvents: isPanelActive ? 'auto' : 'none',
+                        transition: 'opacity 0.25s ease'
+                    }}
+                >
                     {/* SECTION 1: STILLS 17-20 (ROW 1 OF 4x4 GRID) */}
                     <div>
                         <div className="macro-compact-header-row">
@@ -398,7 +426,7 @@ const MediaPool = () => {
                                     {[1, 2].map((pageNum) => (
                                         <button
                                             key={`mp-page-btn-p2-${pageNum}`}
-                                            className={`macro-action-text-btn ${currentPage === pageNum ? 'active-orange' : ''}`}
+                                            className={`macro-action-text-btn ${isPanelActive && currentPage === pageNum ? 'active-orange' : ''}`}
                                             onClick={() => setCurrentPage(pageNum)}
                                         >
                                             {pageNum}
@@ -409,20 +437,20 @@ const MediaPool = () => {
 
                             <div className="macro-actions-group">
                                 <button 
-                                    className={`macro-action-text-btn ${isSyncing ? 'active-orange' : ''}`}
+                                    className={`macro-action-text-btn ${isPanelActive && isSyncing ? 'active-orange' : ''}`}
                                     onClick={handleSyncAllStills}
                                     title="Fetch thumbnails from ATEM"
                                 >
-                                    {isSyncing ? 'SYNCING...' : 'SYNC'}
+                                    {isPanelActive && isSyncing ? 'SYNCING...' : 'SYNC'}
                                 </button>
                                 <button 
-                                    className={`macro-action-text-btn ${selectedMp === 1 ? 'active-orange' : ''}`}
+                                    className={`macro-action-text-btn ${isPanelActive && selectedMp === 1 ? 'active-orange' : ''}`}
                                     onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
                                 >
                                     MP1
                                 </button>
                                 <button 
-                                    className={`macro-action-text-btn ${selectedMp === 2 ? 'active-orange' : ''}`}
+                                    className={`macro-action-text-btn ${isPanelActive && selectedMp === 2 ? 'active-orange' : ''}`}
                                     onClick={() => setSelectedMp(prev => prev === 2 ? null : 2)}
                                 >
                                     MP2

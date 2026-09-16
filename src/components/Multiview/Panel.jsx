@@ -8,7 +8,7 @@ import Skeleton from '../UI/Skeleton';
 import QuadrantContextMenu from '../UI/QuadrantContextMenu';
 
 // =========================================================================
-// ATEM WEB MANAGER - PANEL COMPONENT (v3.21)
+// ATEM WEB MANAGER - PANEL COMPONENT (v3.56)
 // =========================================================================
 // 1: Stream | 2: Media Pool | 3: Mixer | 5: Macros Compact | 0: None
 
@@ -38,7 +38,7 @@ const Panel = ({
 
         switch (panelId) {
             case 1: return <Player currentVideoSource={currentVideoSource} />;
-            case 2: return <MediaPool />;
+            case 2: return <MediaPool connectedDevice={connectedDevice} />;
             case 3: return <AtemConstellationBus connectedDevice={connectedDevice} />;
             case 5: return <AtemMacrosCompact connectedDevice={connectedDevice} />;
             default: return null;
