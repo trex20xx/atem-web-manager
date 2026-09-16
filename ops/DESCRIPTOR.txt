@@ -1,2 +1,2 @@
-v3.54
-Eliminated double-opacity compounding on Preview row in AtemConstellationBus, establishing uniform 0.35 opacity parity across all mixer switcher buttons during disconnected standby mode.
+v3.55
+Removed Hardware Lock Enforced warning modal from AtemMacrosCompact, implementing muted standby mode (opacity: 0.35, pointer-events: none, no buttons lit) when disconnected and smooth active activation upon connection.

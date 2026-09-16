@@ -1,8 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM COMPACT MACROS PANEL (v3.28)
+// ATEM WEB MANAGER - ATEM COMPACT MACROS PANEL (v3.55)
 // =========================================================================
+// Hardware-Locked IP: 192.168.10.240
+// Switcher Button Geometry: 36px Height | 4px Grid Gaps | 786px Width
+// Lifecycle States:
+//   - Disconnected: Muted Standby Mode (uniform 0.35 opacity, pointer-events: none,
+//                   NO buttons lit, neutral unpressed slate)
+//   - Connected: Active Mode (opacity: 1, pointer-events: auto, live macro names)
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
@@ -10,16 +16,8 @@ const TOTAL_MACROS = 100;
 const MACROS_PER_PAGE = 40;
 
 const AtemMacrosCompact = ({ connectedDevice }) => {
-    if (!connectedDevice || connectedDevice.ip !== LOCKED_ATEM_IP) {
-        return (
-            <div className="atem-bus-locked-container">
-                <div className="atem-bus-lock-badge">HARDWARE LOCK ENFORCED</div>
-                <div className="atem-bus-lock-desc">
-                    ATEM Macros panel is restricted exclusively to <strong>{LOCKED_ATEM_IP}</strong>.
-                </div>
-            </div>
-        );
-    }
+    // Determine active connection state
+    const isPanelActive = Boolean(connectedDevice && connectedDevice.ip === LOCKED_ATEM_IP);
 
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedMacroIndex, setSelectedMacroIndex] = useState(null);
@@ -85,6 +83,8 @@ const AtemMacrosCompact = ({ connectedDevice }) => {
     }, []);
 
     const handlePanelWheel = (e) => {
+        if (!isPanelActive) return;
+
         const now = Date.now();
         if (now - lastWheelTimeRef.current < 45) return;
         
@@ -99,6 +99,8 @@ const AtemMacrosCompact = ({ connectedDevice }) => {
     };
 
     const sendCommand = (action, payload = {}) => {
+        if (!isPanelActive) return;
+
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             try {
                 wsRef.current.send(JSON.stringify({ action, ip: LOCKED_ATEM_IP, ...payload }));
@@ -107,15 +109,17 @@ const AtemMacrosCompact = ({ connectedDevice }) => {
     };
 
     const runMacro = (index) => {
-        if (index === null || index < 0) return;
+        if (!isPanelActive || index === null || index < 0) return;
         sendCommand('MACRO_RUN', { index });
     };
 
     const stopMacro = () => {
+        if (!isPanelActive) return;
         sendCommand('MACRO_STOP');
     };
 
     const toggleLoop = () => {
+        if (!isPanelActive) return;
         sendCommand('MACRO_LOOP', { loop: !macroPlayer.loop });
     };
 
@@ -134,6 +138,8 @@ const AtemMacrosCompact = ({ connectedDevice }) => {
     };
 
     const handleMacroClick = (index) => {
+        if (!isPanelActive) return;
+
         const name = getMacroName(index);
         const isEmpty = !name || name.trim() === '';
 
@@ -156,15 +162,14 @@ const AtemMacrosCompact = ({ connectedDevice }) => {
     };
 
     const handlePlayClick = () => {
-        if (selectedMacroIndex !== null) {
-            const name = getMacroName(selectedMacroIndex);
-            if (!name || name.trim() === '') {
-                stopMacro();
-                setSelectedMacroIndex(null);
-                return;
-            }
-            runMacro(selectedMacroIndex);
+        if (!isPanelActive || selectedMacroIndex === null) return;
+        const name = getMacroName(selectedMacroIndex);
+        if (!name || name.trim() === '') {
+            stopMacro();
+            setSelectedMacroIndex(null);
+            return;
         }
+        runMacro(selectedMacroIndex);
     };
 
     const startIndex = (currentPage - 1) * MACROS_PER_PAGE;
@@ -173,7 +178,15 @@ const AtemMacrosCompact = ({ connectedDevice }) => {
 
     return (
         <div className="quadrant-master-panel" onWheel={handlePanelWheel}>
-            <div className="panel-layout-frame" style={{ justifyContent: 'flex-start' }}>
+            <div 
+                className="panel-layout-frame" 
+                style={{ 
+                    justifyContent: 'flex-start',
+                    opacity: isPanelActive ? 1 : 0.35,
+                    pointerEvents: isPanelActive ? 'auto' : 'none',
+                    transition: 'opacity 0.25s ease'
+                }}
+            >
                 <div className="macro-compact-header-row">
                     <div className="macro-title-group">
                         <span className="atem-section-title">MACROS</span>
@@ -181,7 +194,7 @@ const AtemMacrosCompact = ({ connectedDevice }) => {
                             {[1, 2, 3].map((pageNum) => (
                                 <button
                                     key={`macro-page-btn-${pageNum}`}
-                                    className={`macro-action-text-btn ${currentPage === pageNum ? 'active-orange' : ''}`}
+                                    className={`macro-action-text-btn ${isPanelActive && currentPage === pageNum ? 'active-orange' : ''}`}
                                     onClick={() => setCurrentPage(pageNum)}
                                 >
                                     {pageNum}
@@ -192,31 +205,31 @@ const AtemMacrosCompact = ({ connectedDevice }) => {
 
                     <div className="macro-actions-group">
                         <button 
-                            className={`macro-action-text-btn ${macroPlayer.loop ? 'active-orange' : ''}`}
+                            className={`macro-action-text-btn ${isPanelActive && macroPlayer.loop ? 'active-orange' : ''}`}
                             onClick={toggleLoop}
                         >
                             LOOP
                         </button>
 
                         <button 
-                            className={`macro-action-text-btn ${autoRun ? 'active-orange' : ''}`}
+                            className={`macro-action-text-btn ${isPanelActive && autoRun ? 'active-orange' : ''}`}
                             onClick={() => setAutoRun(prev => !prev)}
                         >
                             AUTORUN
                         </button>
 
                         <button 
-                            className={`macro-action-text-btn ${selectedMacroIndex !== null ? 'active-green' : 'disabled'}`}
+                            className={`macro-action-text-btn ${isPanelActive && selectedMacroIndex !== null ? 'active-green' : 'disabled'}`}
                             onClick={handlePlayClick}
-                            disabled={selectedMacroIndex === null}
+                            disabled={!isPanelActive || selectedMacroIndex === null}
                         >
                             PLAY
                         </button>
 
                         <button 
-                            className={`macro-action-text-btn ${macroPlayer.isRunning ? 'active-red' : 'disabled'}`}
+                            className={`macro-action-text-btn ${isPanelActive && macroPlayer.isRunning ? 'active-red' : 'disabled'}`}
                             onClick={stopMacro}
-                            disabled={!macroPlayer.isRunning}
+                            disabled={!isPanelActive || !macroPlayer.isRunning}
                         >
                             STOP
                         </button>
@@ -226,18 +239,18 @@ const AtemMacrosCompact = ({ connectedDevice }) => {
                 <div className="macro-section-box">
                     <div className="macro-matrix-grid-compact">
                         {currentMacroIndices.map((macroIdx) => {
-                            const rawName = getMacroName(macroIdx);
-                            const rawDesc = getMacroDescription(macroIdx);
+                            const rawName = isPanelActive ? getMacroName(macroIdx) : '';
+                            const rawDesc = isPanelActive ? getMacroDescription(macroIdx) : '';
                             const displayName = rawName ? rawName : '';
                             const displayNum = (macroIdx + 1).toString().padStart(2, '0');
-                            const isSelected = selectedMacroIndex === macroIdx;
-                            const isRunning = macroPlayer.isRunning && macroPlayer.macroIndex === macroIdx;
+                            const isSelected = isPanelActive && selectedMacroIndex === macroIdx;
+                            const isRunning = isPanelActive && macroPlayer.isRunning && macroPlayer.macroIndex === macroIdx;
 
                             const isOverflowing = displayName.length > 18;
                             const hasNote = rawDesc && rawDesc.trim() !== '';
                             
-                            const tooltipTitle = (isOverflowing || hasNote) ? displayName : undefined;
-                            const tooltipNote = hasNote ? rawDesc : undefined;
+                            const tooltipTitle = isPanelActive && (isOverflowing || hasNote) ? displayName : undefined;
+                            const tooltipNote = isPanelActive && hasNote ? rawDesc : undefined;
 
                             return (
                                 <button
