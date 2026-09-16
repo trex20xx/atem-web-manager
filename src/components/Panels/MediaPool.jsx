@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.67)
+// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.68)
 // =========================================================================
 // Hardware-Locked IP: 192.168.10.240
 // Features persistent localStorage thumbnail caching (0ms reload on app launch),
 // single-flight sequential downloading with SYNC button & click-to-fetch,
-// and drag-and-drop RGBA still uploading.
+// drag-and-drop RGBA still uploading, and contextual dim/bright tally borders.
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
@@ -314,10 +314,13 @@ const MediaPool = ({ connectedDevice }) => {
         const isMp1 = isPanelActive && mediaPlayers[0] && (type === 'still' ? (mediaPlayers[0].sourceType === 1 && mediaPlayers[0].stillIndex === actualSlotIndex) : (mediaPlayers[0].sourceType === 2 && mediaPlayers[0].clipIndex === actualSlotIndex));
         const isMp2 = isPanelActive && mediaPlayers[1] && (type === 'still' ? (mediaPlayers[1].sourceType === 1 && mediaPlayers[1].stillIndex === actualSlotIndex) : (mediaPlayers[1].sourceType === 2 && mediaPlayers[1].clipIndex === actualSlotIndex));
 
-        // Evaluate Tally Rectangles for Media Pool routing
+        // Evaluate context-aware dim vs bright tally borders
         let tallyClass = '';
-        if (isMp2) tallyClass = 'mp-tally-red';
-        else if (isMp1) tallyClass = 'mp-tally-green';
+        if (isMp2) {
+            tallyClass = selectedMp === 2 ? 'mp-tally-red' : 'mp-tally-red-dim';
+        } else if (isMp1) {
+            tallyClass = selectedMp === 1 ? 'mp-tally-green' : 'mp-tally-green-dim';
+        }
 
         return (
             <div 

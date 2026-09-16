@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.67)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.68)
  * =========================================================================
  */
 
@@ -1006,6 +1006,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     box-sizing: border-box;
     cursor: pointer;
     flex-shrink: 0;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .mp-slot.drag-over {
     border-color: var(--orange-hl);
@@ -1019,6 +1020,16 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .mp-slot.mp-tally-red {
     border-color: var(--red) !important;
     box-shadow: inset 0 0 0 1px var(--red);
+}
+
+/* Dim/Muted Tally States for Unselected Routing (40% Opacity) */
+.mp-slot.mp-tally-green-dim {
+    border-color: rgba(52, 168, 83, 0.4) !important;
+    box-shadow: inset 0 0 0 1px rgba(52, 168, 83, 0.4);
+}
+.mp-slot.mp-tally-red-dim {
+    border-color: rgba(234, 67, 53, 0.4) !important;
+    box-shadow: inset 0 0 0 1px rgba(234, 67, 53, 0.4);
 }
 
 .mp-thumb-container {
