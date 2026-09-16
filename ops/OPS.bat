@@ -2,7 +2,7 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.42)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.43)
 :: =============================================================================
 :: This CLI manages the end-to-end development lifecycle:
 :: 1. Self-contained portable Node.js runtime resolution and integrity verification.
@@ -35,12 +35,12 @@ cd /d "%PROJECT_ROOT%"
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :MENU
 :: DESCRIPTION: Displays the primary interactive CLI navigation dashboard.
-:: Routes the operator to evaluation runs, Git management, or workspace wipers.
+:: All menu items are formatted as strictly single-line entries.
 :: -----------------------------------------------------------------------------
 :MENU
 cls
 echo -----------------------------------------------------------------
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.42)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.43)       
 echo -----------------------------------------------------------------
 echo   [1] RUN ^& EVALUATE     (Vite + Daemon, Auto-Export ^& Evaluation)
 echo   [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)
@@ -148,7 +148,7 @@ if %ERRORLEVEL% equ 0 (
 
 echo.
 echo -----------------------------------------------------------------
-echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.42)                
+echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.43)                
 echo -----------------------------------------------------------------
 echo  Node.js was not found on your system or in bin\node.
 echo  Downloading official portable Node.js LTS (v20.18.0 x64)...
@@ -272,7 +272,7 @@ set "DESC_FILE=%PROJECT_ROOT%\ops\DESCRIPTOR.txt"
 
 set "DETECTED_VER="
 for /f "usebackq tokens=2 delims='" %%v in (`powershell -NoProfile -Command "Select-String -Path 'src\version.js' -Pattern 'v[0-9]+\.[0-9]+' | ForEach-Object { $_.Matches.Value }"`) do set "DETECTED_VER=%%v"
-if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.42"
+if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.43"
 
 if not exist "%DESC_FILE%" goto MANUAL_PROMPT
 
@@ -314,6 +314,7 @@ exit /b 0
 :: DESCRIPTION: The primary daily operational flow.
 :: Launches background bridge daemon, boots Vite on port 3000, auto-launches
 :: the browser, and routes directly to the Evaluation Pipeline on Ctrl+C.
+:: All menu choices in the post-run evaluation are strictly single-line entries.
 :: -----------------------------------------------------------------------------
 :RUN_EVAL
 call :SETUP_NODE_ENV
@@ -341,15 +342,10 @@ echo                   EVALUATION / REVERT PIPELINE
 echo -----------------------------------------------------------------
 echo  Active Branch: %CURRENT_BRANCH%
 echo -----------------------------------------------------------------
-echo   [1] MERGE TO MAIN   - Commit, push feature branch, tag release,
-echo                         and merge into main (preserves history).
-echo.
-echo   [2] PUSH TO BRANCH  - Checkpoint and push progress to active
-echo                         branch without merging into main.
-echo.
-echo   [3] REVERT ^& DISCARD- Discard uncommitted changes (git reset/clean).
-echo.
-echo   [4] RETURN TO MENU  - Return to main operations menu.
+echo   [1] MERGE TO MAIN     (Publish branch, tag, and merge into main)
+echo   [2] PUSH TO BRANCH    (Checkpoint progress on active branch)
+echo   [3] REVERT ^& DISCARD  (Discard uncommitted changes and clean)
+echo   [4] RETURN TO MENU    (Return to main operations menu)
 echo -----------------------------------------------------------------
 set /p EVAL_CHOICE=" Select post-run action (1-4): "
 
@@ -361,7 +357,7 @@ goto MENU
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :GITHUB_OPS
 :: DESCRIPTION: Dedicated Git submenu for managing branches, merges,
-:: checkouts, and clean reverts without launching Vite.
+:: checkouts, and clean reverts. All menu options are strictly single-line.
 :: -----------------------------------------------------------------------------
 :GITHUB_OPS
 call :CLEANUP_PORTS
@@ -370,25 +366,16 @@ if "%CURRENT_BRANCH%"=="" set "CURRENT_BRANCH=unknown"
 
 cls
 echo -----------------------------------------------------------------
-echo                        GITHUB OPERATIONS                         
+echo                      GITHUB OPERATIONS                          
 echo -----------------------------------------------------------------
 echo  Active Branch: %CURRENT_BRANCH%
 echo -----------------------------------------------------------------
-echo   [1] MERGE TO MAIN        - Auto-branch, commit, push branch, tag,
-echo                              and merge into main (all preserved).
-echo.
-echo   [2] PUSH TO BRANCH       - Commit and push working progress
-echo                              to active branch without merging.
-echo.
-echo   [3] SWITCH BRANCH        - View branch list with commit descriptions
-echo                              and checkout older versions.
-echo.
-echo   [4] CREATE NEW BRANCH    - Create and switch to a new branch.
-echo.
-echo   [5] REVERT ^& DISCARD     - Reset active branch back to clean
-echo                              HEAD state (git reset --hard ^& clean).
-echo.
-echo   [6] RETURN TO MENU       - Return to main operations menu.
+echo   [1] MERGE TO MAIN     (Publish branch, tag, and merge into main)
+echo   [2] PUSH TO BRANCH    (Checkpoint progress on active branch)
+echo   [3] SWITCH BRANCH     (View branch history and checkout version)
+echo   [4] CREATE NEW BRANCH (Create and checkout new feature branch)
+echo   [5] REVERT ^& DISCARD  (Discard uncommitted changes and clean)
+echo   [6] RETURN TO MENU    (Return to main operations menu)
 echo -----------------------------------------------------------------
 set /p GCHOICE=" Select Git action (1-6): "
 
@@ -403,7 +390,7 @@ goto GITHUB_OPS
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :MERGE_MAIN
 :: DESCRIPTION: The authoritative iteration publisher.
-:: 1. Creates a version branch (e.g. v3.42) if currently on main.
+:: 1. Creates a version branch (e.g. v3.43) if currently on main.
 :: 2. Commits and pushes the version branch to GitHub.
 :: 3. Creates and pushes an annotated release tag to GitHub.
 :: 4. Folds changes into main, pushes main, and sets active branch to main.

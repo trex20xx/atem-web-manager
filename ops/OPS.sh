@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / POSIX) (v3.42)
+# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / POSIX) (v3.43)
 # =============================================================================
 # Manages runtime resolution, Vite + bridge daemon execution, automated Git
 # feature branching, release tagging, and token-guarded workspace resets.
@@ -82,7 +82,7 @@ verify_token() {
 resolve_commit_msg() {
     DESC_FILE="$PROJECT_ROOT/ops/DESCRIPTOR.txt"
     DETECTED_VER=$(grep -o "v[0-9]\+\.[0-9]\+" src/version.js | head -n 1)
-    if [ -z "$DETECTED_VER" ]; then DETECTED_VER="v3.42"; fi
+    if [ -z "$DETECTED_VER" ]; then DETECTED_VER="v3.43"; fi
 
     if [ -f "$DESC_FILE" ]; then
         FILE_VER=$(head -n 1 "$DESC_FILE" | tr -d '\r\n')
@@ -172,7 +172,7 @@ wipe_reclone() {
 # -----------------------------------------------------------------------------
 # FUNCTION: github_operations
 # DESCRIPTION: Interactive submenu for branch switching, creation, checkpoint
-# pushing, clean reverts, and version merges.
+# pushing, clean reverts, and version merges. All options are strictly single-line.
 # -----------------------------------------------------------------------------
 github_operations() {
     while true; do
@@ -185,21 +185,12 @@ github_operations() {
         echo "-----------------------------------------------------------------"
         echo " Active Branch: $CURRENT_BRANCH"
         echo "-----------------------------------------------------------------"
-        echo "  [1] MERGE TO MAIN        - Auto-branch, commit, push branch, tag,"
-        echo "                             and merge into main (all preserved)."
-        echo ""
-        echo "  [2] PUSH TO BRANCH       - Commit and push working progress"
-        echo "                             to active branch without merging."
-        echo ""
-        echo "  [3] SWITCH BRANCH        - View branch list with commit descriptions"
-        echo "                             and checkout older versions."
-        echo ""
-        echo "  [4] CREATE NEW BRANCH    - Create and switch to a new branch."
-        echo ""
-        echo "  [5] REVERT & DISCARD     - Reset active branch back to clean"
-        echo "                             HEAD state (git reset --hard & clean)."
-        echo ""
-        echo "  [6] RETURN TO MENU       - Return to main operations menu."
+        echo "  [1] MERGE TO MAIN     (Publish branch, tag, and merge into main)"
+        echo "  [2] PUSH TO BRANCH    (Checkpoint progress on active branch)"
+        echo "  [3] SWITCH BRANCH     (View branch history and checkout version)"
+        echo "  [4] CREATE NEW BRANCH (Create and checkout new feature branch)"
+        echo "  [5] REVERT & DISCARD  (Discard uncommitted changes and clean)"
+        echo "  [6] RETURN TO MENU    (Return to main operations menu)"
         echo "-----------------------------------------------------------------"
         read -p " Select Git action (1-6): " GCHOICE
 
@@ -295,7 +286,7 @@ github_operations() {
 while true; do
     clear
     echo "-------------------------------------------------------------------------"
-    echo "ATEM WEB MANAGER - OPERATIONS SUITE (v3.42)"
+    echo "ATEM WEB MANAGER - OPERATIONS SUITE (v3.43)"
     echo "-------------------------------------------------------------------------"
     echo "[1] RUN & EVALUATE     - Launch Vite Frontend & Node Bridge Daemon"
     echo "[2] GITHUB OPERATIONS  - Merge to Main, Push Branch, Switch"
@@ -344,15 +335,10 @@ while true; do
             echo "-----------------------------------------------------------------"
             echo " Active Branch: $CURRENT_BRANCH"
             echo "-----------------------------------------------------------------"
-            echo "  [1] MERGE TO MAIN   - Commit, push feature branch, tag release,"
-            echo "                        and merge into main (preserves history)."
-            echo ""
-            echo "  [2] PUSH TO BRANCH  - Checkpoint and push progress to active"
-            echo "                        branch without merging into main."
-            echo ""
-            echo "  [3] REVERT & DISCARD- Discard uncommitted changes (git reset/clean)."
-            echo ""
-            echo "  [4] RETURN TO MENU  - Return to main operations menu."
+            echo "  [1] MERGE TO MAIN     (Publish branch, tag, and merge into main)"
+            echo "  [2] PUSH TO BRANCH    (Checkpoint progress on active branch)"
+            echo "  [3] REVERT & DISCARD  (Discard uncommitted changes and clean)"
+            echo "  [4] RETURN TO MENU    (Return to main operations menu)"
             echo "-----------------------------------------------------------------"
             read -p " Select post-run action (1-4): " EVAL_CHOICE
 
