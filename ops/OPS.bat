@@ -2,7 +2,7 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.35)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.36)
 :: =============================================================================
 
 :: Establish Project Root context
@@ -21,21 +21,23 @@ cd /d "%PROJECT_ROOT%"
 :MENU
 cls
 echo =================================================================
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.35)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.36)       
 echo =================================================================
 echo   [1] RUN ^& EVALUATE     (Vite + Daemon, Auto-Export ^& Evaluation)
-echo   [2] GITHUB OPERATIONS  (Merge, Push Branch, Revert, Sync)
-echo   [3] WIPE               (Token-Verified Complete Directory Erasure)
-echo   [4] EXPORT             (Serialize workspace to codebase.txt)
-echo   [5] EXIT
+echo   [2] GITHUB OPERATIONS  (Merge, Push, Switch, Branch, Re-clone)
+echo   [3] WIPE ^& RE-CLONE    (Ghost-Script Fresh Git Clone from Scratch)
+echo   [4] WIPE LOCAL CACHES  (Clear node_modules, dist, temp files)
+echo   [5] EXPORT CODEBASE    (Serialize workspace to codebase.txt)
+echo   [6] EXIT
 echo =================================================================
-set /p CHOICE=" Select action (1-5): "
+set /p CHOICE=" Select action (1-6): "
 
 if "%CHOICE%"=="1" goto RUN_EVAL
 if "%CHOICE%"=="2" goto GITHUB_OPS
-if "%CHOICE%"=="3" goto WIPE
-if "%CHOICE%"=="4" goto EXPORT
-if "%CHOICE%"=="5" goto QUIT
+if "%CHOICE%"=="3" goto WIPE_RECLONE
+if "%CHOICE%"=="4" goto WIPE_CACHES
+if "%CHOICE%"=="5" goto EXPORT
+if "%CHOICE%"=="6" goto QUIT
 goto MENU
 
 :SETUP_NODE_ENV
@@ -68,7 +70,7 @@ if %ERRORLEVEL% equ 0 (
 
 echo.
 echo =================================================================
-echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.35)                
+echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.36)                
 echo =================================================================
 echo  Node.js was not found on your system or in bin\node.
 echo  Downloading official portable Node.js LTS (v20.18.0 x64)...
@@ -138,7 +140,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "$m='ops\CHANGELOG.MD'; i
 goto :eof
 
 :CLEANUP_PORTS
-powershell -NoProfile -ExecutionPolicy Bypass -Command "8080, 3000 | ForEach-Object { $p = (Get-NetTCPConnection -LocalPort $_ -State Listen -ErrorAction SilentlyContinue).OwningProcess; if ($p) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue } }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "8080, 3000, 8000 | ForEach-Object { $p = (Get-NetTCPConnection -LocalPort $_ -State Listen -ErrorAction SilentlyContinue).OwningProcess; if ($p) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue } }"
 goto :eof
 
 :EXPORT_CODEBASE
@@ -179,23 +181,35 @@ echo                        GITHUB OPERATIONS
 echo =================================================================
 echo  Active Branch: %CURRENT_BRANCH%
 echo -----------------------------------------------------------------
-echo   [1] MERGE TO MAIN   - Merge this feature branch into 'main'
-echo                         (preserves branch history on local/remote).
+echo   [1] MERGE TO MAIN        - Merge current branch into 'main',
+echo                              push to GitHub, and switch to main
+echo                              (preserves feature branch history).
 echo.
-echo   [2] PUSH TO BRANCH  - Keep working on this branch. Commit and
-echo                         push progress to GitHub without merging.
+echo   [2] PUSH TO BRANCH       - Commit and push working progress
+echo                              to active branch without merging.
 echo.
-echo   [3] REVERT ^& DISCARD- Experiment failed. Reset codebase back to
-echo                         clean HEAD state (git reset --hard ^& clean).
+echo   [3] SWITCH BRANCH        - Switch/checkout any existing branch
+echo                              (to test or revert to older versions).
 echo.
-echo   [4] RETURN TO MENU  - Return to main menu without changes.
+echo   [4] CREATE NEW BRANCH    - Create and switch to a new branch.
+echo.
+echo   [5] WIPE ^& RE-CLONE      - Erase workspace and re-clone fresh
+echo                              from GitHub via detached ghost script.
+echo.
+echo   [6] REVERT ^& DISCARD     - Reset active branch back to clean
+echo                              HEAD state (git reset --hard ^& clean).
+echo.
+echo   [7] RETURN TO MENU       - Return to main operations menu.
 echo =================================================================
-set /p EVAL_CHOICE=" Select Git action (1-4): "
+set /p GCHOICE=" Select Git action (1-7): "
 
-if "%EVAL_CHOICE%"=="1" goto MERGE_MAIN
-if "%EVAL_CHOICE%"=="2" goto PUSH_BRANCH
-if "%EVAL_CHOICE%"=="3" goto REVERT_DISCARD
-if "%EVAL_CHOICE%"=="4" goto MENU
+if "%GCHOICE%"=="1" goto MERGE_MAIN
+if "%GCHOICE%"=="2" goto PUSH_BRANCH
+if "%GCHOICE%"=="3" goto SWITCH_BRANCH
+if "%GCHOICE%"=="4" goto CREATE_BRANCH
+if "%GCHOICE%"=="5" goto WIPE_RECLONE
+if "%GCHOICE%"=="6" goto REVERT_DISCARD
+if "%GCHOICE%"=="7" goto MENU
 goto GITHUB_OPS
 
 :MERGE_MAIN
@@ -214,16 +228,16 @@ git checkout main
 git pull origin main
 git merge %CURRENT_BRANCH% --no-edit
 git push origin main
-git checkout %CURRENT_BRANCH%
-echo ^>^>^> Feature successfully merged into main (branch preserved). ^<^<^<
+echo ^>^>^> Feature merged into main and pushed. Branch '%CURRENT_BRANCH%' preserved. ^<^<^<
+echo ^>^>^> Active branch is now 'main'. ^<^<^<
 pause
-goto MENU
+goto GITHUB_OPS
 
 :MERGE_MAIN_DIRECT
 git push origin main
-echo ^>^>^> Main branch updated and pushed. ^<^<^<
+echo ^>^>^> Main branch updated and pushed to remote origin. ^<^<^<
 pause
-goto MENU
+goto GITHUB_OPS
 
 :PUSH_BRANCH
 echo.
@@ -235,9 +249,31 @@ git commit -F "%TEMP%\atem_commit_msg.txt"
 del "%TEMP%\atem_commit_msg.txt" 2>nul
 
 git push origin %CURRENT_BRANCH%
-echo ^>^>^> Committed and pushed to %CURRENT_BRANCH%. ^<^<^<
+echo ^>^>^> Committed and pushed to branch '%CURRENT_BRANCH%'. ^<^<^<
 pause
-goto MENU
+goto GITHUB_OPS
+
+:SWITCH_BRANCH
+echo.
+echo Available branches:
+git branch -a
+echo.
+set "TARGET_BRANCH="
+set /p TARGET_BRANCH=" Enter branch name to checkout (or press Enter to cancel): "
+if "%TARGET_BRANCH%"=="" goto GITHUB_OPS
+git checkout %TARGET_BRANCH%
+pause
+goto GITHUB_OPS
+
+:CREATE_BRANCH
+echo.
+set "NEW_BRANCH="
+set /p NEW_BRANCH=" Enter new feature branch name: "
+if "%NEW_BRANCH%"=="" goto GITHUB_OPS
+git checkout -b %NEW_BRANCH%
+echo ^>^>^> Switched to new branch '%NEW_BRANCH%'. ^<^<^<
+pause
+goto GITHUB_OPS
 
 :REVERT_DISCARD
 echo ^>^>^> Discarding all uncommitted changes and cleaning workspace...
@@ -245,37 +281,70 @@ git reset --hard HEAD
 git clean -fd
 echo ^>^>^> Workspace clean and reverted. ^<^<^<
 pause
-goto MENU
+goto GITHUB_OPS
 
-:WIPE
+:WIPE_RECLONE
 echo.
 echo =================================================================
-echo                   SECURE WORKSPACE WIPE PROTOCOL                 
+echo             TOTAL WORKSPACE WIPE ^& RE-CLONE PROTOCOL             
 echo =================================================================
-set "TOKEN_FILE=%PROJECT_ROOT%\.atem_workspace_token"
-set "REQUIRED_KEY=ATEM_MANAGER_SECURE_WIPE_KEY_2026"
+echo  WARNING: This will completely destroy this folder, terminate all
+echo  port locks, and clone a fresh copy from GitHub via ghost script.
+echo =================================================================
 
-if not exist "%TOKEN_FILE%" (
-    echo [ABORT] Security token missing: .atem_workspace_token not found.
+set "REPO_URL="
+for /f "delims=" %%u in ('git config --get remote.origin.url 2^>nul') do set "REPO_URL=%%u"
+if "%REPO_URL%"=="" set "REPO_URL=https://github.com/trex20xx/atem-web-manager.git"
+
+for %%I in ("%PROJECT_ROOT%") do set "PARENT_DIR=%%~dpI"
+for %%I in ("%PROJECT_ROOT%") do set "FOLDER_NAME=%%~nxI"
+
+echo  Remote Repository: %REPO_URL%
+echo  Target Folder:     %PROJECT_ROOT%
+echo =================================================================
+set /p WIPE_CONFIRM=" Type 'RECLONE' to execute: "
+if not "%WIPE_CONFIRM%"=="RECLONE" (
+    echo ^>^>^> Wipe and re-clone aborted. ^<^<^<
     pause
     goto MENU
 )
-set /p FOUND_KEY=<"%TOKEN_FILE%"
-if not "%FOUND_KEY%"=="%REQUIRED_KEY%" (
-    echo [ABORT] Invalid security key inside .atem_workspace_token.
-    pause
-    goto MENU
-)
 
-set /p CONFIRM=" Type 'WIPE' to completely destroy this project directory: "
-if "%CONFIRM%"=="WIPE" (
-    call :CLEANUP_PORTS
-    cd ..
-    rmdir /S /Q "%PROJECT_ROOT%"
-    echo ^>^>^> Project workspace successfully erased. ^<^<^<
-    exit /b 0
-)
-echo ^>^>^> Wipe aborted. ^<^<^<
+call :CLEANUP_PORTS
+
+:: Build detached ghost batch script in %TEMP%
+set "GHOST_BAT=%TEMP%\atem_ghost_reclone.bat"
+(
+    echo @echo off
+    echo echo [GHOST] Waiting for parent process to release folder lock...
+    echo timeout /t 2 /nobreak ^>nul
+    echo powershell -NoProfile -Command "8080, 3000, 8000 | ForEach-Object { $p = (Get-NetTCPConnection -LocalPort $_ -State Listen -ErrorAction SilentlyContinue).OwningProcess; if ($p) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue } }"
+    echo echo [GHOST] Deleting old project directory: "%PROJECT_ROOT%"...
+    echo rmdir /S /Q "%PROJECT_ROOT%"
+    echo echo [GHOST] Cloning fresh repository into: "%PROJECT_ROOT%"...
+    echo cd /d "%PARENT_DIR%"
+    echo git clone "%REPO_URL%" "%FOLDER_NAME%"
+    echo cd /d "%PROJECT_ROOT%"
+    echo echo [GHOST] Launching freshly cloned master CLI...
+    echo start "" "%PROJECT_ROOT%\ops\OPS.bat"
+    echo del "%%~f0" ^>nul 2^>^&1
+    echo exit
+) > "%GHOST_BAT%"
+
+echo ^>^>^> Spawning detached ghost script and exiting parent process...
+start "" cmd /c "%GHOST_BAT%"
+exit /b 0
+
+:WIPE_CACHES
+echo.
+echo =================================================================
+echo                   CLEAR LOCAL CACHES ^& BUILD ARTIFACTS           
+echo =================================================================
+call :CLEANUP_PORTS
+if exist "%PROJECT_ROOT%\node_modules" rmdir /S /Q "%PROJECT_ROOT%\node_modules"
+if exist "%PROJECT_ROOT%\bridge\node_modules" rmdir /S /Q "%PROJECT_ROOT%\bridge\node_modules"
+if exist "%PROJECT_ROOT%\dist" rmdir /S /Q "%PROJECT_ROOT%\dist"
+if exist "%PROJECT_ROOT%\codebase.txt" del "%PROJECT_ROOT%\codebase.txt"
+echo ^>^>^> Dependencies and build caches wiped clean. ^<^<^<
 pause
 goto MENU
 

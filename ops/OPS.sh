@@ -22,81 +22,169 @@ cleanup_bridge() {
 
 trap cleanup_bridge EXIT INT TERM
 
-github_operations() {
-    CURRENT_BRANCH=$(git branch --show-current 2>/dev/null)
-    if [ -z "$CURRENT_BRANCH" ]; then CURRENT_BRANCH="unknown"; fi
-
+wipe_reclone() {
     clear
     echo "================================================================="
-    echo "                      GITHUB OPERATIONS                          "
+    echo "             TOTAL WORKSPACE WIPE & RE-CLONE PROTOCOL            "
     echo "================================================================="
-    echo " Active Branch: $CURRENT_BRANCH"
-    echo "-----------------------------------------------------------------"
-    echo "  [1] MERGE TO MAIN   - Merge this feature branch into 'main'"
-    echo "                        (preserves branch history on local/remote)."
-    echo ""
-    echo "  [2] PUSH TO BRANCH  - Keep working on this branch. Commit and"
-    echo "                        push progress to GitHub without merging."
-    echo ""
-    echo "  [3] REVERT & DISCARD- Experiment failed. Reset codebase back to"
-    echo "                        clean HEAD state (git reset --hard & clean)."
-    echo ""
-    echo "  [4] RETURN TO MENU  - Return to main menu without changes."
+    echo " WARNING: This will completely destroy this folder, terminate all"
+    echo " port locks, and clone a fresh copy from GitHub."
     echo "================================================================="
-    read -p " Select Git action (1-4): " EVAL_CHOICE
 
-    if [ "$EVAL_CHOICE" == "1" ]; then
-        read -p "Enter iteration description / commit message: " CMSG
-        if [ -z "$CMSG" ]; then CMSG="feat: iteration update"; fi
-        
-        git rm --cached public/Top.mp4 2>/dev/null
-
-        if [ "$CURRENT_BRANCH" == "main" ]; then
-            git add -A
-            git commit -m "$CMSG"
-            git push origin main
-            echo ">>> Main branch updated and pushed. <<<"
-        else
-            git add -A
-            git commit -m "$CMSG"
-            git push origin "$CURRENT_BRANCH"
-            git checkout main
-            git pull origin main
-            git merge "$CURRENT_BRANCH" --no-edit
-            git push origin main
-            git checkout "$CURRENT_BRANCH"
-            echo ">>> Feature successfully merged into main (branch preserved). <<<"
-        fi
-        read -p "Press Enter to continue..."
-    elif [ "$EVAL_CHOICE" == "2" ]; then
-        read -p "Enter commit message: " CMSG
-        if [ -z "$CMSG" ]; then CMSG="wip: evaluation checkpoint"; fi
-        git rm --cached public/Top.mp4 2>/dev/null
-        git add -A
-        git commit -m "$CMSG"
-        git push origin "$CURRENT_BRANCH"
-        echo ">>> Committed and pushed to $CURRENT_BRANCH. <<<"
-        read -p "Press Enter to continue..."
-    elif [ "$EVAL_CHOICE" == "3" ]; then
-        echo ">>> Discarding uncommitted changes..."
-        git reset --hard HEAD
-        git clean -fd
-        read -p "Press Enter to continue..."
+    REPO_URL=$(git config --get remote.origin.url 2>/dev/null)
+    if [ -z "$REPO_URL" ]; then
+        REPO_URL="https://github.com/trex20xx/atem-web-manager.git"
     fi
+
+    PARENT_DIR="$(dirname "$PROJECT_ROOT")"
+    FOLDER_NAME="$(basename "$PROJECT_ROOT")"
+
+    echo " Remote Repository: $REPO_URL"
+    echo " Target Folder:     $PROJECT_ROOT"
+    echo "================================================================="
+    read -p " Type 'RECLONE' to execute: " CONFIRM
+
+    if [ "$CONFIRM" != "RECLONE" ]; then
+        echo ">>> Wipe and re-clone aborted. <<<"
+        read -p "Press Enter to continue..."
+        return
+    fi
+
+    cleanup_bridge
+    echo ">>> Spawning detached ghost wiper & re-cloner..."
+
+    nohup bash -c "
+        sleep 2
+        kill \$(lsof -t -i:8080 -i:3000 -i:8000) 2>/dev/null
+        rm -rf '$PROJECT_ROOT'
+        cd '$PARENT_DIR'
+        git clone '$REPO_URL' '$FOLDER_NAME'
+        cd '$PROJECT_ROOT'
+        chmod +x ops/OPS.sh
+        ./ops/OPS.sh
+    " >/dev/null 2>&1 &
+
+    exit 0
+}
+
+github_operations() {
+    while true; do
+        CURRENT_BRANCH=$(git branch --show-current 2>/dev/null)
+        if [ -z "$CURRENT_BRANCH" ]; then CURRENT_BRANCH="unknown"; fi
+
+        clear
+        echo "================================================================="
+        echo "                      GITHUB OPERATIONS                          "
+        echo "================================================================="
+        echo " Active Branch: $CURRENT_BRANCH"
+        echo "-----------------------------------------------------------------"
+        echo "  [1] MERGE TO MAIN        - Merge current branch into 'main',"
+        echo "                             push to GitHub, and switch to main"
+        echo "                             (preserves feature branch history)."
+        echo ""
+        echo "  [2] PUSH TO BRANCH       - Commit and push working progress"
+        echo "                             to active branch without merging."
+        echo ""
+        echo "  [3] SWITCH BRANCH        - Switch/checkout any existing branch"
+        echo "                             (to test or revert to older versions)."
+        echo ""
+        echo "  [4] CREATE NEW BRANCH    - Create and switch to a new branch."
+        echo ""
+        echo "  [5] WIPE & RE-CLONE      - Erase workspace and re-clone fresh"
+        echo "                             from GitHub via detached ghost script."
+        echo ""
+        echo "  [6] REVERT & DISCARD     - Reset active branch back to clean"
+        echo "                             HEAD state (git reset --hard & clean)."
+        echo ""
+        echo "  [7] RETURN TO MENU       - Return to main operations menu."
+        echo "================================================================="
+        read -p " Select Git action (1-7): " GCHOICE
+
+        case $GCHOICE in
+            1)
+                read -p "Enter iteration description / commit message: " CMSG
+                if [ -z "$CMSG" ]; then CMSG="feat: iteration update"; fi
+                
+                git rm --cached public/Top.mp4 2>/dev/null
+
+                if [ "$CURRENT_BRANCH" == "main" ]; then
+                    git add -A
+                    git commit -m "$CMSG"
+                    git push origin main
+                    echo ">>> Main branch updated and pushed. <<<"
+                else
+                    git add -A
+                    git commit -m "$CMSG"
+                    git push origin "$CURRENT_BRANCH"
+                    git checkout main
+                    git pull origin main
+                    git merge "$CURRENT_BRANCH" --no-edit
+                    git push origin main
+                    echo ">>> Feature merged into main. Branch '$CURRENT_BRANCH' preserved. <<<"
+                    echo ">>> Active branch is now 'main'. <<<"
+                fi
+                read -p "Press Enter to continue..."
+                ;;
+            2)
+                read -p "Enter commit message: " CMSG
+                if [ -z "$CMSG" ]; then CMSG="wip: evaluation checkpoint"; fi
+                git rm --cached public/Top.mp4 2>/dev/null
+                git add -A
+                git commit -m "$CMSG"
+                git push origin "$CURRENT_BRANCH"
+                echo ">>> Committed and pushed to '$CURRENT_BRANCH'. <<<"
+                read -p "Press Enter to continue..."
+                ;;
+            3)
+                echo ""
+                echo "Available branches:"
+                git branch -a
+                echo ""
+                read -p "Enter branch name to checkout (or press Enter to cancel): " TARGET_BRANCH
+                if [ -n "$TARGET_BRANCH" ]; then
+                    git checkout "$TARGET_BRANCH"
+                    read -p "Press Enter to continue..."
+                fi
+                ;;
+            4)
+                read -p "Enter new feature branch name: " NEW_BRANCH
+                if [ -n "$NEW_BRANCH" ]; then
+                    git checkout -b "$NEW_BRANCH"
+                    echo ">>> Switched to new branch '$NEW_BRANCH'. <<<"
+                    read -p "Press Enter to continue..."
+                fi
+                ;;
+            5)
+                wipe_reclone
+                ;;
+            6)
+                echo ">>> Discarding uncommitted changes..."
+                git reset --hard HEAD
+                git clean -fd
+                read -p "Press Enter to continue..."
+                ;;
+            7)
+                return
+                ;;
+            *)
+                ;;
+        esac
+    done
 }
 
 while true; do
     clear
     echo "========================================================================="
-    echo "ATEM WEB MANAGER - OPERATIONS SUITE (v3.35)"
+    echo "ATEM WEB MANAGER - OPERATIONS SUITE (v3.36)"
     echo "========================================================================="
     echo "[1] RUN & EVALUATE     - Launch Vite Frontend & Node Bridge Daemon"
-    echo "[2] GITHUB OPERATIONS  - Branch merge, commit push, or clean revert"
-    echo "[3] WIPE               - Securely clear caches, node_modules, and dist"
-    echo "[4] EXPORT             - Serialize codebase to codebase.txt"
-    echo "[5] EXIT               - Terminate"
+    echo "[2] GITHUB OPERATIONS  - Merge, Push, Switch, Branch, Re-clone"
+    echo "[3] WIPE & RE-CLONE    - Ghost-Script Fresh Git Clone from Scratch"
+    echo "[4] WIPE LOCAL CACHES  - Clear node_modules, dist, and build caches"
+    echo "[5] EXPORT CODEBASE    - Serialize codebase to codebase.txt"
+    echo "[6] EXIT               - Terminate"
     echo "========================================================================="
-    read -p "Select an option (1-5): " choice
+    read -p "Select an option (1-6): " choice
 
     case $choice in
         1)
@@ -133,20 +221,20 @@ while true; do
             github_operations
             ;;
         3)
-            echo ""
-            echo "[WIPE] Securing workspace..."
-            if [ -f ".atem_workspace_token" ]; then
-                rm -rf node_modules
-                rm -rf bridge/node_modules
-                rm -rf dist
-                rm -f codebase.txt
-                echo "Workspace wiped successfully."
-            else
-                echo "Security token missing. Aborting wipe."
-            fi
-            read -p "Press Enter to continue..."
+            wipe_reclone
             ;;
         4)
+            echo ""
+            echo "[WIPE CACHES] Clearing local build artifacts..."
+            cleanup_bridge
+            rm -rf node_modules
+            rm -rf bridge/node_modules
+            rm -rf dist
+            rm -f codebase.txt
+            echo ">>> Dependencies and build caches wiped clean. <<<"
+            read -p "Press Enter to continue..."
+            ;;
+        5)
             echo ""
             echo "[EXPORT] Serializing codebase..."
             out="codebase.txt"
@@ -177,7 +265,8 @@ while true; do
             echo "Codebase exported to codebase.txt"
             read -p "Press Enter to continue..."
             ;;
-        5)
+        6)
+            cleanup_bridge
             exit 0
             ;;
         *)
