@@ -1,2 +1,2 @@
-v3.50
-Native atem.downloadStill RGBA decoding in bridge daemon, eliminated mixer UDP packet replay storms, added persistent thumbnail caching with SYNC and click-to-fetch in Media Pool, and updated OPS.sh for macOS migration.
+v3.51
+Normalized macro buttons, section titles, and rate scrubbers to font-weight 400, and integrated an Enhanced Visibility (Bigger, Bolder, Brighter) accessibility toggle in Settings with clean state reversion.

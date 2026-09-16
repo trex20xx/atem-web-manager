@@ -9,7 +9,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { APP_VERSION } from './version';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v3.48)
+// ATEM WEB MANAGER - MASTER LAYOUT (v3.51)
 // =========================================================================
 
 function App() {
@@ -24,6 +24,7 @@ function App() {
   const [enableQuadrantDrag, setEnableQuadrantDrag] = useLocalStorage('atem_enableQuadrantDrag', true);
   const [showActionButton, setShowActionButton] = useLocalStorage('atem_showActionButton', true);
   const [forceUppercase, setForceUppercase] = useLocalStorage('atem_forceUppercase', true);
+  const [enhancedText, setEnhancedText] = useLocalStorage('atem_enhancedText', false);
   
   const [currentVideoSource, setCurrentVideoSource] = useLocalStorage('atem_currentVideoSource', 'https://stream.mux.com/BV3YZtogl89mg9VcNBhhnHm02Y34zI1nlMuMQfAbl3dM/highest.mp4');
   const [quadrantOrder, setQuadrantOrder] = useLocalStorage('atem_quadrantOrder', [1, 2, 3, 4]);
@@ -148,6 +149,15 @@ function App() {
     document.documentElement.style.setProperty('--panel-radius', `${panelRadius}px`);
     document.documentElement.style.setProperty('--tally-opacity', tallyOpacity / 100);
   }, [panelRadius, tallyOpacity]);
+
+  // Sync Enhanced Text (Accessibility) attribute with DOM root
+  useEffect(() => {
+    if (enhancedText) {
+      document.documentElement.setAttribute('data-enhanced-text', 'true');
+    } else {
+      document.documentElement.removeAttribute('data-enhanced-text');
+    }
+  }, [enhancedText]);
 
   const toggleLightMode = () => {
       setTheme(prev => prev === 'light' ? 'default' : 'light');
@@ -292,6 +302,7 @@ function App() {
         enableQuadrantDrag={enableQuadrantDrag} setEnableQuadrantDrag={setEnableQuadrantDrag}
         showActionButton={showActionButton} setShowActionButton={setShowActionButton}
         forceUppercase={forceUppercase} setForceUppercase={setForceUppercase}
+        enhancedText={enhancedText} setEnhancedText={setEnhancedText}
         currentVideoSource={currentVideoSource} setCurrentVideoSource={setCurrentVideoSource}
         quadrantOrder={quadrantOrder} setQuadrantOrder={setQuadrantOrder}
         sidebarVariant={sidebarVariant} setSidebarVariant={setSidebarVariant}

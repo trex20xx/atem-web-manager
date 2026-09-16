@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.48)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.51)
  * =========================================================================
  */
 
@@ -842,7 +842,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     justify-content: center;
     color: var(--muted);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 400;
 }
 
 .mp-thumbnail {
@@ -903,13 +903,13 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 }
 .atem-bus-online-dot.offline { background: var(--red); }
 
-/* Unified Typography Core for all Header Elements */
+/* Unified Typography Core for all Header Elements (font-weight: 400) */
 .atem-section-title,
 .macro-action-text-btn,
 .atem-bus-ip {
     font-family: var(--le-font-family);
     font-size: 11px;
-    font-weight: 600 !important;
+    font-weight: 400 !important;
     color: var(--muted);
     letter-spacing: 0.5px;
     text-transform: uppercase;
@@ -929,11 +929,11 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     color: var(--text);
 }
 
-/* Enforce font-weight 600 across all active states - prevents bolder buttons */
-.macro-action-text-btn.active-orange { color: var(--orange-hl) !important; opacity: 1; font-weight: 600 !important; }
-.macro-action-text-btn.active-green { color: #2e7d32 !important; opacity: 1; font-weight: 600 !important; }
-.macro-action-text-btn.active-red { color: #d32f2f !important; opacity: 1; font-weight: 600 !important; }
-.macro-action-text-btn.disabled { opacity: 0.35; cursor: default !important; pointer-events: none; font-weight: 600 !important; }
+/* Enforce font-weight 400 across all active states - prevents bolder buttons */
+.macro-action-text-btn.active-orange { color: var(--orange-hl) !important; opacity: 1; font-weight: 400 !important; }
+.macro-action-text-btn.active-green { color: #2e7d32 !important; opacity: 1; font-weight: 400 !important; }
+.macro-action-text-btn.active-red { color: #d32f2f !important; opacity: 1; font-weight: 400 !important; }
+.macro-action-text-btn.disabled { opacity: 0.35; cursor: default !important; pointer-events: none; font-weight: 400 !important; }
 
 /* Global Header Flex Row Containers */
 .atem-section-header-row,
@@ -1088,7 +1088,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .cut-btn:active { background: var(--panel) !important; color: var(--text) !important; }
 .auto-btn.trans-active { background: var(--orange-hl) !important; color: #000000 !important; border-color: var(--atem-border) !important; outline: none !important; }
 
-/* Scrub/Click Rate Button matching 74px x 36px button geometry exactly */
+/* Scrub/Click Rate Button matching 74px x 36px button geometry exactly (font-weight: 400) */
 .rate-box-button { 
     background: #000000; 
     border: 1px solid rgba(255, 255, 255, 0.1); 
@@ -1113,7 +1113,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .rate-display-value {
     color: var(--orange-hl);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 400;
     font-family: var(--le-font-family);
     line-height: 1;
 }
@@ -1124,7 +1124,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     color: var(--orange-hl); 
     text-align: center; 
     font-size: 13px; 
-    font-weight: 600; 
+    font-weight: 400; 
     font-family: var(--le-font-family);
     line-height: 1;
     outline: none; 
@@ -1255,4 +1255,87 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .macro-compact-btn.running .macro-compact-num {
     color: #ffffff !important;
     opacity: 1 !important;
+}
+
+/* =========================================================================
+   ENHANCED VISIBILITY ACCESSIBILITY MODE (Bigger, Bolder, Brighter)
+   ========================================================================= */
+[data-enhanced-text="true"] {
+    --muted: #b5b5b5;
+    --text: #ffffff;
+    --device-font-weight: 700;
+}
+
+[data-enhanced-text="true"] .app-title {
+    font-size: 14px;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+}
+
+[data-enhanced-text="true"] .atem-section-title,
+[data-enhanced-text="true"] .macro-action-text-btn,
+[data-enhanced-text="true"] .atem-bus-ip {
+    font-size: 12px;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    line-height: 12px;
+}
+
+[data-enhanced-text="true"] .macro-action-text-btn.active-orange {
+    color: var(--orange-hl) !important;
+    font-weight: 700 !important;
+}
+
+[data-enhanced-text="true"] .macro-action-text-btn.active-green {
+    color: #4caf50 !important;
+    font-weight: 700 !important;
+}
+
+[data-enhanced-text="true"] .macro-action-text-btn.active-red {
+    color: #ff5252 !important;
+    font-weight: 700 !important;
+}
+
+[data-enhanced-text="true"] .atem-btn-standard .btn-number {
+    font-size: 15px;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+}
+
+[data-enhanced-text="true"] .rate-display-value,
+[data-enhanced-text="true"] .rate-input-field {
+    font-size: 15px;
+    font-weight: 700 !important;
+    color: var(--orange-hl) !important;
+}
+
+[data-enhanced-text="true"] .macro-compact-num {
+    font-size: 14px;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+}
+
+[data-enhanced-text="true"] .macro-compact-text {
+    font-size: 14px;
+    font-weight: 600 !important;
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
+
+[data-enhanced-text="true"] .device-name {
+    font-size: 14px;
+    font-weight: 600 !important;
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
+
+[data-enhanced-text="true"] .group-header-inner span {
+    font-size: 15px;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+}
+
+[data-enhanced-text="true"] .search {
+    font-size: 14px;
+    font-weight: 500;
 }

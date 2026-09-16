@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - SETTINGS MODAL (v3.12)
+// ATEM WEB MANAGER - SETTINGS MODAL (v3.51)
 // =========================================================================
 
 const QUAD_SELECT_OPTIONS = [
@@ -16,7 +16,8 @@ const SettingsModal = ({
     isOpen, onClose, theme, setTheme, panelRadius, setPanelRadius, tallyOpacity, setTallyOpacity,
     titlePosition, setTitlePosition, showVersion, setShowVersion,
     enableDragDrop, setEnableDragDrop, enableQuadrantDrag, setEnableQuadrantDrag,
-    showActionButton, setShowActionButton, forceUppercase, setForceUppercase, 
+    showActionButton, setShowActionButton, forceUppercase, setForceUppercase,
+    enhancedText, setEnhancedText,
     currentVideoSource, setCurrentVideoSource, quadrantOrder, setQuadrantOrder, 
     sidebarVariant, setSidebarVariant, useDeviceCsv, setUseDeviceCsv,
     deviceCsvContent, setDeviceCsvContent
@@ -163,6 +164,17 @@ const SettingsModal = ({
                                             <option value="classic">Classic (Solid)</option>
                                             <option value="floating">Floating (Glass)</option>
                                         </select>
+                                    </div>
+                                </div>
+                                <div className="setting-group">
+                                    <label>Enhanced Text (Bigger, Bolder, Brighter):</label>
+                                    <div className="setting-group-control">
+                                        <input 
+                                            type="checkbox" 
+                                            className="toggle-switch" 
+                                            checked={enhancedText} 
+                                            onChange={e => setEnhancedText(e.target.checked)} 
+                                        />
                                     </div>
                                 </div>
                                 <div className="setting-group">
