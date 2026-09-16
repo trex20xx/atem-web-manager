@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.47)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.54)
 // =========================================================================
 // Hardware-Locked IP: 192.168.10.240
 // Switcher Button Geometry: 74px x 36px | 4px Padding Symmetry
-// Keyboard Shortcuts:
+// Lifecycle States:
+//   - Disconnected: Muted Standby Mode (uniform 0.35 opacity across all rows,
+//                   pointer-events: none, no buttons lit, no rate values)
+//   - Connected: Active Mode (opacity: 1, pointer-events: auto, live tallies & rates)
+// Keyboard Shortcuts (Active state only):
 //   - Keys 1-9, 0       -> Selects Inputs 1-10 on PREVIEW (Green Tally)
 //   - Shift + 1-9, 0   -> Selects Inputs 1-10 on PROGRAM (Red Tally)
 //   - Space             -> CUT Transition
@@ -15,6 +19,7 @@ const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
 
 const formatFrames = (frames) => {
+    if (frames === null || frames === undefined) return '';
     const validFrames = parseInt(frames, 10) || 0;
     const s = Math.floor(validFrames / 25);
     const f = validFrames % 25;
@@ -32,9 +37,9 @@ const parseFrames = (str) => {
     return parseInt(s, 10) || 0;
 };
 
-const DragRateInput = ({ value, onChange, onCommit, title }) => {
+const DragRateInput = ({ value, onChange, onCommit, title, disabled }) => {
     const [isEditing, setIsEditing] = useState(false);
-    const [typedVal, setTypedVal] = useState(formatFrames(value));
+    const [typedVal, setTypedVal] = useState(value != null ? formatFrames(value) : '');
     
     const isDraggingRef = useRef(false);
     const startYRef = useRef(0);
@@ -42,13 +47,13 @@ const DragRateInput = ({ value, onChange, onCommit, title }) => {
 
     useEffect(() => {
         if (!isEditing) {
-            setTypedVal(formatFrames(value));
+            setTypedVal(value != null ? formatFrames(value) : '');
         }
         currentValRef.current = value;
     }, [value, isEditing]);
 
     const handleMouseDown = (e) => {
-        if (isEditing) return;
+        if (disabled || isEditing || value == null) return;
         if (e.button !== 0) return;
         e.preventDefault();
         e.stopPropagation();
@@ -69,7 +74,8 @@ const DragRateInput = ({ value, onChange, onCommit, title }) => {
                 const step = deltaY > 0 ? Math.floor(deltaY / 2) : Math.ceil(deltaY / 2);
                 
                 if (step !== 0) {
-                    const newVal = Math.max(1, Math.min(250, currentValRef.current + step));
+                    const base = currentValRef.current || 25;
+                    const newVal = Math.max(1, Math.min(250, base + step));
                     if (newVal !== currentValRef.current) {
                         currentValRef.current = newVal;
                         onChange(newVal);
@@ -87,9 +93,9 @@ const DragRateInput = ({ value, onChange, onCommit, title }) => {
             if (panel) panel.draggable = true;
 
             if (hasMoved) {
-                if (onCommit) onCommit(currentValRef.current);
+                if (onCommit && currentValRef.current != null) onCommit(currentValRef.current);
             } else {
-                setTypedVal(formatFrames(currentValRef.current));
+                setTypedVal(formatFrames(currentValRef.current || 25));
                 setIsEditing(true);
             }
         };
@@ -106,7 +112,7 @@ const DragRateInput = ({ value, onChange, onCommit, title }) => {
             if (onCommit) onCommit(parsed);
         } else if (e.key === 'Escape') {
             setIsEditing(false);
-            setTypedVal(formatFrames(value));
+            setTypedVal(value != null ? formatFrames(value) : '');
         }
     };
 
@@ -117,7 +123,7 @@ const DragRateInput = ({ value, onChange, onCommit, title }) => {
         if (onCommit) onCommit(parsed);
     };
 
-    if (isEditing) {
+    if (isEditing && !disabled) {
         return (
             <div className="rate-box-button editing" title={title}>
                 <input
@@ -135,39 +141,37 @@ const DragRateInput = ({ value, onChange, onCommit, title }) => {
     }
 
     return (
-        <div className="rate-box-button" title={title} onMouseDown={handleMouseDown}>
-            <span className="rate-display-value">{formatFrames(value)}</span>
+        <div 
+            className="rate-box-button" 
+            title={title} 
+            onMouseDown={disabled || value == null ? undefined : handleMouseDown}
+        >
+            <span className="rate-display-value">
+                {value != null && !disabled ? formatFrames(value) : ''}
+            </span>
         </div>
     );
 };
 
 const AtemConstellationBus = ({ connectedDevice }) => {
-    if (!connectedDevice || connectedDevice.ip !== LOCKED_ATEM_IP) {
-        return (
-            <div className="atem-bus-locked-container">
-                <div className="atem-bus-lock-badge">HARDWARE LOCK ENFORCED</div>
-                <div className="atem-bus-lock-desc">
-                    ATEM 1 M/E Constellation HD bus is restricted exclusively to <strong>{LOCKED_ATEM_IP}</strong>.
-                </div>
-            </div>
-        );
-    }
+    // Determine active connection state
+    const isPanelActive = Boolean(connectedDevice && connectedDevice.ip === LOCKED_ATEM_IP);
 
-    const [pgmInput, setPgmInput] = useState(1);
-    const [pvwInput, setPvwInput] = useState(2);
+    const [pgmInput, setPgmInput] = useState(null);
+    const [pvwInput, setPvwInput] = useState(null);
     const [inTransition, setInTransition] = useState(false);
     const [bridgeStatus, setBridgeStatus] = useState('connecting');
 
-    const [transitionRate, setTransitionRate] = useState(30);
-    const [transitionSelection, setTransitionSelection] = useState(1);
+    const [transitionRate, setTransitionRate] = useState(null);
+    const [transitionSelection, setTransitionSelection] = useState(null);
     const [uskOnAir, setUskOnAir] = useState([false, false, false, false]);
 
-    const [dsk, setDsk] = useState({ onAir: false, inTransition: false, autoOnAir: false, tie: false, rate: 30 });
-    const [ftb, setFtb] = useState({ inTransition: false, isFullyBlack: false, rate: 30 });
+    const [dsk, setDsk] = useState({ onAir: false, inTransition: false, autoOnAir: false, tie: false, rate: null });
+    const [ftb, setFtb] = useState({ inTransition: false, isFullyBlack: false, rate: null });
 
-    const [localTransRate, setLocalTransRate] = useState(30);
-    const [localDskRate, setLocalDskRate] = useState(30);
-    const [localFtbRate, setLocalFtbRate] = useState(30);
+    const [localTransRate, setLocalTransRate] = useState(null);
+    const [localDskRate, setLocalDskRate] = useState(null);
+    const [localFtbRate, setLocalFtbRate] = useState(null);
 
     const [selectedOut, setSelectedOut] = useState(null);
     const [auxSources, setAuxSources] = useState([1, 2, 3, 4, 5, 6]);
@@ -249,6 +253,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     };
 
     const sendAtemCommand = (commandType, payload = {}) => {
+        if (!isPanelActive) return;
+
         if (commandType === 'SET_PGM') {
             if (selectedOut !== null) {
                 const updated = [...auxSources];
@@ -301,14 +307,12 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     });
 
     // -------------------------------------------------------------------------
-    // KEYBOARD SHORTCUTS ENGINE
-    // - Plain 1-9, 0       -> Inputs 1-10 on PREVIEW row
-    // - Shift + 1-9, 0    -> Inputs 1-10 on PROGRAM row
-    // - Space              -> CUT Transition
-    // - Enter              -> AUTO Transition
+    // KEYBOARD SHORTCUTS ENGINE (Active hardware state only)
     // -------------------------------------------------------------------------
     useEffect(() => {
         const handleKeyDown = (e) => {
+            if (!isPanelActive) return;
+
             // Guard: Do not intercept if typing in an input, textarea, or editable element
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
                 return;
@@ -358,7 +362,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, []);
+    }, [isPanelActive]);
 
     const inputSources = [
         { id: 1, label: '1' }, { id: 2, label: '2' }, { id: 3, label: '3' }, { id: 4, label: '4' }, { id: 5, label: '5' }, 
@@ -380,20 +384,36 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
     const auxOutputsList = [1, 2, 3, 4, 5, 6];
 
-    const getIsActivePgm = (sourceId) => selectedOut !== null ? (auxSources[selectedOut] === sourceId) : (pgmInput === sourceId);
-    const getIsActivePvw = (sourceId) => selectedOut !== null ? false : (pvwInput === sourceId);
+    // Suppress all tallies when disconnected (!isPanelActive)
+    const getIsActivePgm = (sourceId) => {
+        if (!isPanelActive || pgmInput === null) return false;
+        return selectedOut !== null ? (auxSources[selectedOut] === sourceId) : (pgmInput === sourceId);
+    };
+
+    const getIsActivePvw = (sourceId) => {
+        if (!isPanelActive || pvwInput === null) return false;
+        return selectedOut !== null ? false : (pvwInput === sourceId);
+    };
 
     return (
         <div className="quadrant-master-panel">
-            <div className="panel-layout-frame" style={{ gap: '16px' }}>
+            <div 
+                className="panel-layout-frame" 
+                style={{ 
+                    gap: '16px',
+                    opacity: isPanelActive ? 1 : 0.35,
+                    pointerEvents: isPanelActive ? 'auto' : 'none',
+                    transition: 'opacity 0.25s ease'
+                }}
+            >
                 {/* ROW 1: PROGRAM */}
                 <div className="atem-section-wrapper row-one">
                     <div className="atem-section-header-row">
-                        <span className={`atem-section-title ${selectedOut !== null ? 'router-label' : ''}`}>
-                            {selectedOut !== null ? `OUTPUT ${selectedOut + 1}` : 'PROGRAM'}
+                        <span className={`atem-section-title ${isPanelActive && selectedOut !== null ? 'router-label' : ''}`}>
+                            {isPanelActive && selectedOut !== null ? `OUTPUT ${selectedOut + 1}` : 'PROGRAM'}
                         </span>
                         <div className="atem-bus-status">
-                            <span className={`atem-bus-online-dot ${bridgeStatus === 'linked' ? 'online' : 'offline'}`} />
+                            <span className={`atem-bus-online-dot ${isPanelActive && bridgeStatus === 'linked' ? 'online' : 'offline'}`} />
                             <span className="atem-bus-ip">{LOCKED_ATEM_IP}</span>
                         </div>
                     </div>
@@ -412,7 +432,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         <div className="atem-bus-grid ten-cols">
                             {internalSources.map((s) => {
                                 if (s.spacer) return <div key={s.id} className="atem-btn-spacer" />;
-                                const isMuted = s.isAuxOnly && selectedOut === null;
+                                const isMuted = Boolean(s.isAuxOnly && selectedOut === null);
                                 return (
                                     <button
                                         key={`pgm-int-${s.id}`}
@@ -429,7 +449,13 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                 </div>
 
                 {/* ROW 2: PREVIEW */}
-                <div className="atem-section-wrapper row-two" style={{ opacity: selectedOut !== null ? 0.35 : 1, pointerEvents: selectedOut !== null ? 'none' : 'auto' }}>
+                <div 
+                    className="atem-section-wrapper row-two" 
+                    style={{ 
+                        opacity: (isPanelActive && selectedOut !== null) ? 0.35 : 1, 
+                        pointerEvents: (selectedOut !== null || !isPanelActive) ? 'none' : 'auto' 
+                    }}
+                >
                     <div className="atem-section-header-row">
                         <span className="atem-section-title">PREVIEW</span>
                     </div>
@@ -448,7 +474,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         <div className="atem-bus-grid ten-cols">
                             {internalSources.map((s) => {
                                 if (s.spacer) return <div key={s.id} className="atem-btn-spacer" />;
-                                const isMuted = s.isAuxOnly;
+                                const isMuted = Boolean(s.isAuxOnly);
                                 return (
                                     <button
                                         key={`pvw-int-${s.id}`}
@@ -474,15 +500,24 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                             <div className="two-row-grid five-cols">
                                 <div className="atem-btn-spacer" />
                                 {[0, 1, 2, 3].map(usk => (
-                                    <button key={`usk-${usk}`} className={`atem-btn-standard ${uskOnAir[usk] ? 'tally-red' : ''}`} onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk })}>
+                                    <button 
+                                        key={`usk-${usk}`} 
+                                        className={`atem-btn-standard ${isPanelActive && uskOnAir[usk] ? 'tally-red' : ''}`} 
+                                        onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk })}
+                                    >
                                         <span className="btn-number">ON AIR</span>
                                     </button>
                                 ))}
 
                                 {[1, 2, 4, 8, 16].map((bit, idx) => {
                                     const labels = ['BKGD', 'KEY 1', 'KEY 2', 'KEY 3', 'KEY 4'];
+                                    const isLit = isPanelActive && transitionSelection !== null && (transitionSelection & bit);
                                     return (
-                                        <button key={`trans-${bit}`} className={`atem-btn-standard ${(transitionSelection & bit) ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit })}>
+                                        <button 
+                                            key={`trans-${bit}`} 
+                                            className={`atem-btn-standard ${isLit ? 'tally-yellow' : ''}`} 
+                                            onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit })}
+                                        >
                                             <span className="btn-number">{labels[idx]}</span>
                                         </button>
                                     );
@@ -497,14 +532,27 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         </div>
                         <div className="atem-section-box">
                             <div className="two-row-grid two-cols">
-                                <button className={`atem-btn-standard ${dsk.tie ? 'tally-yellow' : ''}`} onClick={() => sendAtemCommand('TOGGLE_DSK_TIE', { tie: !dsk.tie })}>
+                                <button 
+                                    className={`atem-btn-standard ${isPanelActive && dsk.tie ? 'tally-yellow' : ''}`} 
+                                    onClick={() => sendAtemCommand('TOGGLE_DSK_TIE', { tie: !dsk.tie })}
+                                >
                                     <span className="btn-number">TIE 1</span>
                                 </button>
-                                <DragRateInput value={localDskRate} onChange={setLocalDskRate} onCommit={(val) => sendAtemCommand('SET_DSK_RATE', { rate: val })} />
-                                <button className={`atem-btn-standard ${dsk.onAir ? 'tally-red' : ''}`} onClick={() => sendAtemCommand('TOGGLE_DSK_ONAIR', { onAir: !dsk.onAir })}>
+                                <DragRateInput 
+                                    value={isPanelActive ? localDskRate : null} 
+                                    disabled={!isPanelActive}
+                                    onChange={setLocalDskRate} 
+                                    onCommit={(val) => sendAtemCommand('SET_DSK_RATE', { rate: val })} 
+                                />
+                                <button 
+                                    className={`atem-btn-standard ${isPanelActive && dsk.onAir ? 'tally-red' : ''}`} 
+                                    onClick={() => sendAtemCommand('TOGGLE_DSK_ONAIR', { onAir: !dsk.onAir })}
+                                >
                                     <span className="btn-number">ON AIR</span>
                                 </button>
-                                <button className={`atem-btn-standard ${dsk.inTransition ? 'tally-orange' : ''}`} onClick={() => sendAtemCommand('EXECUTE_DSK_AUTO')}>
+                                <button 
+                                    className={`atem-btn-standard ${isPanelActive && dsk.inTransition ? 'tally-orange' : ''}`} 
+                                    onClick={() => sendAtemCommand('EXECUTE_DSK_AUTO')}>
                                     <span className="btn-number">AUTO</span>
                                 </button>
                             </div>
@@ -517,8 +565,16 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         </div>
                         <div className="atem-section-box">
                             <div className="two-row-grid one-col">
-                                <DragRateInput value={localFtbRate} onChange={setLocalFtbRate} onCommit={(val) => sendAtemCommand('SET_FTB_RATE', { rate: val })} />
-                                <button className={`atem-btn-standard ${ftb.isFullyBlack ? 'tally-red' : (ftb.inTransition ? 'tally-orange' : '')}`} onClick={() => sendAtemCommand('EXECUTE_FTB')}>
+                                <DragRateInput 
+                                    value={isPanelActive ? localFtbRate : null} 
+                                    disabled={!isPanelActive}
+                                    onChange={setLocalFtbRate} 
+                                    onCommit={(val) => sendAtemCommand('SET_FTB_RATE', { rate: val })} 
+                                />
+                                <button 
+                                    className={`atem-btn-standard ${isPanelActive && ftb.isFullyBlack ? 'tally-red' : (isPanelActive && ftb.inTransition ? 'tally-orange' : '')}`} 
+                                    onClick={() => sendAtemCommand('EXECUTE_FTB')}
+                                >
                                     <span className="btn-number">FTB</span>
                                 </button>
                             </div>
@@ -535,7 +591,11 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         <div className="atem-section-box">
                             <div className="atem-bus-grid six-cols">
                                 {auxOutputsList.map((num, idx) => (
-                                    <button key={`out-${num}`} className={`atem-btn-standard ${selectedOut === idx ? 'out-active' : ''}`} onClick={() => setSelectedOut(prev => prev === idx ? null : idx)}>
+                                    <button 
+                                        key={`out-${num}`} 
+                                        className={`atem-btn-standard ${isPanelActive && selectedOut === idx ? 'out-active' : ''}`} 
+                                        onClick={() => setSelectedOut(prev => prev === idx ? null : idx)}
+                                    >
                                         <span className="btn-number">OUT {num}</span>
                                     </button>
                                 ))}
@@ -549,9 +609,14 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         </div>
                         <div className="atem-section-box">
                             <div className="atem-bus-grid three-cols">
-                                <DragRateInput value={localTransRate} onChange={setLocalTransRate} onCommit={(val) => sendAtemCommand('SET_TRANSITION_RATE', { rate: val })} />
+                                <DragRateInput 
+                                    value={isPanelActive ? localTransRate : null} 
+                                    disabled={!isPanelActive}
+                                    onChange={setLocalTransRate} 
+                                    onCommit={(val) => sendAtemCommand('SET_TRANSITION_RATE', { rate: val })} 
+                                />
                                 <button className="atem-btn-standard cut-btn" onClick={() => sendAtemCommand('CUT')}><span className="btn-number">CUT</span></button>
-                                <button className={`atem-btn-standard auto-btn ${inTransition ? 'trans-active' : ''}`} onClick={() => sendAtemCommand('AUTO')}><span className="btn-number">AUTO</span></button>
+                                <button className={`atem-btn-standard auto-btn ${isPanelActive && inTransition ? 'trans-active' : ''}`} onClick={() => sendAtemCommand('AUTO')}><span className="btn-number">AUTO</span></button>
                             </div>
                         </div>
                     </div>
