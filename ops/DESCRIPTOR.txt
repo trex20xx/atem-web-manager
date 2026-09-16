@@ -1,2 +1,2 @@
-v3.48
-Muted grey top header with conditional device name and UNGROUPED suppression, eliminated Media Pool Page 2 double-padding compression glitch, and unified Macro header button font weights (600) across all active states.
+v3.49
+Single-flight sequential Media Pool downloader with hash-based replacement detection, 1000ms mixer preemption traffic prioritization in bridge daemon, and drag-and-drop RGBA still uploading.

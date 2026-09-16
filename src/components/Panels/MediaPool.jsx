@@ -1,8 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.31)
+// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.49)
 // =========================================================================
+// Hardware-Locked IP: 192.168.10.240
+// Features single-flight sequential still downloading, hash-based change
+// detection (downloads once; re-downloads only if picture replaces on ATEM),
+// and drag-and-drop RGBA still uploading.
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
@@ -25,8 +29,40 @@ const MediaPool = () => {
     const wsRef = useRef(null);
     const reconnectTimerRef = useRef(null);
     const lastWheelTimeRef = useRef(0);
-    const requestedStillsRef = useRef(new Set());
-    const downloadedStillsRef = useRef({});
+
+    // Single-flight sequential download queue refs
+    const atemStillsRef = useRef([]);
+    const downloadedRef = useRef({});      // idx -> { src, hash, name }
+    const inFlightIdxRef = useRef(null);   // Still index currently downloading
+    const pendingQueueRef = useRef([]);    // Array of still indices waiting
+    const watchdogTimerRef = useRef(null);
+
+    const processDownloadQueue = useCallback(() => {
+        if (inFlightIdxRef.current !== null || pendingQueueRef.current.length === 0) {
+            return;
+        }
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+            return;
+        }
+
+        const nextIdx = pendingQueueRef.current.shift();
+        inFlightIdxRef.current = nextIdx;
+
+        wsRef.current.send(JSON.stringify({ 
+            action: 'GET_STILL', 
+            ip: LOCKED_ATEM_IP, 
+            index: nextIdx 
+        }));
+
+        // 6-second timeout watchdog in case UDP chunk drops on hardware
+        if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
+        watchdogTimerRef.current = setTimeout(() => {
+            if (inFlightIdxRef.current === nextIdx) {
+                inFlightIdxRef.current = null;
+                processDownloadQueue();
+            }
+        }, 6000);
+    }, []);
 
     useEffect(() => {
         const initWebSocket = () => {
@@ -41,31 +77,73 @@ const MediaPool = () => {
                 wsRef.current.onmessage = (event) => {
                     try {
                         const data = JSON.parse(event.data);
+
                         if (data.mediaPool) {
                             if (data.mediaPool.stills) {
                                 setAtemStills(data.mediaPool.stills);
+                                atemStillsRef.current = data.mediaPool.stills;
+
+                                // Inspect each slot: download only once, or if hash/name changed on ATEM
                                 data.mediaPool.stills.forEach((still, idx) => {
-                                    if (still.isUsed && !requestedStillsRef.current.has(idx) && !downloadedStillsRef.current[idx]) {
-                                        requestedStillsRef.current.add(idx);
-                                        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                                            wsRef.current.send(JSON.stringify({ action: 'GET_STILL', ip: LOCKED_ATEM_IP, index: idx }));
+                                    if (still.isUsed) {
+                                        const cached = downloadedRef.current[idx];
+                                        const isUpToDate = cached && cached.hash === still.hash && cached.name === still.name;
+                                        
+                                        if (!isUpToDate) {
+                                            // Image is missing or has been replaced on ATEM hardware
+                                            if (!pendingQueueRef.current.includes(idx) && inFlightIdxRef.current !== idx) {
+                                                pendingQueueRef.current.push(idx);
+                                            }
+                                        }
+                                    } else {
+                                        // Slot was emptied on ATEM hardware
+                                        if (downloadedRef.current[idx]) {
+                                            delete downloadedRef.current[idx];
+                                            setDownloadedStills(prev => {
+                                                const next = { ...prev };
+                                                delete next[idx];
+                                                return next;
+                                            });
                                         }
                                     }
                                 });
+
+                                processDownloadQueue();
                             }
                             if (data.mediaPool.clips) setAtemClips(data.mediaPool.clips);
                         }
+
                         if (data.mediaPlayers && Array.isArray(data.mediaPlayers)) {
                             setMediaPlayers(data.mediaPlayers);
                         }
-                        if (data.type === 'STILL_DATA' && data.data) {
-                            downloadedStillsRef.current[data.index] = data.data;
-                            setDownloadedStills(prev => ({ ...prev, [data.index]: data.data }));
+
+                        // Received single-flight thumbnail payload
+                        if (data.type === 'STILL_DATA' && data.data && data.index !== undefined) {
+                            if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
+                            const idx = data.index;
+                            const atemStill = atemStillsRef.current[idx];
+                            
+                            const newRecord = {
+                                src: data.data,
+                                hash: atemStill ? atemStill.hash : '',
+                                name: atemStill ? atemStill.name : ''
+                            };
+
+                            downloadedRef.current[idx] = newRecord;
+                            setDownloadedStills(prev => ({ ...prev, [idx]: newRecord }));
+
+                            if (inFlightIdxRef.current === idx) {
+                                inFlightIdxRef.current = null;
+                            }
+
+                            // Small delay before requesting next still to prevent UDP collisions
+                            setTimeout(processDownloadQueue, 150);
                         }
                     } catch (err) {}
                 };
 
                 wsRef.current.onclose = () => {
+                    if (inFlightIdxRef.current !== null) inFlightIdxRef.current = null;
                     if (!reconnectTimerRef.current) {
                         reconnectTimerRef.current = setTimeout(() => {
                             reconnectTimerRef.current = null;
@@ -85,12 +163,13 @@ const MediaPool = () => {
 
         initWebSocket();
         return () => {
+            if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
             if (wsRef.current) {
                 try { wsRef.current.close(); } catch (e) {}
             }
         };
-    }, []);
+    }, [processDownloadQueue]);
 
     const handlePanelWheel = (e) => {
         const now = Date.now();
@@ -202,11 +281,11 @@ const MediaPool = () => {
 
         const atemData = type === 'still' ? atemStills[actualSlotIndex] : atemClips[actualSlotIndex];
         const localPreview = localPreviews[dropId];
-        const downloadedImg = type === 'still' ? downloadedStills[actualSlotIndex] : null;
+        const downloadedRecord = type === 'still' ? downloadedStills[actualSlotIndex] : null;
 
         const isUsed = atemData ? atemData.isUsed : false;
         const displayName = localPreview ? localPreview.name : (atemData ? atemData.name : '');
-        const displaySrc = localPreview ? localPreview.src : downloadedImg;
+        const displaySrc = localPreview ? localPreview.src : (downloadedRecord ? downloadedRecord.src : null);
 
         const isMp1 = mediaPlayers[0] && (type === 'still' ? (mediaPlayers[0].sourceType === 1 && mediaPlayers[0].stillIndex === actualSlotIndex) : (mediaPlayers[0].sourceType === 2 && mediaPlayers[0].clipIndex === actualSlotIndex));
         const isMp2 = mediaPlayers[1] && (type === 'still' ? (mediaPlayers[1].sourceType === 1 && mediaPlayers[1].stillIndex === actualSlotIndex) : (mediaPlayers[1].sourceType === 2 && mediaPlayers[1].clipIndex === actualSlotIndex));

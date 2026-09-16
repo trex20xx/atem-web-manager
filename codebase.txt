@@ -176,9 +176,11 @@ server.bind(ATEM_PORT, EMULATOR_IP, () => {
  
 === FILE: bridge/server.js === 
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.28)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.49)
 // =========================================================================
 // Bidirectional switcher bus, macro execution, aux router, DSK, FTB, and Media Pool.
+// Features 1000ms mixer preemption prioritization, hash-based still tracking,
+// and single-flight sequential data transfers to eliminate switcher latency.
 
 const { Atem } = require('atem-connection');
 const WebSocket = require('ws');
@@ -189,8 +191,8 @@ const BRIDGE_PORT = 8080;
 const VITE_PORT = 3000;
 const startTime = Date.now();
 
-console.log(`[ATEM Bridge v3.28] Starting bridge service...`);
-console.log(`[ATEM Bridge v3.28] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v3.49] Starting bridge service...`);
+console.log(`[ATEM Bridge v3.49] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 let atem = new Atem();
 let isAtemConnected = false;
@@ -214,15 +216,17 @@ let mediaPlayers = [
     { sourceType: 1, stillIndex: 1, clipIndex: 0 }
 ];
 
-// Single-threaded Sequential Data Transfer Queue
+// Single-flight Sequential Data Transfer Queue
 let isTransferring = false;
 let trafficPauseUntil = 0;
 const transferQueue = [];
 
 function processTransferQueue() {
     if (isTransferring || transferQueue.length === 0) return;
+    
+    // Pause queue if mixer has been interacted with recently or if switcher is offline
     if (!isAtemConnected || Date.now() < trafficPauseUntil) {
-        setTimeout(processTransferQueue, 100);
+        setTimeout(processTransferQueue, 150);
         return;
     }
     
@@ -235,7 +239,7 @@ function processTransferQueue() {
         })
         .finally(() => {
             isTransferring = false;
-            setTimeout(processTransferQueue, 100); 
+            setTimeout(processTransferQueue, 150); 
         });
 }
 
@@ -277,11 +281,13 @@ function queueUploadStill(index, buffer, name) {
             return resolve();
         }
         console.log(`[ATEM Bridge] Uploading to Still ${index + 1}...`);
+        trafficPauseUntil = Date.now() + 2000;
+
         atem.uploadStill(index, buffer, name || `Still ${index + 1}`, '')
             .then(() => {
                 console.log(`[ATEM Bridge] Successfully uploaded to Still ${index + 1}`);
                 broadcastState(null, true);
-                setTimeout(() => queueDownloadStill(index), 600);
+                setTimeout(() => queueDownloadStill(index), 800);
                 resolve();
             })
             .catch(err => {
@@ -291,7 +297,8 @@ function queueUploadStill(index, buffer, name) {
     });
     task.type = 'upload';
     task.index = index;
-    transferQueue.push(task);
+    // Uploads are given absolute priority at head of queue
+    transferQueue.unshift(task);
     processTransferQueue();
 }
 
@@ -490,8 +497,26 @@ function sendStatePayload(targetWs = null) {
         }
 
         if (atem && atem.state && atem.state.media) {
-            if (atem.state.media.stillPool) mediaPool.stills = atem.state.media.stillPool.map(s => ({ isUsed: s.isUsed, name: s.fileName || '' }));
-            if (atem.state.media.clipPool) mediaPool.clips = atem.state.media.clipPool.map(c => ({ isUsed: c.isUsed, name: c.name || '' }));
+            if (atem.state.media.stillPool) {
+                mediaPool.stills = atem.state.media.stillPool.map((s, idx) => {
+                    let hashStr = '';
+                    if (s && s.hash) {
+                        hashStr = typeof s.hash === 'string' ? s.hash : (Buffer.isBuffer(s.hash) ? s.hash.toString('hex') : String(s.hash));
+                    }
+                    const fileName = s ? (s.fileName || s.name || '') : '';
+                    return {
+                        isUsed: Boolean(s && s.isUsed),
+                        name: fileName,
+                        hash: hashStr || `${fileName}_${Boolean(s && s.isUsed)}`
+                    };
+                });
+            }
+            if (atem.state.media.clipPool) {
+                mediaPool.clips = atem.state.media.clipPool.map(c => ({
+                    isUsed: Boolean(c && c.isUsed),
+                    name: c ? (c.name || '') : ''
+                }));
+            }
             if (atem.state.media.players) {
                 mediaPlayers = [0, 1].map(i => {
                     const p = atem.state.media.players[i];
@@ -531,9 +556,16 @@ wss.on('connection', (ws) => {
             const data = JSON.parse(message);
             if (data.ip && data.ip !== ATEM_IP) connectToAtem(data.ip);
 
-            // Throttle transfers if user interacts with critical fast-switching components
-            if (['SET_PGM', 'SET_PVW', 'CUT', 'AUTO', 'SET_TRANSITION_RATE', 'TOGGLE_USK_ONAIR', 'TOGGLE_TRANS_SELECTION'].includes(data.action)) {
-                trafficPauseUntil = Date.now() + 500;
+            // Absolute Mixer Priority: Any switcher interaction preempts background transfers for 1000ms
+            const SWITCHER_ACTIONS = [
+                'SET_PGM', 'SET_PVW', 'CUT', 'AUTO', 'SET_AUX',
+                'SET_TRANSITION_RATE', 'TOGGLE_USK_ONAIR', 'TOGGLE_TRANS_SELECTION',
+                'TOGGLE_DSK_ONAIR', 'TOGGLE_DSK_TIE', 'SET_DSK_RATE', 'EXECUTE_DSK_AUTO',
+                'EXECUTE_FTB', 'SET_FTB_RATE', 'MACRO_RUN', 'MACRO_STOP', 'MACRO_LOOP'
+            ];
+
+            if (SWITCHER_ACTIONS.includes(data.action)) {
+                trafficPauseUntil = Date.now() + 1000;
             }
 
             if (data.action === 'CONNECT' || data.action === 'GET_STATE') {
@@ -542,12 +574,52 @@ wss.on('connection', (ws) => {
                 atem.changeProgramInput(parseInt(data.input, 10), 0).catch(e => {});
             } else if (data.action === 'SET_PVW' && data.input !== undefined) {
                 atem.changePreviewInput(parseInt(data.input, 10), 0).catch(e => {});
+            } else if (data.action === 'SET_AUX' && data.aux !== undefined && data.source !== undefined) {
+                if (typeof atem.setAuxSource === 'function') {
+                    atem.setAuxSource(parseInt(data.source, 10), parseInt(data.aux, 10)).catch(e => {});
+                }
             } else if (data.action === 'CUT') {
                 atem.cut(0).catch(e => {});
             } else if (data.action === 'AUTO') {
                 atem.autoTransition(0).catch(e => {});
             } else if (data.action === 'SET_TRANSITION_RATE' && data.rate !== undefined) {
                 atem.setMixTransitionSettings({ rate: parseInt(data.rate, 10) || 30 }, 0).catch(e => {});
+            } else if (data.action === 'TOGGLE_USK_ONAIR' && data.usk !== undefined) {
+                const uskIdx = parseInt(data.usk, 10);
+                const targetState = !currentUskOnAir[uskIdx];
+                if (typeof atem.setUpstreamKeyerOnAir === 'function') {
+                    atem.setUpstreamKeyerOnAir(targetState, 0, uskIdx).catch(e => {});
+                }
+            } else if (data.action === 'TOGGLE_TRANS_SELECTION' && data.bit !== undefined) {
+                const bit = parseInt(data.bit, 10);
+                const newSelection = currentTransitionSelection ^ bit;
+                if (typeof atem.setTransitionProperties === 'function') {
+                    atem.setTransitionProperties({ selection: newSelection || 1 }, 0).catch(e => {});
+                }
+            } else if (data.action === 'TOGGLE_DSK_TIE') {
+                if (typeof atem.setDownstreamKeyerTie === 'function') {
+                    atem.setDownstreamKeyerTie(Boolean(data.tie), 0).catch(e => {});
+                }
+            } else if (data.action === 'TOGGLE_DSK_ONAIR') {
+                if (typeof atem.setDownstreamKeyerOnAir === 'function') {
+                    atem.setDownstreamKeyerOnAir(Boolean(data.onAir), 0).catch(e => {});
+                }
+            } else if (data.action === 'EXECUTE_DSK_AUTO') {
+                if (typeof atem.autoDownstreamKey === 'function') {
+                    atem.autoDownstreamKey(0).catch(e => {});
+                }
+            } else if (data.action === 'SET_DSK_RATE' && data.rate !== undefined) {
+                if (typeof atem.setDownstreamKeyerRate === 'function') {
+                    atem.setDownstreamKeyerRate(parseInt(data.rate, 10) || 30, 0).catch(e => {});
+                }
+            } else if (data.action === 'EXECUTE_FTB') {
+                if (typeof atem.fadeToBlack === 'function') {
+                    atem.fadeToBlack(0).catch(e => {});
+                }
+            } else if (data.action === 'SET_FTB_RATE' && data.rate !== undefined) {
+                if (typeof atem.setFadeToBlackRate === 'function') {
+                    atem.setFadeToBlackRate(parseInt(data.rate, 10) || 30, 0).catch(e => {});
+                }
             } else if (data.action === 'UPLOAD_STILL' && data.rgbaBase64) {
                 const buffer = Buffer.from(data.rgbaBase64, 'base64');
                 queueUploadStill(data.index, buffer, data.name);
@@ -2174,10 +2246,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
  
 === FILE: src/version.js === 
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.48)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.49)
 // =========================================================================
 
-export const APP_VERSION = 'v3.48';
+export const APP_VERSION = 'v3.49';
  
 === FILE: src/components/Multiview/Panel.jsx === 
 import React, { useState } from 'react';
@@ -3487,11 +3559,15 @@ const AtemMacrosCompact = ({ connectedDevice }) => {
 export default AtemMacrosCompact;
  
 === FILE: src/components/Panels/MediaPool.jsx === 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.31)
+// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.49)
 // =========================================================================
+// Hardware-Locked IP: 192.168.10.240
+// Features single-flight sequential still downloading, hash-based change
+// detection (downloads once; re-downloads only if picture replaces on ATEM),
+// and drag-and-drop RGBA still uploading.
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
@@ -3514,8 +3590,40 @@ const MediaPool = () => {
     const wsRef = useRef(null);
     const reconnectTimerRef = useRef(null);
     const lastWheelTimeRef = useRef(0);
-    const requestedStillsRef = useRef(new Set());
-    const downloadedStillsRef = useRef({});
+
+    // Single-flight sequential download queue refs
+    const atemStillsRef = useRef([]);
+    const downloadedRef = useRef({});      // idx -> { src, hash, name }
+    const inFlightIdxRef = useRef(null);   // Still index currently downloading
+    const pendingQueueRef = useRef([]);    // Array of still indices waiting
+    const watchdogTimerRef = useRef(null);
+
+    const processDownloadQueue = useCallback(() => {
+        if (inFlightIdxRef.current !== null || pendingQueueRef.current.length === 0) {
+            return;
+        }
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+            return;
+        }
+
+        const nextIdx = pendingQueueRef.current.shift();
+        inFlightIdxRef.current = nextIdx;
+
+        wsRef.current.send(JSON.stringify({ 
+            action: 'GET_STILL', 
+            ip: LOCKED_ATEM_IP, 
+            index: nextIdx 
+        }));
+
+        // 6-second timeout watchdog in case UDP chunk drops on hardware
+        if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
+        watchdogTimerRef.current = setTimeout(() => {
+            if (inFlightIdxRef.current === nextIdx) {
+                inFlightIdxRef.current = null;
+                processDownloadQueue();
+            }
+        }, 6000);
+    }, []);
 
     useEffect(() => {
         const initWebSocket = () => {
@@ -3530,31 +3638,73 @@ const MediaPool = () => {
                 wsRef.current.onmessage = (event) => {
                     try {
                         const data = JSON.parse(event.data);
+
                         if (data.mediaPool) {
                             if (data.mediaPool.stills) {
                                 setAtemStills(data.mediaPool.stills);
+                                atemStillsRef.current = data.mediaPool.stills;
+
+                                // Inspect each slot: download only once, or if hash/name changed on ATEM
                                 data.mediaPool.stills.forEach((still, idx) => {
-                                    if (still.isUsed && !requestedStillsRef.current.has(idx) && !downloadedStillsRef.current[idx]) {
-                                        requestedStillsRef.current.add(idx);
-                                        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                                            wsRef.current.send(JSON.stringify({ action: 'GET_STILL', ip: LOCKED_ATEM_IP, index: idx }));
+                                    if (still.isUsed) {
+                                        const cached = downloadedRef.current[idx];
+                                        const isUpToDate = cached && cached.hash === still.hash && cached.name === still.name;
+                                        
+                                        if (!isUpToDate) {
+                                            // Image is missing or has been replaced on ATEM hardware
+                                            if (!pendingQueueRef.current.includes(idx) && inFlightIdxRef.current !== idx) {
+                                                pendingQueueRef.current.push(idx);
+                                            }
+                                        }
+                                    } else {
+                                        // Slot was emptied on ATEM hardware
+                                        if (downloadedRef.current[idx]) {
+                                            delete downloadedRef.current[idx];
+                                            setDownloadedStills(prev => {
+                                                const next = { ...prev };
+                                                delete next[idx];
+                                                return next;
+                                            });
                                         }
                                     }
                                 });
+
+                                processDownloadQueue();
                             }
                             if (data.mediaPool.clips) setAtemClips(data.mediaPool.clips);
                         }
+
                         if (data.mediaPlayers && Array.isArray(data.mediaPlayers)) {
                             setMediaPlayers(data.mediaPlayers);
                         }
-                        if (data.type === 'STILL_DATA' && data.data) {
-                            downloadedStillsRef.current[data.index] = data.data;
-                            setDownloadedStills(prev => ({ ...prev, [data.index]: data.data }));
+
+                        // Received single-flight thumbnail payload
+                        if (data.type === 'STILL_DATA' && data.data && data.index !== undefined) {
+                            if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
+                            const idx = data.index;
+                            const atemStill = atemStillsRef.current[idx];
+                            
+                            const newRecord = {
+                                src: data.data,
+                                hash: atemStill ? atemStill.hash : '',
+                                name: atemStill ? atemStill.name : ''
+                            };
+
+                            downloadedRef.current[idx] = newRecord;
+                            setDownloadedStills(prev => ({ ...prev, [idx]: newRecord }));
+
+                            if (inFlightIdxRef.current === idx) {
+                                inFlightIdxRef.current = null;
+                            }
+
+                            // Small delay before requesting next still to prevent UDP collisions
+                            setTimeout(processDownloadQueue, 150);
                         }
                     } catch (err) {}
                 };
 
                 wsRef.current.onclose = () => {
+                    if (inFlightIdxRef.current !== null) inFlightIdxRef.current = null;
                     if (!reconnectTimerRef.current) {
                         reconnectTimerRef.current = setTimeout(() => {
                             reconnectTimerRef.current = null;
@@ -3574,12 +3724,13 @@ const MediaPool = () => {
 
         initWebSocket();
         return () => {
+            if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
             if (wsRef.current) {
                 try { wsRef.current.close(); } catch (e) {}
             }
         };
-    }, []);
+    }, [processDownloadQueue]);
 
     const handlePanelWheel = (e) => {
         const now = Date.now();
@@ -3691,11 +3842,11 @@ const MediaPool = () => {
 
         const atemData = type === 'still' ? atemStills[actualSlotIndex] : atemClips[actualSlotIndex];
         const localPreview = localPreviews[dropId];
-        const downloadedImg = type === 'still' ? downloadedStills[actualSlotIndex] : null;
+        const downloadedRecord = type === 'still' ? downloadedStills[actualSlotIndex] : null;
 
         const isUsed = atemData ? atemData.isUsed : false;
         const displayName = localPreview ? localPreview.name : (atemData ? atemData.name : '');
-        const displaySrc = localPreview ? localPreview.src : downloadedImg;
+        const displaySrc = localPreview ? localPreview.src : (downloadedRecord ? downloadedRecord.src : null);
 
         const isMp1 = mediaPlayers[0] && (type === 'still' ? (mediaPlayers[0].sourceType === 1 && mediaPlayers[0].stillIndex === actualSlotIndex) : (mediaPlayers[0].sourceType === 2 && mediaPlayers[0].clipIndex === actualSlotIndex));
         const isMp2 = mediaPlayers[1] && (type === 'still' ? (mediaPlayers[1].sourceType === 1 && mediaPlayers[1].stillIndex === actualSlotIndex) : (mediaPlayers[1].sourceType === 2 && mediaPlayers[1].clipIndex === actualSlotIndex));
