@@ -1,5 +1,13 @@
 # Dependencies
 node_modules/
+bridge/node_modules/
+
+# Local Portable Node.js Runtime & Temporary Script Files
+bin/
+.atem_node_path
+
+# AI Handover Serializations
+codebase.txt
 
 # Build output
 dist/
@@ -20,16 +28,5 @@ Thumbs.db
 # VS Code
 .vscode/
 
-public/public/Top.mp4 
-public/Top.mp4 
-public/Top.mp4
-public/Top.mp4 
-public/Top.mp4 
-public/Top.mp4
-public/Top.mp4
-public/Top.mp4
-public/Top.mp4
-public/Top.mp4
-public/Top.mp4
-public/Top.mp4
+# Media purge
 public/Top.mp4

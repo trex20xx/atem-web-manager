@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
+# =============================================================================
+# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / POSIX) (v3.42)
+# =============================================================================
+# Manages runtime resolution, Vite + bridge daemon execution, automated Git
+# feature branching, release tagging, and token-guarded workspace resets.
+# =============================================================================
+
 cd "$(dirname "$0")/.." || exit
 PROJECT_ROOT="$(pwd)"
 
 LOCAL_NODE_DIR="$PROJECT_ROOT/bin/node"
 
+# Configure Node environment prioritizing local portable binary over system path
 if [ -f "$LOCAL_NODE_DIR/bin/node" ] && [ -f "$LOCAL_NODE_DIR/lib/node_modules/npm/bin/npm-cli.js" ]; then
     export PATH="$LOCAL_NODE_DIR/bin:$PATH"
     NODE_CMD="$LOCAL_NODE_DIR/bin/node"
@@ -14,6 +22,11 @@ else
     NPM_CMD="npm"
 fi
 
+# -----------------------------------------------------------------------------
+# FUNCTION: cleanup_bridge
+# DESCRIPTION: Gracefully terminates background daemon listeners on ports
+# 8080 (Bridge), 3000 (Vite UI), and 8000 (Static video server).
+# -----------------------------------------------------------------------------
 cleanup_bridge() {
     kill $(lsof -t -i:8080) 2>/dev/null
     kill $(lsof -t -i:3000) 2>/dev/null
@@ -22,6 +35,11 @@ cleanup_bridge() {
 
 trap cleanup_bridge EXIT INT TERM
 
+# -----------------------------------------------------------------------------
+# FUNCTION: verify_token
+# DESCRIPTION: Safety verification layer. Validates .atem_workspace_token key
+# (ATEM_MANAGER_SECURE_WIPE_KEY_2026) to prevent accidental directory erasure.
+# -----------------------------------------------------------------------------
 verify_token() {
     TOKEN_FILE="$PROJECT_ROOT/.atem_workspace_token"
     REQUIRED_KEY="ATEM_MANAGER_SECURE_WIPE_KEY_2026"
@@ -56,10 +74,15 @@ verify_token() {
     return 0
 }
 
+# -----------------------------------------------------------------------------
+# FUNCTION: resolve_commit_msg
+# DESCRIPTION: Automatically ingests commit messages from ops/DESCRIPTOR.txt.
+# Verifies version parity against src/version.js before proceeding.
+# -----------------------------------------------------------------------------
 resolve_commit_msg() {
     DESC_FILE="$PROJECT_ROOT/ops/DESCRIPTOR.txt"
     DETECTED_VER=$(grep -o "v[0-9]\+\.[0-9]\+" src/version.js | head -n 1)
-    if [ -z "$DETECTED_VER" ]; then DETECTED_VER="v3.41"; fi
+    if [ -z "$DETECTED_VER" ]; then DETECTED_VER="v3.42"; fi
 
     if [ -f "$DESC_FILE" ]; then
         FILE_VER=$(head -n 1 "$DESC_FILE" | tr -d '\r\n')
@@ -92,6 +115,11 @@ resolve_commit_msg() {
     return 0
 }
 
+# -----------------------------------------------------------------------------
+# FUNCTION: wipe_reclone
+# DESCRIPTION: Performs a token-verified total wipe and fresh clone from GitHub
+# in a detached background subshell without prompting for additional keypresses.
+# -----------------------------------------------------------------------------
 wipe_reclone() {
     verify_token || return
 
@@ -141,6 +169,11 @@ wipe_reclone() {
     exit 0
 }
 
+# -----------------------------------------------------------------------------
+# FUNCTION: github_operations
+# DESCRIPTION: Interactive submenu for branch switching, creation, checkpoint
+# pushing, clean reverts, and version merges.
+# -----------------------------------------------------------------------------
 github_operations() {
     while true; do
         CURRENT_BRANCH=$(git branch --show-current 2>/dev/null)
@@ -174,6 +207,7 @@ github_operations() {
             1)
                 resolve_commit_msg || continue
                 git rm --cached public/Top.mp4 2>/dev/null
+                git rm --cached bin/.commit_msg.txt 2>/dev/null
 
                 if [ "$CURRENT_BRANCH" = "main" ]; then
                     echo "[BRANCHING] Creating feature branch '$DETECTED_VER' from main..."
@@ -207,6 +241,7 @@ github_operations() {
             2)
                 resolve_commit_msg || continue
                 git rm --cached public/Top.mp4 2>/dev/null
+                git rm --cached bin/.commit_msg.txt 2>/dev/null
                 git add -A
                 git commit -m "$RESOLVED_MSG"
                 git push -u origin "$CURRENT_BRANCH"
@@ -219,7 +254,7 @@ github_operations() {
                 echo "                    AVAILABLE BRANCHES & HISTORY                  "
                 echo "-----------------------------------------------------------------"
                 echo ""
-                printf "  ⠋ Fetching latest branch telemetry from GitHub..."
+                printf "  [*] Fetching latest branch telemetry from GitHub..."
                 git fetch --all --prune --tags >/dev/null 2>&1
                 printf "\r                                                          \r"
                 git for-each-ref --sort=-committerdate refs/heads/ refs/remotes/origin/ refs/tags/ --format="%(refname:short)|%(subject)|%(committerdate:relative)" | awk -F'|' '!seen[$1]++ { gsub(/^origin\//,"",$1); printf "  * %-10s :: %s (%s)\n", $1, $2, $3 }'
@@ -254,10 +289,13 @@ github_operations() {
     done
 }
 
+# -----------------------------------------------------------------------------
+# MAIN CLI EVENT LOOP
+# -----------------------------------------------------------------------------
 while true; do
     clear
     echo "-------------------------------------------------------------------------"
-    echo "ATEM WEB MANAGER - OPERATIONS SUITE (v3.41)"
+    echo "ATEM WEB MANAGER - OPERATIONS SUITE (v3.42)"
     echo "-------------------------------------------------------------------------"
     echo "[1] RUN & EVALUATE     - Launch Vite Frontend & Node Bridge Daemon"
     echo "[2] GITHUB OPERATIONS  - Merge to Main, Push Branch, Switch"
@@ -321,6 +359,7 @@ while true; do
             if [ "$EVAL_CHOICE" = "1" ]; then
                 resolve_commit_msg || continue
                 git rm --cached public/Top.mp4 2>/dev/null
+                git rm --cached bin/.commit_msg.txt 2>/dev/null
 
                 if [ "$CURRENT_BRANCH" = "main" ]; then
                     echo "[BRANCHING] Creating feature branch '$DETECTED_VER' from main..."
@@ -353,6 +392,7 @@ while true; do
             elif [ "$EVAL_CHOICE" = "2" ]; then
                 resolve_commit_msg || continue
                 git rm --cached public/Top.mp4 2>/dev/null
+                git rm --cached bin/.commit_msg.txt 2>/dev/null
                 git add -A
                 git commit -m "$RESOLVED_MSG"
                 git push -u origin "$CURRENT_BRANCH"

@@ -1,2 +1,2 @@
-v3.41
-Unified single-line menu geometry, silent background ghost wiping, live remote GitHub branch history with commit descriptions, and embedded animated loaders.
+v3.42
+UTF-8 console code page normalization (chcp 65001), ASCII status badge formatting eliminating mojibake symbols, temporary commit file exclusion in .gitignore, and exhaustive function documentation across OPS scripts.
