@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # =============================================================================
-# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / POSIX) (v3.45)
+# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / POSIX) (v3.50)
 # =============================================================================
 # Manages runtime resolution, Vite + bridge daemon execution, consolidated
 # GitHub Operations menu, Enter confirmation, and empty-Enter cancellation.
+# Target macOS Location: /Users/robert.mirt/Downloads/PROGRAMMING/atem-web-manager/
 # =============================================================================
 
 cd "$(dirname "$0")/.." || exit
@@ -66,7 +67,7 @@ verify_token() {
 resolve_commit_msg() {
     DESC_FILE="$PROJECT_ROOT/ops/DESCRIPTOR.txt"
     DETECTED_VER=$(grep -o "v[0-9]\+\.[0-9]\+" src/version.js | head -n 1)
-    if [ -z "$DETECTED_VER" ]; then DETECTED_VER="v3.45"; fi
+    if [ -z "$DETECTED_VER" ]; then DETECTED_VER="v3.50"; fi
 
     if [ -f "$DESC_FILE" ]; then
         FILE_VER=$(head -n 1 "$DESC_FILE" | tr -d '\r\n')
@@ -231,7 +232,7 @@ github_operations() {
                 git for-each-ref --sort=-*creatordate refs/tags/ --format="%(refname:short)|%(subject)|%(*committerdate:relative)" | awk -F'|' '!seen[$1]++ { printf "  [tag]    %-12s :: %s (%s)\n", $1, $2, $3 }'
                 echo ""
                 echo "-----------------------------------------------------------------"
-                read -p "Enter branch or tag to checkout (or press Enter to cancel): " TARGET_BRANCH
+                read -p "Enter branch or tag to checkout (or press Enter/0 to cancel): " TARGET_BRANCH
                 if [ -n "$TARGET_BRANCH" ] && [ "$TARGET_BRANCH" != "0" ]; then
                     git checkout "$TARGET_BRANCH"
                     read -p "Press Enter to continue..."
@@ -263,7 +264,7 @@ github_operations() {
 while true; do
     clear
     echo "-------------------------------------------------------------------------"
-    echo "ATEM WEB MANAGER - OPERATIONS SUITE (v3.45)"
+    echo "ATEM WEB MANAGER - OPERATIONS SUITE (macOS) (v3.50)"
     echo "-------------------------------------------------------------------------"
     echo "[1] RUN & EVALUATE     - Launch Vite Frontend & Node Bridge Daemon"
     echo "[2] GITHUB OPERATIONS  - Merge to Main, Push Branch, Switch"

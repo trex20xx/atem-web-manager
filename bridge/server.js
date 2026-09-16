@@ -1,9 +1,9 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.49)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.50)
 // =========================================================================
 // Bidirectional switcher bus, macro execution, aux router, DSK, FTB, and Media Pool.
-// Features 1000ms mixer preemption prioritization, hash-based still tracking,
-// and single-flight sequential data transfers to eliminate switcher latency.
+// Features native atem.downloadStill('rgba') decoding, 1000ms mixer preemption,
+// and single-flight data transfers to completely eliminate switcher latency.
 
 const { Atem } = require('atem-connection');
 const WebSocket = require('ws');
@@ -14,8 +14,8 @@ const BRIDGE_PORT = 8080;
 const VITE_PORT = 3000;
 const startTime = Date.now();
 
-console.log(`[ATEM Bridge v3.49] Starting bridge service...`);
-console.log(`[ATEM Bridge v3.49] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v3.50] Starting bridge service...`);
+console.log(`[ATEM Bridge v3.50] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 let atem = new Atem();
 let isAtemConnected = false;
@@ -47,7 +47,7 @@ const transferQueue = [];
 function processTransferQueue() {
     if (isTransferring || transferQueue.length === 0) return;
     
-    // Pause queue if mixer has been interacted with recently or if switcher is offline
+    // Halt background transfers if switcher command was received in last 1000ms
     if (!isAtemConnected || Date.now() < trafficPauseUntil) {
         setTimeout(processTransferQueue, 150);
         return;
@@ -70,20 +70,28 @@ function queueDownloadStill(index) {
     if (transferQueue.some(t => t.type === 'download' && t.index === index)) return;
 
     const task = () => new Promise((resolve) => {
-        if (!isAtemConnected || typeof atem.dataTransferManager === 'undefined') {
+        if (!isAtemConnected) {
             return resolve();
         }
         console.log(`[ATEM Bridge] Downloading Still ${index + 1} from ATEM...`);
-        
-        atem.dataTransferManager.downloadStill(index)
+
+        // Use high-level atem.downloadStill(index, 'rgba') to ensure RLE decompression
+        const dlPromise = (typeof atem.downloadStill === 'function')
+            ? atem.downloadStill(index, 'rgba')
+            : (atem.dataTransferManager ? atem.dataTransferManager.downloadStill(index) : Promise.reject('No transfer manager'));
+
+        dlPromise
             .then(buffer => {
-                const bmpDataUri = decodeAndDownscale(buffer);
+                if (!buffer || buffer.length === 0) {
+                    throw new Error('Empty buffer received');
+                }
+                const bmpDataUri = downscaleToThumbnailBmp(buffer);
                 if (bmpDataUri) {
                     const payload = JSON.stringify({ type: 'STILL_DATA', index, data: bmpDataUri });
                     wss.clients.forEach(client => {
                         if (client.readyState === WebSocket.OPEN) client.send(payload);
                     });
-                    console.log(`[ATEM Bridge] Successfully downloaded Still ${index + 1}`);
+                    console.log(`[ATEM Bridge] Successfully processed Still ${index + 1}`);
                 }
                 resolve();
             })
@@ -92,6 +100,7 @@ function queueDownloadStill(index) {
                 resolve();
             });
     });
+
     task.type = 'download';
     task.index = index;
     transferQueue.push(task);
@@ -120,7 +129,6 @@ function queueUploadStill(index, buffer, name) {
     });
     task.type = 'upload';
     task.index = index;
-    // Uploads are given absolute priority at head of queue
     transferQueue.unshift(task);
     processTransferQueue();
 }
@@ -140,16 +148,19 @@ function encodeBmp(rgbaBuffer, width, height) {
     return 'data:image/bmp;base64,' + bmp.toString('base64');
 }
 
-function decodeAndDownscale(buffer) {
+function downscaleToThumbnailBmp(buffer) {
+    if (!buffer || buffer.length < 5000) return null;
+
     let srcW = 1920, srcH = 1080;
-    if (buffer.length === 1280 * 720 * 2 || buffer.length === 1280 * 720 * 4) {
+    if (buffer.length === 1280 * 720 * 4 || buffer.length === 1280 * 720 * 2) {
         srcW = 1280; srcH = 720;
     }
     const dstW = 320, dstH = 180;
     const scaleX = srcW / dstW;
     const scaleY = srcH / dstH;
     const thumb = Buffer.alloc(dstW * dstH * 4);
-    const isRgba = buffer.length === srcW * srcH * 4;
+
+    const isRgba = buffer.length >= srcW * srcH * 4;
 
     for (let y = 0; y < dstH; y++) {
         const srcY = Math.floor(y * scaleY);
@@ -159,25 +170,25 @@ function decodeAndDownscale(buffer) {
 
             if (isRgba) {
                 const srcIdx = (srcY * srcW + srcX) * 4;
-                thumb[dstIdx] = buffer[srcIdx+2]; // B
-                thumb[dstIdx+1] = buffer[srcIdx+1]; // G
-                thumb[dstIdx+2] = buffer[srcIdx]; // R
-                thumb[dstIdx+3] = buffer[srcIdx+3]; // A
+                thumb[dstIdx] = buffer[srcIdx + 2];     // B
+                thumb[dstIdx + 1] = buffer[srcIdx + 1]; // G
+                thumb[dstIdx + 2] = buffer[srcIdx];     // R
+                thumb[dstIdx + 3] = 255;                // A
             } else {
                 const macropixel = Math.floor(srcX / 2);
                 const srcIdx = (srcY * (srcW / 2) + macropixel) * 4;
-                const u = buffer[srcIdx];
-                const yVal = (srcX % 2 === 0) ? buffer[srcIdx+1] : buffer[srcIdx+3];
-                const v = buffer[srcIdx+2];
-
-                const c = yVal - 16;
-                const d = u - 128;
-                const e = v - 128;
-
-                thumb[dstIdx] = Math.max(0, Math.min(255, (298 * c + 516 * d + 128) >> 8)); // B
-                thumb[dstIdx+1] = Math.max(0, Math.min(255, (298 * c - 100 * d - 208 * e + 128) >> 8)); // G
-                thumb[dstIdx+2] = Math.max(0, Math.min(255, (298 * c + 409 * e + 128) >> 8)); // R
-                thumb[dstIdx+3] = 255;
+                if (srcIdx + 3 < buffer.length) {
+                    const u = buffer[srcIdx];
+                    const yVal = (srcX % 2 === 0) ? buffer[srcIdx + 1] : buffer[srcIdx + 3];
+                    const v = buffer[srcIdx + 2];
+                    const c = yVal - 16;
+                    const d = u - 128;
+                    const e = v - 128;
+                    thumb[dstIdx] = Math.max(0, Math.min(255, (298 * c + 516 * d + 128) >> 8)); // B
+                    thumb[dstIdx + 1] = Math.max(0, Math.min(255, (298 * c - 100 * d - 208 * e + 128) >> 8)); // G
+                    thumb[dstIdx + 2] = Math.max(0, Math.min(255, (298 * c + 409 * e + 128) >> 8)); // R
+                    thumb[dstIdx + 3] = 255;
+                }
             }
         }
     }
@@ -379,7 +390,7 @@ wss.on('connection', (ws) => {
             const data = JSON.parse(message);
             if (data.ip && data.ip !== ATEM_IP) connectToAtem(data.ip);
 
-            // Absolute Mixer Priority: Any switcher interaction preempts background transfers for 1000ms
+            // Absolute Mixer Priority: Any switcher interaction halts transfers for 1000ms
             const SWITCHER_ACTIONS = [
                 'SET_PGM', 'SET_PVW', 'CUT', 'AUTO', 'SET_AUX',
                 'SET_TRANSITION_RATE', 'TOGGLE_USK_ONAIR', 'TOGGLE_TRANS_SELECTION',
