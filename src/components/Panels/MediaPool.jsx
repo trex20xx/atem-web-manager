@@ -2,14 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.56)
+// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.67)
 // =========================================================================
 // Hardware-Locked IP: 192.168.10.240
-// Lifecycle States:
-//   - Disconnected: Muted Standby Mode (opacity: 0.35, pointer-events: none,
-//                   NO buttons or badges lit, neutral unpressed slot circles)
-//   - Connected: Active Mode (opacity: 1, pointer-events: auto, live thumbnails,
-//                 file labels, and active media player routing badges)
+// Features persistent localStorage thumbnail caching (0ms reload on app launch),
+// single-flight sequential downloading with SYNC button & click-to-fetch,
+// and drag-and-drop RGBA still uploading.
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
@@ -77,6 +75,7 @@ const MediaPool = ({ connectedDevice }) => {
         }, 8000);
     }, [isPanelActive]);
 
+    // Manual fetch trigger for a single slot or batch sync
     const triggerSlotFetch = useCallback((idx) => {
         if (!isPanelActive) return;
         if (!pendingQueueRef.current.includes(idx) && inFlightIdxRef.current !== idx) {
@@ -315,9 +314,14 @@ const MediaPool = ({ connectedDevice }) => {
         const isMp1 = isPanelActive && mediaPlayers[0] && (type === 'still' ? (mediaPlayers[0].sourceType === 1 && mediaPlayers[0].stillIndex === actualSlotIndex) : (mediaPlayers[0].sourceType === 2 && mediaPlayers[0].clipIndex === actualSlotIndex));
         const isMp2 = isPanelActive && mediaPlayers[1] && (type === 'still' ? (mediaPlayers[1].sourceType === 1 && mediaPlayers[1].stillIndex === actualSlotIndex) : (mediaPlayers[1].sourceType === 2 && mediaPlayers[1].clipIndex === actualSlotIndex));
 
+        // Evaluate Tally Rectangles for Media Pool routing
+        let tallyClass = '';
+        if (isMp2) tallyClass = 'mp-tally-red';
+        else if (isMp1) tallyClass = 'mp-tally-green';
+
         return (
             <div 
-                className={`mp-slot ${isDragOver ? 'drag-over' : ''}`}
+                className={`mp-slot ${isDragOver ? 'drag-over' : ''} ${tallyClass}`}
                 onDragOver={(e) => handleDragOver(e, dropId)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, actualSlotIndex, type)}
@@ -325,8 +329,8 @@ const MediaPool = ({ connectedDevice }) => {
                 style={{ opacity: isUploading ? 0.5 : 1 }}
                 title={isPanelActive && isUsed && !displaySrc ? "Click to fetch image from ATEM" : undefined}
             >
-                {isMp1 && <div className="mp-badge" style={{ left: '4px' }}>1</div>}
-                {isMp2 && <div className="mp-badge" style={{ left: isMp1 ? '24px' : '4px' }}>2</div>}
+                {isMp1 && <div className="mp-badge" style={{ left: '4px' }}>MP1</div>}
+                {isMp2 && <div className="mp-badge" style={{ left: isMp1 ? '38px' : '4px' }}>MP2</div>}
 
                 <div className="mp-thumb-container">
                     {displaySrc ? (
@@ -377,20 +381,20 @@ const MediaPool = ({ connectedDevice }) => {
 
                         <div className="macro-actions-group">
                             <button 
-                                className={`macro-action-text-btn ${isPanelActive && isSyncing ? 'active-orange' : ''}`}
+                                className={`macro-action-text-btn ${isPanelActive && isSyncing ? 'active-red' : ''}`}
                                 onClick={handleSyncAllStills}
                                 title="Fetch thumbnails from ATEM"
                             >
                                 {isPanelActive && isSyncing ? 'SYNCING...' : 'SYNC'}
                             </button>
                             <button 
-                                className={`macro-action-text-btn ${isPanelActive && selectedMp === 1 ? 'active-orange' : ''}`}
+                                className={`macro-action-text-btn ${isPanelActive && selectedMp === 1 ? 'active-green' : ''}`}
                                 onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
                             >
                                 MP1
                             </button>
                             <button 
-                                className={`macro-action-text-btn ${isPanelActive && selectedMp === 2 ? 'active-orange' : ''}`}
+                                className={`macro-action-text-btn ${isPanelActive && selectedMp === 2 ? 'active-red' : ''}`}
                                 onClick={() => setSelectedMp(prev => prev === 2 ? null : 2)}
                             >
                                 MP2
@@ -437,20 +441,20 @@ const MediaPool = ({ connectedDevice }) => {
 
                             <div className="macro-actions-group">
                                 <button 
-                                    className={`macro-action-text-btn ${isPanelActive && isSyncing ? 'active-orange' : ''}`}
+                                    className={`macro-action-text-btn ${isPanelActive && isSyncing ? 'active-red' : ''}`}
                                     onClick={handleSyncAllStills}
                                     title="Fetch thumbnails from ATEM"
                                 >
                                     {isPanelActive && isSyncing ? 'SYNCING...' : 'SYNC'}
                                 </button>
                                 <button 
-                                    className={`macro-action-text-btn ${isPanelActive && selectedMp === 1 ? 'active-orange' : ''}`}
+                                    className={`macro-action-text-btn ${isPanelActive && selectedMp === 1 ? 'active-green' : ''}`}
                                     onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
                                 >
                                     MP1
                                 </button>
                                 <button 
-                                    className={`macro-action-text-btn ${isPanelActive && selectedMp === 2 ? 'active-orange' : ''}`}
+                                    className={`macro-action-text-btn ${isPanelActive && selectedMp === 2 ? 'active-red' : ''}`}
                                     onClick={() => setSelectedMp(prev => prev === 2 ? null : 2)}
                                 >
                                     MP2

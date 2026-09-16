@@ -9,7 +9,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { APP_VERSION } from './version';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v3.65)
+// ATEM WEB MANAGER - MASTER LAYOUT (v3.67)
 // =========================================================================
 
 function App() {
@@ -123,11 +123,12 @@ function App() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Ignore keystrokes inside text inputs so we don't block typing
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
 
       if ((e.metaKey || e.ctrlKey) && e.key === ',') {
         e.preventDefault();
         e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
         setIsSettingsOpen((prev) => !prev);
       }
       if (e.key === 'Escape') {
@@ -136,6 +137,7 @@ function App() {
       if (e.key === '`' || e.key === '~') {
         e.preventDefault();
         e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
         setIsSidebarCollapsed(prev => !prev);
         setIsToolbarRevealed(false);
         setIsSidebarRevealed(false);
@@ -201,7 +203,14 @@ function App() {
       {isSidebarCollapsed && (
         <div 
           className="sidebar-hover-sensor"
+          style={{ top: `${dashboardStyle.top}px`, height: `${dashboardStyle.height}px` }}
           onMouseEnter={() => setIsSidebarRevealed(true)}
+          onMouseLeave={(e) => {
+              // Hide if mouse leaves to the left, top, or bottom. Moving right enters the sidebar overlay.
+              if (e.clientX <= 16 || e.clientY <= dashboardStyle.top || e.clientY >= dashboardStyle.top + dashboardStyle.height) {
+                  setIsSidebarRevealed(false);
+              }
+          }}
         />
       )}
 

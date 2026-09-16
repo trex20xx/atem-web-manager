@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.65)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.67)
  * =========================================================================
  */
 
@@ -123,11 +123,8 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 /* Left Invisible Full-Height Hover Sensor Zone (Gapless 100vh) */
 .sidebar-hover-sensor {
     position: fixed !important;
-    top: 0 !important;
     left: 0 !important;
-    bottom: 0 !important;
     width: 16px !important;
-    height: 100vh !important;
     z-index: 10000 !important;
     background: transparent;
     pointer-events: auto;
@@ -318,31 +315,31 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     box-sizing: border-box;
 }
 
-/* Collapsed Overlay Mode: Spans 100vh vertically, slides horizontally to exactly -100% - 16px */
+/* Collapsed Overlay Mode: Exact Parallel Scaling 
+ * - translateX(-268px) geometrically identically matches the 284px->16px padding contraction 
+ *   of the quadrant grid, resulting in absolute 0px overlap during the animation.
+ */
 .sidebar.collapsed { 
-    left: 0;
     background: #181818 !important;
-    border: none !important;
-    border-right: 1px solid var(--atem-border) !important;
-    border-radius: 0 var(--panel-radius) var(--panel-radius) 0 !important;
-    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.7);
+    border: 1px solid var(--atem-border) !important;
+    box-shadow: 8px 8px 32px rgba(0, 0, 0, 0.7);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    transform: translateX(calc(-100% - 16px));
+    transform: translateX(-268px);
     pointer-events: auto;
     z-index: 10001 !important;
 }
 
 [data-theme="light"] .sidebar.collapsed {
     background: #e5e5ea !important;
-    border-right: 1px solid #d1d1d6 !important;
-    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.2);
+    border: 1px solid #d1d1d6 !important;
+    box-shadow: 8px 8px 32px rgba(0, 0, 0, 0.2);
 }
 
 /* Slide in smoothly when revealed by hover */
 .sidebar.collapsed.revealed,
 .sidebar.collapsed:hover {
-    transform: translateX(0) !important;
+    transform: translateX(0);
 }
 
 .search-container{ padding: 8px 8px 4px 8px; }
@@ -1014,10 +1011,20 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     border-color: var(--orange-hl);
 }
 
+/* Tally Rectangles for Media Pool routing */
+.mp-slot.mp-tally-green {
+    border-color: var(--green) !important;
+    box-shadow: inset 0 0 0 1px var(--green);
+}
+.mp-slot.mp-tally-red {
+    border-color: var(--red) !important;
+    box-shadow: inset 0 0 0 1px var(--red);
+}
+
 .mp-thumb-container {
     flex: 1;
     min-height: 0;
-    background: var(--atem-bg);
+    background: transparent;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1028,20 +1035,18 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .mp-badge {
     position: absolute;
     top: 4px;
-    left: 4px;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.75);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    color: #ffffff;
+    padding: 3px 6px;
+    border-radius: var(--pill-radius);
+    background: rgba(150, 150, 150, 0.15);
+    color: var(--muted);
     font-size: 10px;
-    font-weight: 700;
-    display: flex;
+    font-weight: 500;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     z-index: 10;
     line-height: 1;
+    pointer-events: none;
 }
 
 .mp-empty-circle {
@@ -1061,7 +1066,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     width: 100%;
     height: 100%;
     object-fit: contain;
-    background: #000000;
+    background: transparent;
 }
 
 .mp-label-bar {

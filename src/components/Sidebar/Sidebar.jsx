@@ -4,10 +4,10 @@ import DeviceList from './DeviceList';
 import BottomActionBtn from './BottomActionBtn';
 
 // =========================================================================
-// ATEM WEB MANAGER - SIDEBAR COMPONENT (v3.65)
+// ATEM WEB MANAGER - SIDEBAR COMPONENT (v3.66)
 // =========================================================================
 // Receives dynamic 'top' and 'height' coordinates from App.jsx to guarantee
-// perfect vertical alignment with the 16:9 multiview quadrants when docked.
+// perfect layout parity with the 16:9 multiview quadrants at all times.
 
 const Sidebar = ({ 
     top, height, showActionButton, enableDragDrop, forceUppercase, 
@@ -19,8 +19,8 @@ const Sidebar = ({
         <aside 
             className={`sidebar variant-${variant} ${isCollapsed ? 'collapsed' : ''} ${isRevealed ? 'revealed' : ''}`} 
             style={{ 
-                height: isCollapsed ? '100vh' : `${height}px`,
-                top: isCollapsed ? '0px' : `${top}px`
+                height: `${height}px`,
+                top: `${top}px`
             }}
             onMouseEnter={() => {
                 setIsHovered(true);

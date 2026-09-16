@@ -1,2 +1,2 @@
-v3.65
-Synchronized sidebar docked geometry to perfectly match quadrant height, implemented 100vh animated vertical scaling during collapse, and tuned transform offsets for zero-overlap synchronized sliding.
+v3.67
+Hardened Cmd+, macOS capture logic, synced Media Pool slot background color parity, integrated MP1/MP2 grey pill badges, enabled red/green active states for header buttons, and added glowing tally borders to active media slots.
