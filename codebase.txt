@@ -602,7 +602,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { APP_VERSION } from './version';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v3.07)
+// ATEM WEB MANAGER - MASTER LAYOUT (v3.48)
 // =========================================================================
 
 function App() {
@@ -746,6 +746,25 @@ function App() {
       setTheme(prev => prev === 'light' ? 'default' : 'light');
   };
 
+  // Resolve active device for top-of-page header title:
+  // Displays Name only if set, Group only if set and not 'UNGROUPED', and IP.
+  const activeDevice = connectedDevice 
+    || deviceState.devices.find(d => d.id === deviceState.selectedDeviceId)
+    || deviceState.devices.find(d => d.ip === '192.168.10.240')
+    || deviceState.devices[0];
+
+  const hasCustomName = activeDevice && activeDevice.name && activeDevice.name.trim() !== '' && activeDevice.name !== activeDevice.ip;
+  const hasCustomGroup = activeDevice && activeDevice.group && activeDevice.group.trim() !== '' && activeDevice.group.toUpperCase() !== 'UNGROUPED';
+  const deviceIp = activeDevice ? activeDevice.ip : '192.168.10.240';
+
+  const titleParts = [];
+  if (hasCustomName) titleParts.push(activeDevice.name.trim());
+  if (hasCustomGroup) titleParts.push(activeDevice.group.trim());
+  titleParts.push(deviceIp);
+
+  const rawHeaderTitle = titleParts.join(' Â· ');
+  const headerTitle = forceUppercase ? rawHeaderTitle.toUpperCase() : rawHeaderTitle;
+
   return (
     <div className="app-root-container">
       <GlobalTooltip />
@@ -762,20 +781,10 @@ function App() {
             </svg>
           </button>
 
-          {titlePosition === 'left' && (
-            <span className="app-title">ATEM WEB MANAGER</span>
-          )}
+          <span className="app-title">{headerTitle}</span>
         </div>
 
-        {titlePosition === 'centered' && (
-          <span className="app-title centered">ATEM WEB MANAGER</span>
-        )}
-
         <div className="top-bar-right">
-          {titlePosition === 'right' && (
-            <span className="app-title">ATEM WEB MANAGER</span>
-          )}
-
           <span 
             className={`top-bar-version ${showVersion ? 'visible' : 'faded'}`}
             onClick={() => setShowVersion(prev => !prev)}
@@ -889,7 +898,7 @@ export default App;
 === FILE: src/index.css === 
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.31)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.48)
  * =========================================================================
  */
 
@@ -958,8 +967,17 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .app-top-bar { height: 42px; min-height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: transparent; z-index: 1000; position: relative; }
 .top-bar-left { display: flex; align-items: center; gap: 12px; }
 .top-bar-right { display: flex; align-items: center; gap: 10px; height: 100%; }
-.app-title { font-size: 14px; font-weight: 700; color: var(--header-color); letter-spacing: 0.5px; }
-.app-title.centered { position: absolute; left: 50%; transform: translateX(-50%); }
+
+/* Top-of-page header title: muted grey, clean modern typography */
+.app-title { 
+    font-size: 13px; 
+    font-weight: 500; 
+    color: var(--muted); 
+    letter-spacing: 0.5px; 
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
 .top-bar-btn { 
     background: transparent; 
@@ -1154,7 +1172,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     box-sizing: border-box;
 }
 
-/* Global Quadrant Inner Normalization */
+/* Global Quadrant Inner Normalization (padding: 0 prevents double-padding overflow) */
 .quadrant-master-panel {
     width: 100%; 
     height: 100%; 
@@ -1162,8 +1180,8 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     flex-direction: column; 
     justify-content: center; 
     align-items: center;
-    padding: 10px; 
-    background: var(--panel); 
+    padding: 0 !important; 
+    background: transparent; 
     box-sizing: border-box; 
     font-family: var(--le-font-family); 
     color: var(--text); 
@@ -1789,7 +1807,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-bus-ip {
     font-family: var(--le-font-family);
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 600 !important;
     color: var(--muted);
     letter-spacing: 0.5px;
     text-transform: uppercase;
@@ -1808,10 +1826,12 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .macro-action-text-btn:hover:not(:disabled) {
     color: var(--text);
 }
-.macro-action-text-btn.active-orange { color: var(--orange-hl) !important; opacity: 1; }
-.macro-action-text-btn.active-green { color: #2e7d32 !important; opacity: 1; }
-.macro-action-text-btn.active-red { color: #d32f2f !important; opacity: 1; }
-.macro-action-text-btn.disabled { opacity: 0.35; cursor: default !important; pointer-events: none; }
+
+/* Enforce font-weight 600 across all active states - prevents bolder buttons */
+.macro-action-text-btn.active-orange { color: var(--orange-hl) !important; opacity: 1; font-weight: 600 !important; }
+.macro-action-text-btn.active-green { color: #2e7d32 !important; opacity: 1; font-weight: 600 !important; }
+.macro-action-text-btn.active-red { color: #d32f2f !important; opacity: 1; font-weight: 600 !important; }
+.macro-action-text-btn.disabled { opacity: 0.35; cursor: default !important; pointer-events: none; font-weight: 600 !important; }
 
 /* Global Header Flex Row Containers */
 .atem-section-header-row,
@@ -2014,7 +2034,14 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     margin: 0; 
 }
 
-.out-active { background: var(--orange-pastel) !important; border-color: var(--atem-border) !important; color: #ffffff !important; outline: none !important; }
+/* OUT button active state - matched strictly to bright orange tally (#e67e22) */
+.out-active { 
+    background: #e67e22 !important; 
+    border-color: var(--atem-border) !important; 
+    color: #ffffff !important; 
+    box-shadow: none !important; 
+    outline: none !important; 
+}
 
 .atem-bus-locked-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; padding: 24px; text-align: center; }
 .atem-bus-lock-badge { background: rgba(234, 67, 53, 0.15); border: 1px solid rgba(234, 67, 53, 0.4); color: var(--red); font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 4px; letter-spacing: 0.8px; }
@@ -2127,34 +2154,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     color: #ffffff !important;
     opacity: 1 !important;
 }
-
-/* CORE ABSOLUTE 424px PARITY ARCHITECTURE */
-.panel-layout-frame {
-    width: 786px;
-    height: 424px;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    position: relative;
-    box-sizing: border-box;
-}
-
-/* Global Quadrant Inner Normalization */
-.quadrant-master-panel {
-    width: 100%; 
-    height: 100%; 
-    display: flex; 
-    flex-direction: column; 
-    justify-content: center; 
-    align-items: center;
-    padding: 10px; 
-    background: var(--panel); 
-    box-sizing: border-box; 
-    font-family: var(--le-font-family); 
-    color: var(--text); 
-    user-select: none; 
-    overflow: hidden; 
-}
  
 === FILE: src/main.jsx === 
 import React from 'react';
@@ -2175,10 +2174,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
  
 === FILE: src/version.js === 
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.45)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.48)
 // =========================================================================
 
-export const APP_VERSION = 'v3.45';
+export const APP_VERSION = 'v3.48';
  
 === FILE: src/components/Multiview/Panel.jsx === 
 import React, { useState } from 'react';
@@ -2336,8 +2335,15 @@ export default QuadrantGrid;
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.25)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.47)
 // =========================================================================
+// Hardware-Locked IP: 192.168.10.240
+// Switcher Button Geometry: 74px x 36px | 4px Padding Symmetry
+// Keyboard Shortcuts:
+//   - Keys 1-9, 0       -> Selects Inputs 1-10 on PREVIEW (Green Tally)
+//   - Shift + 1-9, 0   -> Selects Inputs 1-10 on PROGRAM (Red Tally)
+//   - Space             -> CUT Transition
+//   - Enter             -> AUTO Transition
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
@@ -2564,6 +2570,18 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     useEffect(() => { setLocalDskRate(dsk.rate); }, [dsk.rate]);
     useEffect(() => { setLocalFtbRate(ftb.rate); }, [ftb.rate]);
 
+    const sendCommand = (action, payload = {}) => {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            try {
+                wsRef.current.send(JSON.stringify({ 
+                    action, 
+                    ip: LOCKED_ATEM_IP, 
+                    ...payload 
+                }));
+            } catch (err) {}
+        }
+    };
+
     const sendAtemCommand = (commandType, payload = {}) => {
         if (commandType === 'SET_PGM') {
             if (selectedOut !== null) {
@@ -2611,17 +2629,70 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         sendCommand(commandType, payload);
     };
 
-    const sendCommand = (action, payload = {}) => {
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            try {
-                wsRef.current.send(JSON.stringify({ 
-                    action, 
-                    ip: LOCKED_ATEM_IP, 
-                    ...payload 
-                }));
-            } catch (err) {}
-        }
-    };
+    const sendAtemCommandRef = useRef(sendAtemCommand);
+    useEffect(() => {
+        sendAtemCommandRef.current = sendAtemCommand;
+    });
+
+    // -------------------------------------------------------------------------
+    // KEYBOARD SHORTCUTS ENGINE
+    // - Plain 1-9, 0       -> Inputs 1-10 on PREVIEW row
+    // - Shift + 1-9, 0    -> Inputs 1-10 on PROGRAM row
+    // - Space              -> CUT Transition
+    // - Enter              -> AUTO Transition
+    // -------------------------------------------------------------------------
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            // Guard: Do not intercept if typing in an input, textarea, or editable element
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+                return;
+            }
+            // Guard: Protect browser shortcuts (Ctrl+1..9, Cmd+1..9, Alt+...)
+            if (e.ctrlKey || e.altKey || e.metaKey) {
+                return;
+            }
+
+            // CUT shortcut: Space
+            if (e.code === 'Space') {
+                e.preventDefault();
+                sendAtemCommandRef.current('CUT');
+                return;
+            }
+
+            // AUTO shortcut: Enter
+            if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+                e.preventDefault();
+                sendAtemCommandRef.current('AUTO');
+                return;
+            }
+
+            const keyMap = {
+                Digit1: 1, Numpad1: 1,
+                Digit2: 2, Numpad2: 2,
+                Digit3: 3, Numpad3: 3,
+                Digit4: 4, Numpad4: 4,
+                Digit5: 5, Numpad5: 5,
+                Digit6: 6, Numpad6: 6,
+                Digit7: 7, Numpad7: 7,
+                Digit8: 8, Numpad8: 8,
+                Digit9: 9, Numpad9: 9,
+                Digit0: 10, Numpad0: 10
+            };
+
+            const inputNum = keyMap[e.code];
+            if (inputNum !== undefined) {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    sendAtemCommandRef.current('SET_PGM', { input: inputNum });
+                } else {
+                    sendAtemCommandRef.current('SET_PVW', { input: inputNum });
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const inputSources = [
         { id: 1, label: '1' }, { id: 2, label: '2' }, { id: 3, label: '3' }, { id: 4, label: '4' }, { id: 5, label: '5' }, 

@@ -9,7 +9,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { APP_VERSION } from './version';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v3.07)
+// ATEM WEB MANAGER - MASTER LAYOUT (v3.48)
 // =========================================================================
 
 function App() {
@@ -153,6 +153,25 @@ function App() {
       setTheme(prev => prev === 'light' ? 'default' : 'light');
   };
 
+  // Resolve active device for top-of-page header title:
+  // Displays Name only if set, Group only if set and not 'UNGROUPED', and IP.
+  const activeDevice = connectedDevice 
+    || deviceState.devices.find(d => d.id === deviceState.selectedDeviceId)
+    || deviceState.devices.find(d => d.ip === '192.168.10.240')
+    || deviceState.devices[0];
+
+  const hasCustomName = activeDevice && activeDevice.name && activeDevice.name.trim() !== '' && activeDevice.name !== activeDevice.ip;
+  const hasCustomGroup = activeDevice && activeDevice.group && activeDevice.group.trim() !== '' && activeDevice.group.toUpperCase() !== 'UNGROUPED';
+  const deviceIp = activeDevice ? activeDevice.ip : '192.168.10.240';
+
+  const titleParts = [];
+  if (hasCustomName) titleParts.push(activeDevice.name.trim());
+  if (hasCustomGroup) titleParts.push(activeDevice.group.trim());
+  titleParts.push(deviceIp);
+
+  const rawHeaderTitle = titleParts.join(' · ');
+  const headerTitle = forceUppercase ? rawHeaderTitle.toUpperCase() : rawHeaderTitle;
+
   return (
     <div className="app-root-container">
       <GlobalTooltip />
@@ -169,20 +188,10 @@ function App() {
             </svg>
           </button>
 
-          {titlePosition === 'left' && (
-            <span className="app-title">ATEM WEB MANAGER</span>
-          )}
+          <span className="app-title">{headerTitle}</span>
         </div>
 
-        {titlePosition === 'centered' && (
-          <span className="app-title centered">ATEM WEB MANAGER</span>
-        )}
-
         <div className="top-bar-right">
-          {titlePosition === 'right' && (
-            <span className="app-title">ATEM WEB MANAGER</span>
-          )}
-
           <span 
             className={`top-bar-version ${showVersion ? 'visible' : 'faded'}`}
             onClick={() => setShowVersion(prev => !prev)}

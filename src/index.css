@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.31)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.48)
  * =========================================================================
  */
 
@@ -69,8 +69,17 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .app-top-bar { height: 42px; min-height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: transparent; z-index: 1000; position: relative; }
 .top-bar-left { display: flex; align-items: center; gap: 12px; }
 .top-bar-right { display: flex; align-items: center; gap: 10px; height: 100%; }
-.app-title { font-size: 14px; font-weight: 700; color: var(--header-color); letter-spacing: 0.5px; }
-.app-title.centered { position: absolute; left: 50%; transform: translateX(-50%); }
+
+/* Top-of-page header title: muted grey, clean modern typography */
+.app-title { 
+    font-size: 13px; 
+    font-weight: 500; 
+    color: var(--muted); 
+    letter-spacing: 0.5px; 
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
 .top-bar-btn { 
     background: transparent; 
@@ -265,7 +274,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     box-sizing: border-box;
 }
 
-/* Global Quadrant Inner Normalization */
+/* Global Quadrant Inner Normalization (padding: 0 prevents double-padding overflow) */
 .quadrant-master-panel {
     width: 100%; 
     height: 100%; 
@@ -273,8 +282,8 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     flex-direction: column; 
     justify-content: center; 
     align-items: center;
-    padding: 10px; 
-    background: var(--panel); 
+    padding: 0 !important; 
+    background: transparent; 
     box-sizing: border-box; 
     font-family: var(--le-font-family); 
     color: var(--text); 
@@ -900,7 +909,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-bus-ip {
     font-family: var(--le-font-family);
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 600 !important;
     color: var(--muted);
     letter-spacing: 0.5px;
     text-transform: uppercase;
@@ -919,10 +928,12 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .macro-action-text-btn:hover:not(:disabled) {
     color: var(--text);
 }
-.macro-action-text-btn.active-orange { color: var(--orange-hl) !important; opacity: 1; }
-.macro-action-text-btn.active-green { color: #2e7d32 !important; opacity: 1; }
-.macro-action-text-btn.active-red { color: #d32f2f !important; opacity: 1; }
-.macro-action-text-btn.disabled { opacity: 0.35; cursor: default !important; pointer-events: none; }
+
+/* Enforce font-weight 600 across all active states - prevents bolder buttons */
+.macro-action-text-btn.active-orange { color: var(--orange-hl) !important; opacity: 1; font-weight: 600 !important; }
+.macro-action-text-btn.active-green { color: #2e7d32 !important; opacity: 1; font-weight: 600 !important; }
+.macro-action-text-btn.active-red { color: #d32f2f !important; opacity: 1; font-weight: 600 !important; }
+.macro-action-text-btn.disabled { opacity: 0.35; cursor: default !important; pointer-events: none; font-weight: 600 !important; }
 
 /* Global Header Flex Row Containers */
 .atem-section-header-row,
@@ -1125,7 +1136,14 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     margin: 0; 
 }
 
-.out-active { background: var(--orange-pastel) !important; border-color: var(--atem-border) !important; color: #ffffff !important; outline: none !important; }
+/* OUT button active state - matched strictly to bright orange tally (#e67e22) */
+.out-active { 
+    background: #e67e22 !important; 
+    border-color: var(--atem-border) !important; 
+    color: #ffffff !important; 
+    box-shadow: none !important; 
+    outline: none !important; 
+}
 
 .atem-bus-locked-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; padding: 24px; text-align: center; }
 .atem-bus-lock-badge { background: rgba(234, 67, 53, 0.15); border: 1px solid rgba(234, 67, 53, 0.4); color: var(--red); font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 4px; letter-spacing: 0.8px; }
@@ -1237,32 +1255,4 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .macro-compact-btn.running .macro-compact-num {
     color: #ffffff !important;
     opacity: 1 !important;
-}
-
-/* CORE ABSOLUTE 424px PARITY ARCHITECTURE */
-.panel-layout-frame {
-    width: 786px;
-    height: 424px;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    position: relative;
-    box-sizing: border-box;
-}
-
-/* Global Quadrant Inner Normalization */
-.quadrant-master-panel {
-    width: 100%; 
-    height: 100%; 
-    display: flex; 
-    flex-direction: column; 
-    justify-content: center; 
-    align-items: center;
-    padding: 10px; 
-    background: var(--panel); 
-    box-sizing: border-box; 
-    font-family: var(--le-font-family); 
-    color: var(--text); 
-    user-select: none; 
-    overflow: hidden; 
 }

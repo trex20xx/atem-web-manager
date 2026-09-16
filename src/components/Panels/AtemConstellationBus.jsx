@@ -1,8 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.25)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.47)
 // =========================================================================
+// Hardware-Locked IP: 192.168.10.240
+// Switcher Button Geometry: 74px x 36px | 4px Padding Symmetry
+// Keyboard Shortcuts:
+//   - Keys 1-9, 0       -> Selects Inputs 1-10 on PREVIEW (Green Tally)
+//   - Shift + 1-9, 0   -> Selects Inputs 1-10 on PROGRAM (Red Tally)
+//   - Space             -> CUT Transition
+//   - Enter             -> AUTO Transition
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
@@ -229,6 +236,18 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     useEffect(() => { setLocalDskRate(dsk.rate); }, [dsk.rate]);
     useEffect(() => { setLocalFtbRate(ftb.rate); }, [ftb.rate]);
 
+    const sendCommand = (action, payload = {}) => {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            try {
+                wsRef.current.send(JSON.stringify({ 
+                    action, 
+                    ip: LOCKED_ATEM_IP, 
+                    ...payload 
+                }));
+            } catch (err) {}
+        }
+    };
+
     const sendAtemCommand = (commandType, payload = {}) => {
         if (commandType === 'SET_PGM') {
             if (selectedOut !== null) {
@@ -276,17 +295,70 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         sendCommand(commandType, payload);
     };
 
-    const sendCommand = (action, payload = {}) => {
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            try {
-                wsRef.current.send(JSON.stringify({ 
-                    action, 
-                    ip: LOCKED_ATEM_IP, 
-                    ...payload 
-                }));
-            } catch (err) {}
-        }
-    };
+    const sendAtemCommandRef = useRef(sendAtemCommand);
+    useEffect(() => {
+        sendAtemCommandRef.current = sendAtemCommand;
+    });
+
+    // -------------------------------------------------------------------------
+    // KEYBOARD SHORTCUTS ENGINE
+    // - Plain 1-9, 0       -> Inputs 1-10 on PREVIEW row
+    // - Shift + 1-9, 0    -> Inputs 1-10 on PROGRAM row
+    // - Space              -> CUT Transition
+    // - Enter              -> AUTO Transition
+    // -------------------------------------------------------------------------
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            // Guard: Do not intercept if typing in an input, textarea, or editable element
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+                return;
+            }
+            // Guard: Protect browser shortcuts (Ctrl+1..9, Cmd+1..9, Alt+...)
+            if (e.ctrlKey || e.altKey || e.metaKey) {
+                return;
+            }
+
+            // CUT shortcut: Space
+            if (e.code === 'Space') {
+                e.preventDefault();
+                sendAtemCommandRef.current('CUT');
+                return;
+            }
+
+            // AUTO shortcut: Enter
+            if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+                e.preventDefault();
+                sendAtemCommandRef.current('AUTO');
+                return;
+            }
+
+            const keyMap = {
+                Digit1: 1, Numpad1: 1,
+                Digit2: 2, Numpad2: 2,
+                Digit3: 3, Numpad3: 3,
+                Digit4: 4, Numpad4: 4,
+                Digit5: 5, Numpad5: 5,
+                Digit6: 6, Numpad6: 6,
+                Digit7: 7, Numpad7: 7,
+                Digit8: 8, Numpad8: 8,
+                Digit9: 9, Numpad9: 9,
+                Digit0: 10, Numpad0: 10
+            };
+
+            const inputNum = keyMap[e.code];
+            if (inputNum !== undefined) {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    sendAtemCommandRef.current('SET_PGM', { input: inputNum });
+                } else {
+                    sendAtemCommandRef.current('SET_PVW', { input: inputNum });
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const inputSources = [
         { id: 1, label: '1' }, { id: 2, label: '2' }, { id: 3, label: '3' }, { id: 4, label: '4' }, { id: 5, label: '5' }, 
