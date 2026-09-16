@@ -2,7 +2,7 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.39)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.40)
 :: =============================================================================
 
 taskkill /f /fi "WINDOWTITLE eq ATEM_GHOST_WIPER*" >nul 2>&1
@@ -22,7 +22,7 @@ cd /d "%PROJECT_ROOT%"
 :MENU
 cls
 echo =================================================================
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.39)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.40)       
 echo =================================================================
 echo   [1] RUN ^& EVALUATE     (Vite + Daemon, Auto-Export ^& Evaluation)
 echo   [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)
@@ -117,7 +117,7 @@ if %ERRORLEVEL% equ 0 (
 
 echo.
 echo =================================================================
-echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.39)                
+echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.40)                
 echo =================================================================
 echo  Node.js was not found on your system or in bin\node.
 echo  Downloading official portable Node.js LTS (v20.18.0 x64)...
@@ -203,6 +203,49 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "$out='codebase.txt'; $al
 echo ^>^>^> Successfully serialized workspace to codebase.txt ^<^<^<
 goto :eof
 
+:RESOLVE_COMMIT_MSG
+set "COMMIT_TMP=%PROJECT_ROOT%\bin\.commit_msg.txt"
+set "DESC_FILE=%PROJECT_ROOT%\ops\DESCRIPTOR.txt"
+
+set "DETECTED_VER="
+for /f "usebackq tokens=2 delims='" %%v in (`powershell -NoProfile -Command "Select-String -Path 'src\version.js' -Pattern 'v[0-9]+\.[0-9]+' | ForEach-Object { $_.Matches.Value }"`) do set "DETECTED_VER=%%v"
+if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.40"
+
+if not exist "%DESC_FILE%" goto MANUAL_PROMPT
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$lines = Get-Content -LiteralPath '%DESC_FILE%' -Encoding UTF8;" ^
+    "$fileVer = if ($lines.Count -ge 1) { $lines[0].Trim() } else { '' };" ^
+    "$fileMsg = if ($lines.Count -ge 2) { ($lines[1..($lines.Count - 1)] -join [Environment]::NewLine).Trim() } else { '' };" ^
+    "if ($fileVer -eq '%DETECTED_VER%' -and -not [string]::IsNullOrWhiteSpace($fileMsg)) {" ^
+    "    [System.IO.File]::WriteAllText('%COMMIT_TMP%', $fileMsg, [System.Text.Encoding]::UTF8);" ^
+    "    Write-Host ('[DESCRIPTOR VERIFIED] Ingested message for ' + $fileVer + ':');" ^
+    "    Write-Host ('\"' + $fileMsg + '\"');" ^
+    "    exit 0;" ^
+    "} else {" ^
+    "    Write-Host ('[VERSION MISMATCH] DESCRIPTOR.txt (' + $fileVer + ') does not match version.js (' + '%DETECTED_VER%' + ')');" ^
+    "    exit 2;" ^
+    "}"
+
+if %ERRORLEVEL% equ 0 exit /b 0
+
+echo.
+echo =================================================================
+echo  [WARNING] Descriptor file version does not match src/version.js!
+echo  src/version.js:      %DETECTED_VER%
+echo =================================================================
+echo  [1] Enter commit description manually
+echo  [2] Abort to download/replace ops\DESCRIPTOR.txt
+echo =================================================================
+set /p MISMATCH_CHOICE=" Select (1-2): "
+if "%MISMATCH_CHOICE%"=="1" goto MANUAL_PROMPT
+exit /b 1
+
+:MANUAL_PROMPT
+echo.
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$msg = Read-Host 'Enter iteration description / commit message'; if ([string]::IsNullOrWhiteSpace($msg)) { $msg = 'feat: iteration update (' + '%DETECTED_VER%' + ')' }; [System.IO.File]::WriteAllText('%COMMIT_TMP%', $msg, [System.Text.Encoding]::UTF8)"
+exit /b 0
+
 :RUN_EVAL
 call :SETUP_NODE_ENV
 call :CHECK_DEPENDENCIES
@@ -229,17 +272,15 @@ echo                   EVALUATION / REVERT PIPELINE
 echo =================================================================
 echo  Active Branch: %CURRENT_BRANCH%
 echo -----------------------------------------------------------------
-echo   [1] MERGE TO MAIN   - Merge this feature branch into 'main'
-echo                         (preserves branch history on local/remote).
+echo   [1] MERGE TO MAIN   - Commit, push feature branch, tag release,
+echo                         and merge into main (preserves history).
 echo.
-echo   [2] PUSH TO BRANCH  - Keep working on this branch. Commit and
-echo                         push progress to GitHub without merging.
+echo   [2] PUSH TO BRANCH  - Checkpoint and push progress to active
+echo                         branch without merging into main.
 echo.
-echo   [3] REVERT ^& DISCARD- Experiment failed. Reset codebase back to
-echo                         clean HEAD state (git reset --hard ^& clean).
+echo   [3] REVERT ^& DISCARD- Discard uncommitted changes (git reset/clean).
 echo.
-echo   [4] RETURN TO MENU  - Leave all files exactly as they are without
-echo                         committing or reverting.
+echo   [4] RETURN TO MENU  - Return to main operations menu.
 echo =================================================================
 set /p EVAL_CHOICE=" Select post-run action (1-4): "
 
@@ -259,15 +300,14 @@ echo                        GITHUB OPERATIONS
 echo =================================================================
 echo  Active Branch: %CURRENT_BRANCH%
 echo -----------------------------------------------------------------
-echo   [1] MERGE TO MAIN        - Merge current branch into 'main',
-echo                              push to GitHub, and switch to main
-echo                              (preserves feature branch history).
+echo   [1] MERGE TO MAIN        - Auto-branch, commit, push branch, tag,
+echo                              and merge into main (all preserved).
 echo.
 echo   [2] PUSH TO BRANCH       - Commit and push working progress
 echo                              to active branch without merging.
 echo.
-echo   [3] SWITCH BRANCH        - Switch/checkout any existing branch
-echo                              (to test or revert to older versions).
+echo   [3] SWITCH BRANCH        - View branch list with commit descriptions
+echo                              and checkout older versions.
 echo.
 echo   [4] CREATE NEW BRANCH    - Create and switch to a new branch.
 echo.
@@ -288,54 +328,87 @@ goto GITHUB_OPS
 
 :MERGE_MAIN
 echo.
-set "COMMIT_TMP=%PROJECT_ROOT%\bin\.commit_msg.txt"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$msg = Read-Host 'Enter iteration description / commit message'; if ([string]::IsNullOrWhiteSpace($msg)) { $msg = 'feat: iteration update' }; [System.IO.File]::WriteAllText('%COMMIT_TMP%', $msg, [System.Text.Encoding]::UTF8)"
+call :RESOLVE_COMMIT_MSG
+if %ERRORLEVEL% neq 0 goto MENU
 
 git rm --cached public/Top.mp4 2>nul
+
+if /I "%CURRENT_BRANCH%"=="main" (
+    echo [BRANCHING] Creating feature branch '%DETECTED_VER%' from main...
+    git checkout -b "%DETECTED_VER%" 2>nul
+    git add -A
+    git commit -F "%COMMIT_TMP%"
+    del "%COMMIT_TMP%" 2>nul
+    echo [PUSHING] Publishing feature branch '%DETECTED_VER%' to GitHub...
+    git push -u origin "%DETECTED_VER%"
+    git tag -a "%DETECTED_VER%" -m "Release %DETECTED_VER%" 2>nul
+    git push origin --tags 2>nul
+    echo [MERGING] Switching to main and folding '%DETECTED_VER%' into main...
+    git checkout main
+    git pull origin main 2>nul
+    git merge "%DETECTED_VER%" --no-edit
+    git push origin main
+    echo.
+    echo =================================================================
+    echo  Iteration successfully published:
+    echo  - Feature branch '%DETECTED_VER%' published on GitHub.
+    echo  - Release tag '%DETECTED_VER%' published on GitHub.
+    echo  - Changes merged into 'main' and pushed.
+    echo  - Active working branch is now 'main'.
+    echo =================================================================
+    pause
+    goto MENU
+)
+
 git add -A
 git commit -F "%COMMIT_TMP%"
 del "%COMMIT_TMP%" 2>nul
-
-if "%CURRENT_BRANCH%"=="main" goto MERGE_MAIN_DIRECT
-
-git push origin %CURRENT_BRANCH%
+echo [PUSHING] Publishing '%CURRENT_BRANCH%' to GitHub...
+git push -u origin "%CURRENT_BRANCH%"
+git tag -a "%DETECTED_VER%" -m "Release %DETECTED_VER%" 2>nul
+git push origin --tags 2>nul
+echo [MERGING] Switching to main and folding '%CURRENT_BRANCH%' into main...
 git checkout main
-git pull origin main
-git merge %CURRENT_BRANCH% --no-edit
+git pull origin main 2>nul
+git merge "%CURRENT_BRANCH%" --no-edit
 git push origin main
-echo ^>^>^> Feature merged into main and pushed. Branch '%CURRENT_BRANCH%' preserved. ^<^<^<
-echo ^>^>^> Active branch is now 'main'. ^<^<^<
-pause
-goto MENU
-
-:MERGE_MAIN_DIRECT
-git push origin main
-echo ^>^>^> Main branch updated and pushed to remote origin. ^<^<^<
+echo.
+echo =================================================================
+echo  Iteration successfully published:
+echo  - Feature branch '%CURRENT_BRANCH%' published on GitHub.
+echo  - Release tag '%DETECTED_VER%' published on GitHub.
+echo  - Changes merged into 'main' and pushed.
+echo  - Active working branch is now 'main'.
+echo =================================================================
 pause
 goto MENU
 
 :PUSH_BRANCH
 echo.
-set "COMMIT_TMP=%PROJECT_ROOT%\bin\.commit_msg.txt"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$msg = Read-Host 'Enter commit message'; if ([string]::IsNullOrWhiteSpace($msg)) { $msg = 'wip: evaluation checkpoint' }; [System.IO.File]::WriteAllText('%COMMIT_TMP%', $msg, [System.Text.Encoding]::UTF8)"
+call :RESOLVE_COMMIT_MSG
+if %ERRORLEVEL% neq 0 goto MENU
 
 git rm --cached public/Top.mp4 2>nul
 git add -A
 git commit -F "%COMMIT_TMP%"
 del "%COMMIT_TMP%" 2>nul
 
-git push origin %CURRENT_BRANCH%
+git push -u origin "%CURRENT_BRANCH%"
 echo ^>^>^> Committed and pushed to branch '%CURRENT_BRANCH%'. ^<^<^<
 pause
 goto MENU
 
 :SWITCH_BRANCH
+cls
+echo =================================================================
+echo                    AVAILABLE BRANCHES ^& HISTORY                  
+echo =================================================================
 echo.
-echo Available branches:
-git branch -a
+powershell -NoProfile -ExecutionPolicy Bypass -Command "git for-each-ref --sort=-committerdate refs/heads/ --format='  [branch] %(refname:short) :: %(subject) (%(committerdate:relative))'; git for-each-ref --sort=-committerdate refs/tags/ --format='  [tag]    %(refname:short) :: %(subject) (%(committerdate:relative))'"
 echo.
+echo =================================================================
 set "TARGET_BRANCH="
-set /p TARGET_BRANCH=" Enter branch name to checkout (or press Enter to cancel): "
+set /p TARGET_BRANCH=" Enter branch or tag to checkout (or press Enter to cancel): "
 if "%TARGET_BRANCH%"=="" goto GITHUB_OPS
 git checkout %TARGET_BRANCH%
 pause

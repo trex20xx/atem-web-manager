@@ -56,6 +56,42 @@ verify_token() {
     return 0
 }
 
+resolve_commit_msg() {
+    DESC_FILE="$PROJECT_ROOT/ops/DESCRIPTOR.txt"
+    DETECTED_VER=$(grep -o "v[0-9]\+\.[0-9]\+" src/version.js | head -n 1)
+    if [ -z "$DETECTED_VER" ]; then DETECTED_VER="v3.40"; fi
+
+    if [ -f "$DESC_FILE" ]; then
+        FILE_VER=$(head -n 1 "$DESC_FILE" | tr -d '\r\n')
+        FILE_MSG=$(tail -n +2 "$DESC_FILE" | sed '/^[[:space:]]*$/d')
+
+        if [ "$FILE_VER" = "$DETECTED_VER" ] && [ -n "$FILE_MSG" ]; then
+            RESOLVED_MSG="$FILE_MSG"
+            echo "[DESCRIPTOR VERIFIED] Ingested message for $FILE_VER:"
+            echo "\"$FILE_MSG\""
+            return 0
+        else
+            echo ""
+            echo "================================================================="
+            echo " [WARNING] Descriptor version mismatch!"
+            echo " src/version.js:      $DETECTED_VER"
+            echo " ops/DESCRIPTOR.txt:  $FILE_VER"
+            echo "================================================================="
+            echo " [1] Enter commit message manually"
+            echo " [2] Abort to download/replace ops/DESCRIPTOR.txt"
+            echo "================================================================="
+            read -p " Select (1-2): " MISMATCH_CHOICE
+            if [ "$MISMATCH_CHOICE" != "1" ]; then
+                return 1
+            fi
+        fi
+    fi
+
+    read -p "Enter iteration description / commit message: " RESOLVED_MSG
+    if [ -z "$RESOLVED_MSG" ]; then RESOLVED_MSG="feat: iteration update ($DETECTED_VER)"; fi
+    return 0
+}
+
 wipe_reclone() {
     verify_token || return
 
@@ -116,15 +152,14 @@ github_operations() {
         echo "================================================================="
         echo " Active Branch: $CURRENT_BRANCH"
         echo "-----------------------------------------------------------------"
-        echo "  [1] MERGE TO MAIN        - Merge current branch into 'main',"
-        echo "                             push to GitHub, and switch to main"
-        echo "                             (preserves feature branch history)."
+        echo "  [1] MERGE TO MAIN        - Auto-branch, commit, push branch, tag,"
+        echo "                             and merge into main (all preserved)."
         echo ""
         echo "  [2] PUSH TO BRANCH       - Commit and push working progress"
         echo "                             to active branch without merging."
         echo ""
-        echo "  [3] SWITCH BRANCH        - Switch/checkout any existing branch"
-        echo "                             (to test or revert to older versions)."
+        echo "  [3] SWITCH BRANCH        - View branch list with commit descriptions"
+        echo "                             and checkout older versions."
         echo ""
         echo "  [4] CREATE NEW BRANCH    - Create and switch to a new branch."
         echo ""
@@ -137,45 +172,58 @@ github_operations() {
 
         case $GCHOICE in
             1)
-                read -p "Enter iteration description / commit message: " CMSG
-                if [ -z "$CMSG" ]; then CMSG="feat: iteration update"; fi
-                
+                resolve_commit_msg || continue
                 git rm --cached public/Top.mp4 2>/dev/null
 
-                if [ "$CURRENT_BRANCH" == "main" ]; then
+                if [ "$CURRENT_BRANCH" = "main" ]; then
+                    echo "[BRANCHING] Creating feature branch '$DETECTED_VER' from main..."
+                    git checkout -b "$DETECTED_VER" 2>/dev/null
                     git add -A
-                    git commit -m "$CMSG"
+                    git commit -m "$RESOLVED_MSG"
+                    echo "[PUSHING] Publishing feature branch '$DETECTED_VER' to GitHub..."
+                    git push -u origin "$DETECTED_VER"
+                    git tag -a "$DETECTED_VER" -m "Release $DETECTED_VER" 2>/dev/null
+                    git push origin --tags 2>/dev/null
+                    echo "[MERGING] Switching to main and folding '$DETECTED_VER' into main..."
+                    git checkout main
+                    git pull origin main 2>/dev/null
+                    git merge "$DETECTED_VER" --no-edit
                     git push origin main
-                    echo ">>> Main branch updated and pushed. <<<"
                 else
                     git add -A
-                    git commit -m "$CMSG"
-                    git push origin "$CURRENT_BRANCH"
+                    git commit -m "$RESOLVED_MSG"
+                    git push -u origin "$CURRENT_BRANCH"
+                    git tag -a "$DETECTED_VER" -m "Release $DETECTED_VER" 2>/dev/null
+                    git push origin --tags 2>/dev/null
                     git checkout main
-                    git pull origin main
+                    git pull origin main 2>/dev/null
                     git merge "$CURRENT_BRANCH" --no-edit
                     git push origin main
-                    echo ">>> Feature merged into main. Branch '$CURRENT_BRANCH' preserved. <<<"
-                    echo ">>> Active branch is now 'main'. <<<"
                 fi
+                echo ">>> Iteration merged into main and pushed. Branch preserved on GitHub. <<<"
+                echo ">>> Active working branch is now 'main'. <<<"
                 read -p "Press Enter to continue..."
                 ;;
             2)
-                read -p "Enter commit message: " CMSG
-                if [ -z "$CMSG" ]; then CMSG="wip: evaluation checkpoint"; fi
+                resolve_commit_msg || continue
                 git rm --cached public/Top.mp4 2>/dev/null
                 git add -A
-                git commit -m "$CMSG"
-                git push origin "$CURRENT_BRANCH"
+                git commit -m "$RESOLVED_MSG"
+                git push -u origin "$CURRENT_BRANCH"
                 echo ">>> Committed and pushed to '$CURRENT_BRANCH'. <<<"
                 read -p "Press Enter to continue..."
                 ;;
             3)
+                clear
+                echo "================================================================="
+                echo "                    AVAILABLE BRANCHES & HISTORY                  "
+                echo "================================================================="
                 echo ""
-                echo "Available branches:"
-                git branch -a
+                git for-each-ref --sort=-committerdate refs/heads/ --format="  [branch] %(refname:short) :: %(subject) (%(committerdate:relative))"
+                git for-each-ref --sort=-committerdate refs/tags/ --format="  [tag]    %(refname:short) :: %(subject) (%(committerdate:relative))"
                 echo ""
-                read -p "Enter branch name to checkout (or press Enter to cancel): " TARGET_BRANCH
+                echo "================================================================="
+                read -p "Enter branch or tag to checkout (or press Enter to cancel): " TARGET_BRANCH
                 if [ -n "$TARGET_BRANCH" ]; then
                     git checkout "$TARGET_BRANCH"
                     read -p "Press Enter to continue..."
@@ -207,7 +255,7 @@ github_operations() {
 while true; do
     clear
     echo "========================================================================="
-    echo "ATEM WEB MANAGER - OPERATIONS SUITE (v3.39)"
+    echo "ATEM WEB MANAGER - OPERATIONS SUITE (v3.40)"
     echo "========================================================================="
     echo "[1] RUN & EVALUATE     - Launch Vite Frontend & Node Bridge Daemon"
     echo "[2] GITHUB OPERATIONS  - Merge to Main, Push Branch, Switch"
@@ -256,53 +304,59 @@ while true; do
             echo "================================================================="
             echo " Active Branch: $CURRENT_BRANCH"
             echo "-----------------------------------------------------------------"
-            echo "  [1] MERGE TO MAIN   - Merge this feature branch into 'main'"
-            echo "                        (preserves branch history on local/remote)."
+            echo "  [1] MERGE TO MAIN   - Commit, push feature branch, tag release,"
+            echo "                        and merge into main (preserves history)."
             echo ""
-            echo "  [2] PUSH TO BRANCH  - Keep working on this branch. Commit and"
-            echo "                        push progress to GitHub without merging."
+            echo "  [2] PUSH TO BRANCH  - Checkpoint and push progress to active"
+            echo "                        branch without merging into main."
             echo ""
-            echo "  [3] REVERT & DISCARD- Experiment failed. Reset codebase back to"
-            echo "                        clean HEAD state (git reset --hard & clean)."
+            echo "  [3] REVERT & DISCARD- Discard uncommitted changes (git reset/clean)."
             echo ""
-            echo "  [4] RETURN TO MENU  - Leave all files exactly as they are without"
-            echo "                        committing or reverting."
+            echo "  [4] RETURN TO MENU  - Return to main operations menu."
             echo "================================================================="
             read -p " Select post-run action (1-4): " EVAL_CHOICE
 
-            if [ "$EVAL_CHOICE" == "1" ]; then
-                read -p "Enter iteration description / commit message: " CMSG
-                if [ -z "$CMSG" ]; then CMSG="feat: iteration update"; fi
-                
+            if [ "$EVAL_CHOICE" = "1" ]; then
+                resolve_commit_msg || continue
                 git rm --cached public/Top.mp4 2>/dev/null
 
-                if [ "$CURRENT_BRANCH" == "main" ]; then
+                if [ "$CURRENT_BRANCH" = "main" ]; then
+                    echo "[BRANCHING] Creating feature branch '$DETECTED_VER' from main..."
+                    git checkout -b "$DETECTED_VER" 2>/dev/null
                     git add -A
-                    git commit -m "$CMSG"
+                    git commit -m "$RESOLVED_MSG"
+                    echo "[PUSHING] Publishing feature branch '$DETECTED_VER' to GitHub..."
+                    git push -u origin "$DETECTED_VER"
+                    git tag -a "$DETECTED_VER" -m "Release $DETECTED_VER" 2>/dev/null
+                    git push origin --tags 2>/dev/null
+                    echo "[MERGING] Switching to main and folding '$DETECTED_VER' into main..."
+                    git checkout main
+                    git pull origin main 2>/dev/null
+                    git merge "$DETECTED_VER" --no-edit
                     git push origin main
-                    echo ">>> Main branch updated and pushed. <<<"
                 else
                     git add -A
-                    git commit -m "$CMSG"
-                    git push origin "$CURRENT_BRANCH"
+                    git commit -m "$RESOLVED_MSG"
+                    git push -u origin "$CURRENT_BRANCH"
+                    git tag -a "$DETECTED_VER" -m "Release $DETECTED_VER" 2>/dev/null
+                    git push origin --tags 2>/dev/null
                     git checkout main
-                    git pull origin main
+                    git pull origin main 2>/dev/null
                     git merge "$CURRENT_BRANCH" --no-edit
                     git push origin main
-                    echo ">>> Feature merged into main. Branch '$CURRENT_BRANCH' preserved. <<<"
-                    echo ">>> Active branch is now 'main'. <<<"
                 fi
+                echo ">>> Iteration merged into main and pushed. Branch preserved on GitHub. <<<"
+                echo ">>> Active working branch is now 'main'. <<<"
                 read -p "Press Enter to continue..."
-            elif [ "$EVAL_CHOICE" == "2" ]; then
-                read -p "Enter commit message: " CMSG
-                if [ -z "$CMSG" ]; then CMSG="wip: evaluation checkpoint"; fi
+            elif [ "$EVAL_CHOICE" = "2" ]; then
+                resolve_commit_msg || continue
                 git rm --cached public/Top.mp4 2>/dev/null
                 git add -A
-                git commit -m "$CMSG"
-                git push origin "$CURRENT_BRANCH"
+                git commit -m "$RESOLVED_MSG"
+                git push -u origin "$CURRENT_BRANCH"
                 echo ">>> Committed and pushed to '$CURRENT_BRANCH'. <<<"
                 read -p "Press Enter to continue..."
-            elif [ "$EVAL_CHOICE" == "3" ]; then
+            elif [ "$EVAL_CHOICE" = "3" ]; then
                 echo ">>> Discarding uncommitted changes..."
                 git reset --hard HEAD
                 git clean -fd
