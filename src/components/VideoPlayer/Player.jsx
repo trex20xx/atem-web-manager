@@ -4,11 +4,11 @@ import QualityMenu from './QualityMenu';
 import { takeSnapshot } from './SnapshotEngine';
 
 // =========================================================================
-// ATEM WEB MANAGER - PLAYER COMPONENT (v2.88)
+// ATEM WEB MANAGER - PLAYER COMPONENT (v3.57)
 // =========================================================================
-// YouTube IFrame API with native CC / overlay suppression + HTML5 Video Engine
-// with bespoke YouTube desktop replica controls (full-width red scrubber,
-// expanding volume slider, timecode, settings gear, and overlay drawer).
+// YouTube IFrame API + HTML5 Video Engine with bespoke desktop controls.
+// Features discrete muted-grey crossed-out camera placeholder when disconnected,
+// and dynamic corner radius clipping matching all other quadrant windows.
 
 const extractYouTubeId = (url) => {
     if (!url) return null;
@@ -33,7 +33,7 @@ const formatTime = (seconds) => {
     return `${mins}:${paddedSecs}`;
 };
 
-const Player = ({ currentVideoSource }) => {
+const Player = ({ currentVideoSource, isConnected = true }) => {
     const wrapperRef = useRef(null);
     const videoRef = useRef(null);
     const ytPlayerRef = useRef(null);
@@ -83,10 +83,10 @@ const Player = ({ currentVideoSource }) => {
     };
 
     // -------------------------------------------------------------------------
-    // ENGINE A: YOUTUBE IFRAME API (Native Overlay & Captions Suppressed)
+    // ENGINE A: YOUTUBE IFRAME API
     // -------------------------------------------------------------------------
     useEffect(() => {
-        if (!isYouTube) return;
+        if (!isConnected || !isYouTube) return;
 
         if (!window.YT) {
             const tag = document.createElement('script');
@@ -123,7 +123,6 @@ const Player = ({ currentVideoSource }) => {
                         e.target.setVolume(volume);
                         if (isMuted) e.target.mute();
                         try {
-                            // Suppress YouTube captions track if present
                             if (typeof e.target.unloadModule === 'function') {
                                 e.target.unloadModule('captions');
                             }
@@ -166,13 +165,13 @@ const Player = ({ currentVideoSource }) => {
                 ytPlayerRef.current = null;
             }
         };
-    }, [isYouTube, ytId]);
+    }, [isConnected, isYouTube, ytId]);
 
     // -------------------------------------------------------------------------
     // ENGINE B: HTML5 VIDEO (MP4, HLS, VLC)
     // -------------------------------------------------------------------------
     useEffect(() => {
-        if (isYouTube) return;
+        if (!isConnected || isYouTube) return;
         const v = videoRef.current;
         if (!v) return;
 
@@ -204,7 +203,7 @@ const Player = ({ currentVideoSource }) => {
             v.removeEventListener('pause', onPause);
             v.removeEventListener('loadedmetadata', onLoadedMeta);
         };
-    }, [isYouTube, currentVideoSource, volume, isMuted]);
+    }, [isConnected, isYouTube, currentVideoSource, volume, isMuted]);
 
     const togglePlay = () => {
         if (isYouTube) {
@@ -295,6 +294,29 @@ const Player = ({ currentVideoSource }) => {
         const videoTech = wrapperRef.current?.querySelector('video');
         takeSnapshot(videoTech, imgRef.current, wipeState);
     };
+
+    // -------------------------------------------------------------------------
+    // DISCONNECTED STANDBY SURFACE (Discrete Crossed-Out Camera)
+    // -------------------------------------------------------------------------
+    if (!isConnected) {
+        return (
+            <div className="stream-disconnected-surface">
+                <svg 
+                    className="stream-cam-off-svg" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="1.6" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                >
+                    <path d="M10.66 5H14a2 2 0 0 1 2 2v2.34l1 1L23 7v10l-3.34-2.34" />
+                    <path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h1.34" />
+                    <line x1="2" y1="2" x2="22" y2="22" />
+                </svg>
+            </div>
+        );
+    }
 
     const t = wipeState.revV ? 0 : wipeState.clipV;
     const b = wipeState.revV ? wipeState.clipV : 0;
