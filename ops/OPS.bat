@@ -2,24 +2,20 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.43)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.44)
 :: =============================================================================
 :: This CLI manages the end-to-end development lifecycle:
 :: 1. Self-contained portable Node.js runtime resolution and integrity verification.
 :: 2. Dual-package dependency installations (frontend Vite + backend ATEM driver).
 :: 3. Background hardware bridge daemon management with automated port cleanup.
-:: 4. Automated Git feature branching, tagging, and merge-to-main workflows.
-:: 5. Descriptor-based commit message automation with version parity verification.
-:: 6. Token-guarded workspace cleaning and scratch re-cloning via ghost scripts.
+:: 4. Consolidated GitHub Operations menu with automated branching, tagging, and merges.
+:: 5. Instant ESC key navigation across menus and exit at root.
+:: 6. Token-guarded workspace cleaning and silent scratch re-cloning via ghost scripts.
 :: =============================================================================
 
-:: Force console code page to UTF-8 to eliminate mojibake characters
 chcp 65001 >nul
-
-:: Terminate any lingering background ghost wiper processes from previous sessions
 taskkill /f /fi "WINDOWTITLE eq ATEM_GHOST_WIPER*" >nul 2>&1
 
-:: Establish Project Root directory context relative to this script location
 set "SCRIPT_DIR=%~dp0"
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 for %%I in ("%SCRIPT_DIR%") do (
@@ -34,36 +30,36 @@ cd /d "%PROJECT_ROOT%"
 
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :MENU
-:: DESCRIPTION: Displays the primary interactive CLI navigation dashboard.
-:: All menu items are formatted as strictly single-line entries.
+:: DESCRIPTION: Master navigation dashboard. Supports ESC key to instantly exit.
 :: -----------------------------------------------------------------------------
 :MENU
 cls
 echo -----------------------------------------------------------------
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.43)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.44)       
 echo -----------------------------------------------------------------
 echo   [1] RUN ^& EVALUATE     (Vite + Daemon, Auto-Export ^& Evaluation)
 echo   [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)
 echo   [3] WIPE ^& RE-CLONE    (Token-Verified Total Scratch Re-Clone)
-echo   [4] WIPE LOCAL CACHES  (Token-Verified Cache ^& Build Erasure)
-echo   [5] EXPORT CODEBASE    (Serialize workspace to codebase.txt)
-echo   [6] EXIT
+echo   [4] EXPORT CODEBASE    (Serialize workspace to codebase.txt)
+echo   [5] EXIT               (Terminate session)
 echo -----------------------------------------------------------------
-set /p CHOICE=" Select action (1-6): "
 
+set "CHOICE="
+for /f "delims=" %%k in ('powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$host.UI.RawUI.FlushInputBuffer(); Write-Host -NoNewline ' Select action (1-5, or ESC to exit): '; $k=[Console]::ReadKey($true); if ($k.Key -eq 'Escape') { 'ESC' } else { Write-Host $k.KeyChar; [string]$k.KeyChar }"') do set "CHOICE=%%k"
+
+if "%CHOICE%"=="ESC" goto QUIT
 if "%CHOICE%"=="1" goto RUN_EVAL
 if "%CHOICE%"=="2" goto GITHUB_OPS
 if "%CHOICE%"=="3" goto WIPE_RECLONE
-if "%CHOICE%"=="4" goto WIPE_CACHES
-if "%CHOICE%"=="5" goto EXPORT
-if "%CHOICE%"=="6" goto QUIT
+if "%CHOICE%"=="4" goto EXPORT
+if "%CHOICE%"=="5" goto QUIT
 goto MENU
 
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :VERIFY_TOKEN
 :: DESCRIPTION: Safety verification layer. Enforces that .atem_workspace_token
 :: exists and contains the authoritative key before permitting any deletion.
-:: Prohibits targeting drive roots or empty directories.
 :: -----------------------------------------------------------------------------
 :VERIFY_TOKEN
 set "TOKEN_FILE=%PROJECT_ROOT%\.atem_workspace_token"
@@ -106,10 +102,7 @@ exit /b 0
 
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :SETUP_NODE_ENV
-:: DESCRIPTION: Configures the Node.js execution environment.
-:: 1. Verifies that bin\node\ contains both node.exe AND npm-cli.js.
-:: 2. If missing/corrupt, downloads and extracts official Node.js LTS into bin\node.
-:: 3. Injects bin\node into active session %PATH% for 100% portable isolation.
+:: DESCRIPTION: Configures the Node.js execution environment in bin\node.
 :: -----------------------------------------------------------------------------
 :SETUP_NODE_ENV
 set "LOCAL_NODE_DIR=%PROJECT_ROOT%\bin\node"
@@ -148,7 +141,7 @@ if %ERRORLEVEL% equ 0 (
 
 echo.
 echo -----------------------------------------------------------------
-echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.43)                
+echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.44)                
 echo -----------------------------------------------------------------
 echo  Node.js was not found on your system or in bin\node.
 echo  Downloading official portable Node.js LTS (v20.18.0 x64)...
@@ -198,9 +191,7 @@ goto :eof
 
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :CHECK_DEPENDENCIES
-:: DESCRIPTION: Verifies that required packages are installed.
-:: Inspects node_modules\vite (UI) and bridge\node_modules (hardware link).
-:: Automatically executes npm install in respective folders if missing.
+:: DESCRIPTION: Verifies packages for UI (Vite) and backend bridge daemon.
 :: -----------------------------------------------------------------------------
 :CHECK_DEPENDENCIES
 if not exist "%PROJECT_ROOT%\node_modules\vite\" (
@@ -223,8 +214,7 @@ goto :eof
 
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :SYNC_CHANGELOG
-:: DESCRIPTION: Reads modular markdown snippets in ops\CHANGELOG\*.md and
-:: automatically merges any missing version notes into ops\CHANGELOG.MD.
+:: DESCRIPTION: Automatically merges modular release snippets into CHANGELOG.MD.
 :: -----------------------------------------------------------------------------
 :SYNC_CHANGELOG
 if not exist "ops\CHANGELOG" goto :eof
@@ -233,8 +223,7 @@ goto :eof
 
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :CLEANUP_PORTS
-:: DESCRIPTION: Terminates processes listening on ports 8080 (Bridge),
-:: 3000 (Vite UI), and 8000 (Python static video server) to prevent collisions.
+:: DESCRIPTION: Terminates listeners on ports 8080, 3000, and 8000.
 :: -----------------------------------------------------------------------------
 :CLEANUP_PORTS
 powershell -NoProfile -ExecutionPolicy Bypass -Command "8080, 3000, 8000 | ForEach-Object { $p = (Get-NetTCPConnection -LocalPort $_ -State Listen -ErrorAction SilentlyContinue).OwningProcess; if ($p) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue } }"
@@ -242,8 +231,7 @@ goto :eof
 
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :EXPORT_CODEBASE
-:: DESCRIPTION: Serializes root configurations, the bridge service, and the entire
-:: src tree into codebase.txt for instantaneous AI ingestion and handover.
+:: DESCRIPTION: Serializes codebase files into codebase.txt for AI ingestion.
 :: -----------------------------------------------------------------------------
 :EXPORT_CODEBASE
 echo.
@@ -262,9 +250,8 @@ goto :eof
 
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :RESOLVE_COMMIT_MSG
-:: DESCRIPTION: Resolves the commit message automatically from ops\DESCRIPTOR.txt.
-:: Validates that Line 1 matches the version declared in src\version.js.
-:: Halts and prompts if a version mismatch is detected.
+:: DESCRIPTION: Ingests commit description from ops\DESCRIPTOR.txt with
+:: automated version verification against src\version.js.
 :: -----------------------------------------------------------------------------
 :RESOLVE_COMMIT_MSG
 set "COMMIT_TMP=%PROJECT_ROOT%\bin\.commit_msg.txt"
@@ -272,7 +259,7 @@ set "DESC_FILE=%PROJECT_ROOT%\ops\DESCRIPTOR.txt"
 
 set "DETECTED_VER="
 for /f "usebackq tokens=2 delims='" %%v in (`powershell -NoProfile -Command "Select-String -Path 'src\version.js' -Pattern 'v[0-9]+\.[0-9]+' | ForEach-Object { $_.Matches.Value }"`) do set "DETECTED_VER=%%v"
-if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.43"
+if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.44"
 
 if not exist "%DESC_FILE%" goto MANUAL_PROMPT
 
@@ -311,10 +298,8 @@ exit /b 0
 
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :RUN_EVAL
-:: DESCRIPTION: The primary daily operational flow.
-:: Launches background bridge daemon, boots Vite on port 3000, auto-launches
-:: the browser, and routes directly to the Evaluation Pipeline on Ctrl+C.
-:: All menu choices in the post-run evaluation are strictly single-line entries.
+:: DESCRIPTION: The primary daily operational flow. Launches bridge daemon + Vite.
+:: Terminating with Ctrl+C routes immediately to the unified GITHUB OPERATIONS menu.
 :: -----------------------------------------------------------------------------
 :RUN_EVAL
 call :SETUP_NODE_ENV
@@ -332,32 +317,13 @@ echo ^>^>^> Starting Frontend Server on Port 3000 with auto-launch...
 call "%NPM_CMD%" run dev
 
 call :CLEANUP_PORTS
-
-for /f "delims=" %%b in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set "CURRENT_BRANCH=%%b"
-if "%CURRENT_BRANCH%"=="" set "CURRENT_BRANCH=unknown"
-
-echo.
-echo -----------------------------------------------------------------
-echo                   EVALUATION / REVERT PIPELINE                   
-echo -----------------------------------------------------------------
-echo  Active Branch: %CURRENT_BRANCH%
-echo -----------------------------------------------------------------
-echo   [1] MERGE TO MAIN     (Publish branch, tag, and merge into main)
-echo   [2] PUSH TO BRANCH    (Checkpoint progress on active branch)
-echo   [3] REVERT ^& DISCARD  (Discard uncommitted changes and clean)
-echo   [4] RETURN TO MENU    (Return to main operations menu)
-echo -----------------------------------------------------------------
-set /p EVAL_CHOICE=" Select post-run action (1-4): "
-
-if "%EVAL_CHOICE%"=="1" goto MERGE_MAIN
-if "%EVAL_CHOICE%"=="2" goto PUSH_BRANCH
-if "%EVAL_CHOICE%"=="3" goto REVERT_DISCARD
-goto MENU
+goto GITHUB_OPS
 
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :GITHUB_OPS
-:: DESCRIPTION: Dedicated Git submenu for managing branches, merges,
-:: checkouts, and clean reverts. All menu options are strictly single-line.
+:: DESCRIPTION: Consolidated unified Git management dashboard.
+:: Accessible both upfront and automatically after stopping Vite.
+:: Supports pressing ESC to return to the main menu.
 :: -----------------------------------------------------------------------------
 :GITHUB_OPS
 call :CLEANUP_PORTS
@@ -374,31 +340,35 @@ echo   [1] MERGE TO MAIN     (Publish branch, tag, and merge into main)
 echo   [2] PUSH TO BRANCH    (Checkpoint progress on active branch)
 echo   [3] SWITCH BRANCH     (View branch history and checkout version)
 echo   [4] CREATE NEW BRANCH (Create and checkout new feature branch)
-echo   [5] REVERT ^& DISCARD  (Discard uncommitted changes and clean)
-echo   [6] RETURN TO MENU    (Return to main operations menu)
+echo   [5] WIPE ^& RE-CLONE   (Token-Verified Total Scratch Re-Clone)
+echo   [6] REVERT ^& DISCARD  (Discard uncommitted changes and clean)
+echo   [7] RETURN TO MENU    (Return to main operations menu)
 echo -----------------------------------------------------------------
-set /p GCHOICE=" Select Git action (1-6): "
 
+set "GCHOICE="
+for /f "delims=" %%k in ('powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$host.UI.RawUI.FlushInputBuffer(); Write-Host -NoNewline ' Select Git action (1-7, or ESC to return): '; $k=[Console]::ReadKey($true); if ($k.Key -eq 'Escape') { 'ESC' } else { Write-Host $k.KeyChar; [string]$k.KeyChar }"') do set "GCHOICE=%%k"
+
+if "%GCHOICE%"=="ESC" goto MENU
 if "%GCHOICE%"=="1" goto MERGE_MAIN
 if "%GCHOICE%"=="2" goto PUSH_BRANCH
 if "%GCHOICE%"=="3" goto SWITCH_BRANCH
 if "%GCHOICE%"=="4" goto CREATE_BRANCH
-if "%GCHOICE%"=="5" goto REVERT_DISCARD
-if "%GCHOICE%"=="6" goto MENU
+if "%GCHOICE%"=="5" goto WIPE_RECLONE
+if "%GCHOICE%"=="6" goto REVERT_DISCARD
+if "%GCHOICE%"=="7" goto MENU
 goto GITHUB_OPS
 
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :MERGE_MAIN
 :: DESCRIPTION: The authoritative iteration publisher.
-:: 1. Creates a version branch (e.g. v3.43) if currently on main.
-:: 2. Commits and pushes the version branch to GitHub.
-:: 3. Creates and pushes an annotated release tag to GitHub.
-:: 4. Folds changes into main, pushes main, and sets active branch to main.
+:: Creates version branch, commits, tags release, pushes branch & tag,
+:: folds changes into main, pushes main, and leaves active branch on main.
 :: -----------------------------------------------------------------------------
 :MERGE_MAIN
 echo.
 call :RESOLVE_COMMIT_MSG
-if %ERRORLEVEL% neq 0 goto MENU
+if %ERRORLEVEL% neq 0 goto GITHUB_OPS
 
 git rm --cached public/Top.mp4 2>nul
 git rm --cached bin/.commit_msg.txt 2>nul
@@ -427,7 +397,7 @@ if /I "%CURRENT_BRANCH%"=="main" (
     echo  - Active working branch is now 'main'.
     echo -----------------------------------------------------------------
     pause
-    goto MENU
+    goto GITHUB_OPS
 )
 
 git add -A
@@ -451,16 +421,16 @@ echo  - Changes merged into 'main' and pushed.
 echo  - Active working branch is now 'main'.
 echo -----------------------------------------------------------------
 pause
-goto MENU
+goto GITHUB_OPS
 
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :PUSH_BRANCH
-:: DESCRIPTION: Commits and pushes progress to the active branch without merging.
+:: DESCRIPTION: Commits and pushes progress to active branch without merging.
 :: -----------------------------------------------------------------------------
 :PUSH_BRANCH
 echo.
 call :RESOLVE_COMMIT_MSG
-if %ERRORLEVEL% neq 0 goto MENU
+if %ERRORLEVEL% neq 0 goto GITHUB_OPS
 
 git rm --cached public/Top.mp4 2>nul
 git rm --cached bin/.commit_msg.txt 2>nul
@@ -471,12 +441,12 @@ del "%COMMIT_TMP%" 2>nul
 git push -u origin "%CURRENT_BRANCH%"
 echo ^>^>^> Committed and pushed to branch '%CURRENT_BRANCH%'. ^<^<^<
 pause
-goto MENU
+goto GITHUB_OPS
 
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :SWITCH_BRANCH
-:: DESCRIPTION: Syncs remote telemetry from GitHub and prints all branches
-:: and tags alongside their latest commit subject and relative timestamps.
+:: DESCRIPTION: Fetches remote history and displays live branch and tag lists
+:: with commit descriptions and relative timestamps. Supports ESC to cancel.
 :: -----------------------------------------------------------------------------
 :SWITCH_BRANCH
 cls
@@ -488,23 +458,34 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "Write-Host -NoNewline '  [*] Fetching latest branch telemetry from GitHub...';" ^
     "git fetch --all --prune --tags > $null 2>&1;" ^
     "Write-Host \"`r                                                          `r\";" ^
-    "$refs = git for-each-ref --sort=-committerdate refs/heads/ refs/remotes/origin/ refs/tags/ --format='%%(refname:short)|%%(subject)|%%(committerdate:relative)';" ^
+    "$bRefs = git for-each-ref --sort=-committerdate refs/heads/ refs/remotes/origin/ --format='%%(refname:short)|%%(subject)|%%(committerdate:relative)';" ^
     "$seen = @{};" ^
-    "foreach ($r in $refs) {" ^
-    "    if ($r -match 'HEAD') { continue };" ^
+    "foreach ($r in $bRefs) {" ^
+    "    if ($r -match 'HEAD' -or $r -match '^origin$') { continue };" ^
     "    $parts = $r.Split('|');" ^
-    "    $rawName = $parts[0];" ^
-    "    $name = $rawName.Replace('origin/', '');" ^
+    "    $name = $parts[0].Replace('origin/', '');" ^
     "    if ($seen.ContainsKey($name)) { continue };" ^
     "    $seen[$name] = $true;" ^
     "    $subj = if ($parts.Count -gt 1) { $parts[1] } else { '' };" ^
     "    $date = if ($parts.Count -gt 2) { $parts[2] } else { '' };" ^
-    "    Write-Host ('  * ' + $name.PadRight(10) + ' :: ' + $subj + ' (' + $date + ')');" ^
+    "    Write-Host ('  [branch] ' + $name.PadRight(12) + ' :: ' + $subj + ' (' + $date + ')');" ^
+    "};" ^
+    "$tRefs = git for-each-ref --sort=-*creatordate refs/tags/ --format='%%(refname:short)|%%(subject)|%%(*committerdate:relative)';" ^
+    "foreach ($r in $tRefs) {" ^
+    "    $parts = $r.Split('|');" ^
+    "    $name = $parts[0];" ^
+    "    $subj = if ($parts.Count -gt 1) { $parts[1] } else { '' };" ^
+    "    $date = if ($parts.Count -gt 2) { $parts[2] } else { '' };" ^
+    "    Write-Host ('  [tag]    ' + $name.PadRight(12) + ' :: ' + $subj + ' (' + $date + ')');" ^
     "}"
 echo.
 echo -----------------------------------------------------------------
+
 set "TARGET_BRANCH="
-set /p TARGET_BRANCH=" Enter branch or tag to checkout (or press Enter to cancel): "
+for /f "delims=" %%k in ('powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$host.UI.RawUI.FlushInputBuffer(); Write-Host -NoNewline ' Enter branch or tag to checkout (or press ESC to cancel): '; $ans=''; while($true) { $k=[Console]::ReadKey($true); if ($k.Key -eq 'Escape') { Write-Host ''; 'ESC'; break } elseif ($k.Key -eq 'Enter') { Write-Host ''; $ans; break } elseif ($k.Key -eq 'Backspace') { if ($ans.Length -gt 0) { $ans=$ans.Substring(0,$ans.Length-1); Write-Host -NoNewline \"`b `b\" } } elseif ($k.KeyChar -ge 32) { $ans+=$k.KeyChar; Write-Host -NoNewline $k.KeyChar } }"') do set "TARGET_BRANCH=%%k"
+
+if "%TARGET_BRANCH%"=="ESC" goto GITHUB_OPS
 if "%TARGET_BRANCH%"=="" goto GITHUB_OPS
 git checkout %TARGET_BRANCH%
 pause
@@ -534,14 +515,12 @@ git reset --hard HEAD
 git clean -fd
 echo ^>^>^> Workspace clean and reverted. ^<^<^<
 pause
-goto MENU
+goto GITHUB_OPS
 
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :WIPE_RECLONE
-:: DESCRIPTION: The ultimate clean-slate wiper.
-:: 1. Verifies the security token.
-:: 2. Spawns an entirely silent detached ghost script in %TEMP%.
-:: 3. Frees port locks, removes directory, clones fresh repo, and quietly exits.
+:: DESCRIPTION: Token-verified total clean-slate wiper and re-cloner.
+:: Spawns a completely silent background ghost process and quietly exits.
 :: -----------------------------------------------------------------------------
 :WIPE_RECLONE
 call :VERIFY_TOKEN
@@ -597,28 +576,6 @@ powershell -NoProfile -WindowStyle Hidden -Command "Start-Process cmd -ArgumentL
 echo ^>^>^> Session closing. Your workspace is being freshly re-cloned.
 timeout /t 2 /nobreak >nul
 exit
-
-:: -----------------------------------------------------------------------------
-:: FUNCTION: :WIPE_CACHES
-:: DESCRIPTION: Token-verified deletion of node_modules and dist without
-:: destroying the repository or Git tracking history.
-:: -----------------------------------------------------------------------------
-:WIPE_CACHES
-call :VERIFY_TOKEN
-if %ERRORLEVEL% neq 0 goto MENU
-
-echo.
-echo -----------------------------------------------------------------
-echo                   CLEAR LOCAL CACHES ^& BUILD ARTIFACTS           
-echo -----------------------------------------------------------------
-call :CLEANUP_PORTS
-if exist "%PROJECT_ROOT%\node_modules" rmdir /S /Q "%PROJECT_ROOT%\node_modules"
-if exist "%PROJECT_ROOT%\bridge\node_modules" rmdir /S /Q "%PROJECT_ROOT%\bridge\node_modules"
-if exist "%PROJECT_ROOT%\dist" rmdir /S /Q "%PROJECT_ROOT%\dist"
-if exist "%PROJECT_ROOT%\codebase.txt" del "%PROJECT_ROOT%\codebase.txt"
-echo ^>^>^> Dependencies and build caches wiped clean. ^<^<^<
-pause
-goto MENU
 
 :: -----------------------------------------------------------------------------
 :: FUNCTION: :EXPORT

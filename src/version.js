@@ -1,5 +1,5 @@
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.43)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.44)
 // =========================================================================
 
-export const APP_VERSION = 'v3.43';
+export const APP_VERSION = 'v3.44';

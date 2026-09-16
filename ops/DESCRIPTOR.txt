@@ -1,2 +1,2 @@
-v3.43
-Strict single-line menu item formatting across Evaluation Pipeline and GitHub Operations menus matching master CLI typography.
+v3.44
+Consolidated unified GitHub Operations menu at post-run termination and upfront CLI, ESC key single-stroke navigation/exit, removed cache wipe, and polished remote branch/tag telemetry.

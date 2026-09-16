@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # =============================================================================
-# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / POSIX) (v3.43)
+# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / POSIX) (v3.44)
 # =============================================================================
-# Manages runtime resolution, Vite + bridge daemon execution, automated Git
-# feature branching, release tagging, and token-guarded workspace resets.
+# Manages runtime resolution, Vite + bridge daemon execution, consolidated
+# GitHub Operations menu, instant ESC key navigation, and release tagging.
 # =============================================================================
 
 cd "$(dirname "$0")/.." || exit
@@ -11,7 +11,6 @@ PROJECT_ROOT="$(pwd)"
 
 LOCAL_NODE_DIR="$PROJECT_ROOT/bin/node"
 
-# Configure Node environment prioritizing local portable binary over system path
 if [ -f "$LOCAL_NODE_DIR/bin/node" ] && [ -f "$LOCAL_NODE_DIR/lib/node_modules/npm/bin/npm-cli.js" ]; then
     export PATH="$LOCAL_NODE_DIR/bin:$PATH"
     NODE_CMD="$LOCAL_NODE_DIR/bin/node"
@@ -22,11 +21,6 @@ else
     NPM_CMD="npm"
 fi
 
-# -----------------------------------------------------------------------------
-# FUNCTION: cleanup_bridge
-# DESCRIPTION: Gracefully terminates background daemon listeners on ports
-# 8080 (Bridge), 3000 (Vite UI), and 8000 (Static video server).
-# -----------------------------------------------------------------------------
 cleanup_bridge() {
     kill $(lsof -t -i:8080) 2>/dev/null
     kill $(lsof -t -i:3000) 2>/dev/null
@@ -35,11 +29,6 @@ cleanup_bridge() {
 
 trap cleanup_bridge EXIT INT TERM
 
-# -----------------------------------------------------------------------------
-# FUNCTION: verify_token
-# DESCRIPTION: Safety verification layer. Validates .atem_workspace_token key
-# (ATEM_MANAGER_SECURE_WIPE_KEY_2026) to prevent accidental directory erasure.
-# -----------------------------------------------------------------------------
 verify_token() {
     TOKEN_FILE="$PROJECT_ROOT/.atem_workspace_token"
     REQUIRED_KEY="ATEM_MANAGER_SECURE_WIPE_KEY_2026"
@@ -74,15 +63,10 @@ verify_token() {
     return 0
 }
 
-# -----------------------------------------------------------------------------
-# FUNCTION: resolve_commit_msg
-# DESCRIPTION: Automatically ingests commit messages from ops/DESCRIPTOR.txt.
-# Verifies version parity against src/version.js before proceeding.
-# -----------------------------------------------------------------------------
 resolve_commit_msg() {
     DESC_FILE="$PROJECT_ROOT/ops/DESCRIPTOR.txt"
     DETECTED_VER=$(grep -o "v[0-9]\+\.[0-9]\+" src/version.js | head -n 1)
-    if [ -z "$DETECTED_VER" ]; then DETECTED_VER="v3.43"; fi
+    if [ -z "$DETECTED_VER" ]; then DETECTED_VER="v3.44"; fi
 
     if [ -f "$DESC_FILE" ]; then
         FILE_VER=$(head -n 1 "$DESC_FILE" | tr -d '\r\n')
@@ -115,11 +99,6 @@ resolve_commit_msg() {
     return 0
 }
 
-# -----------------------------------------------------------------------------
-# FUNCTION: wipe_reclone
-# DESCRIPTION: Performs a token-verified total wipe and fresh clone from GitHub
-# in a detached background subshell without prompting for additional keypresses.
-# -----------------------------------------------------------------------------
 wipe_reclone() {
     verify_token || return
 
@@ -169,11 +148,6 @@ wipe_reclone() {
     exit 0
 }
 
-# -----------------------------------------------------------------------------
-# FUNCTION: github_operations
-# DESCRIPTION: Interactive submenu for branch switching, creation, checkpoint
-# pushing, clean reverts, and version merges. All options are strictly single-line.
-# -----------------------------------------------------------------------------
 github_operations() {
     while true; do
         CURRENT_BRANCH=$(git branch --show-current 2>/dev/null)
@@ -189,10 +163,16 @@ github_operations() {
         echo "  [2] PUSH TO BRANCH    (Checkpoint progress on active branch)"
         echo "  [3] SWITCH BRANCH     (View branch history and checkout version)"
         echo "  [4] CREATE NEW BRANCH (Create and checkout new feature branch)"
-        echo "  [5] REVERT & DISCARD  (Discard uncommitted changes and clean)"
-        echo "  [6] RETURN TO MENU    (Return to main operations menu)"
+        echo "  [5] WIPE & RE-CLONE   (Token-Verified Total Scratch Re-Clone)"
+        echo "  [6] REVERT & DISCARD  (Discard uncommitted changes and clean)"
+        echo "  [7] RETURN TO MENU    (Return to main operations menu)"
         echo "-----------------------------------------------------------------"
-        read -p " Select Git action (1-6): " GCHOICE
+        read -rsn1 -p " Select Git action (1-7, or ESC to return): " GCHOICE
+        echo ""
+
+        if [ "$GCHOICE" = $'\e' ] || [ "$GCHOICE" = "7" ]; then
+            return
+        fi
 
         case $GCHOICE in
             1)
@@ -248,11 +228,12 @@ github_operations() {
                 printf "  [*] Fetching latest branch telemetry from GitHub..."
                 git fetch --all --prune --tags >/dev/null 2>&1
                 printf "\r                                                          \r"
-                git for-each-ref --sort=-committerdate refs/heads/ refs/remotes/origin/ refs/tags/ --format="%(refname:short)|%(subject)|%(committerdate:relative)" | awk -F'|' '!seen[$1]++ { gsub(/^origin\//,"",$1); printf "  * %-10s :: %s (%s)\n", $1, $2, $3 }'
+                git for-each-ref --sort=-committerdate refs/heads/ refs/remotes/origin/ --format="%(refname:short)|%(subject)|%(committerdate:relative)" | awk -F'|' '!seen[$1]++ { if ($1 ~ /HEAD/ || $1 ~ /^origin$/) next; gsub(/^origin\//,"",$1); printf "  [branch] %-12s :: %s (%s)\n", $1, $2, $3 }'
+                git for-each-ref --sort=-*creatordate refs/tags/ --format="%(refname:short)|%(subject)|%(*committerdate:relative)" | awk -F'|' '!seen[$1]++ { printf "  [tag]    %-12s :: %s (%s)\n", $1, $2, $3 }'
                 echo ""
                 echo "-----------------------------------------------------------------"
-                read -p "Enter branch or tag to checkout (or press Enter to cancel): " TARGET_BRANCH
-                if [ -n "$TARGET_BRANCH" ]; then
+                read -p "Enter branch or tag to checkout (or press ESC to cancel): " TARGET_BRANCH
+                if [ -n "$TARGET_BRANCH" ] && [ "$TARGET_BRANCH" != $'\e' ]; then
                     git checkout "$TARGET_BRANCH"
                     read -p "Press Enter to continue..."
                 fi
@@ -266,13 +247,13 @@ github_operations() {
                 fi
                 ;;
             5)
+                wipe_reclone
+                ;;
+            6)
                 echo ">>> Discarding uncommitted changes..."
                 git reset --hard HEAD
                 git clean -fd
                 read -p "Press Enter to continue..."
-                ;;
-            6)
-                return
                 ;;
             *)
                 ;;
@@ -280,22 +261,24 @@ github_operations() {
     done
 }
 
-# -----------------------------------------------------------------------------
-# MAIN CLI EVENT LOOP
-# -----------------------------------------------------------------------------
 while true; do
     clear
     echo "-------------------------------------------------------------------------"
-    echo "ATEM WEB MANAGER - OPERATIONS SUITE (v3.43)"
+    echo "ATEM WEB MANAGER - OPERATIONS SUITE (v3.44)"
     echo "-------------------------------------------------------------------------"
     echo "[1] RUN & EVALUATE     - Launch Vite Frontend & Node Bridge Daemon"
     echo "[2] GITHUB OPERATIONS  - Merge to Main, Push Branch, Switch"
     echo "[3] WIPE & RE-CLONE    - Token-Verified Total Scratch Re-Clone"
-    echo "[4] WIPE LOCAL CACHES  - Token-Verified Cache & Build Erasure"
-    echo "[5] EXPORT CODEBASE    - Serialize codebase to codebase.txt"
-    echo "[6] EXIT               - Terminate"
+    echo "[4] EXPORT CODEBASE    - Serialize codebase to codebase.txt"
+    echo "[5] EXIT               - Terminate session"
     echo "-------------------------------------------------------------------------"
-    read -p "Select an option (1-6): " choice
+    read -rsn1 -p "Select an option (1-5, or ESC to exit): " choice
+    echo ""
+
+    if [ "$choice" = $'\e' ] || [ "$choice" = "5" ]; then
+        cleanup_bridge
+        exit 0
+    fi
 
     case $choice in
         1)
@@ -326,70 +309,7 @@ while true; do
             "$NPM_CMD" run dev
             cleanup_bridge
 
-            CURRENT_BRANCH=$(git branch --show-current 2>/dev/null)
-            if [ -z "$CURRENT_BRANCH" ]; then CURRENT_BRANCH="unknown"; fi
-
-            echo ""
-            echo "-----------------------------------------------------------------"
-            echo "                  EVALUATION / REVERT PIPELINE                   "
-            echo "-----------------------------------------------------------------"
-            echo " Active Branch: $CURRENT_BRANCH"
-            echo "-----------------------------------------------------------------"
-            echo "  [1] MERGE TO MAIN     (Publish branch, tag, and merge into main)"
-            echo "  [2] PUSH TO BRANCH    (Checkpoint progress on active branch)"
-            echo "  [3] REVERT & DISCARD  (Discard uncommitted changes and clean)"
-            echo "  [4] RETURN TO MENU    (Return to main operations menu)"
-            echo "-----------------------------------------------------------------"
-            read -p " Select post-run action (1-4): " EVAL_CHOICE
-
-            if [ "$EVAL_CHOICE" = "1" ]; then
-                resolve_commit_msg || continue
-                git rm --cached public/Top.mp4 2>/dev/null
-                git rm --cached bin/.commit_msg.txt 2>/dev/null
-
-                if [ "$CURRENT_BRANCH" = "main" ]; then
-                    echo "[BRANCHING] Creating feature branch '$DETECTED_VER' from main..."
-                    git checkout -b "$DETECTED_VER" 2>/dev/null
-                    git add -A
-                    git commit -m "$RESOLVED_MSG"
-                    echo "[PUSHING] Publishing feature branch '$DETECTED_VER' to GitHub..."
-                    git push -u origin "$DETECTED_VER"
-                    git tag -a "$DETECTED_VER" -m "Release $DETECTED_VER" 2>/dev/null
-                    git push origin --tags 2>/dev/null
-                    echo "[MERGING] Switching to main and folding '$DETECTED_VER' into main..."
-                    git checkout main
-                    git pull origin main 2>/dev/null
-                    git merge "$DETECTED_VER" --no-edit
-                    git push origin main
-                else
-                    git add -A
-                    git commit -m "$RESOLVED_MSG"
-                    git push -u origin "$CURRENT_BRANCH"
-                    git tag -a "$DETECTED_VER" -m "Release $DETECTED_VER" 2>/dev/null
-                    git push origin --tags 2>/dev/null
-                    git checkout main
-                    git pull origin main 2>/dev/null
-                    git merge "$CURRENT_BRANCH" --no-edit
-                    git push origin main
-                fi
-                echo ">>> Iteration merged into main and pushed. Branch preserved on GitHub. <<<"
-                echo ">>> Active working branch is now 'main'. <<<"
-                read -p "Press Enter to continue..."
-            elif [ "$EVAL_CHOICE" = "2" ]; then
-                resolve_commit_msg || continue
-                git rm --cached public/Top.mp4 2>/dev/null
-                git rm --cached bin/.commit_msg.txt 2>/dev/null
-                git add -A
-                git commit -m "$RESOLVED_MSG"
-                git push -u origin "$CURRENT_BRANCH"
-                echo ">>> Committed and pushed to '$CURRENT_BRANCH'. <<<"
-                read -p "Press Enter to continue..."
-            elif [ "$EVAL_CHOICE" = "3" ]; then
-                echo ">>> Discarding uncommitted changes..."
-                git reset --hard HEAD
-                git clean -fd
-                read -p "Press Enter to continue..."
-            fi
+            github_operations
             ;;
         2)
             github_operations
@@ -398,18 +318,6 @@ while true; do
             wipe_reclone
             ;;
         4)
-            verify_token || continue
-            echo ""
-            echo "[WIPE CACHES] Clearing local build artifacts..."
-            cleanup_bridge
-            rm -rf node_modules
-            rm -rf bridge/node_modules
-            rm -rf dist
-            rm -f codebase.txt
-            echo ">>> Dependencies and build caches wiped clean. <<<"
-            read -p "Press Enter to continue..."
-            ;;
-        5)
             echo ""
             echo "[EXPORT] Serializing codebase..."
             out="codebase.txt"
@@ -439,10 +347,6 @@ while true; do
             fi
             echo "Codebase exported to codebase.txt"
             read -p "Press Enter to continue..."
-            ;;
-        6)
-            cleanup_bridge
-            exit 0
             ;;
         *)
             ;;
