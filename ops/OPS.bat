@@ -2,7 +2,7 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v2.70)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.35)
 :: =============================================================================
 
 :: Establish Project Root context
@@ -21,63 +21,96 @@ cd /d "%PROJECT_ROOT%"
 :MENU
 cls
 echo =================================================================
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v2.70)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.35)       
 echo =================================================================
-echo   [1] RUN ^& EVALUATE  (Vite + Daemon, Auto-Export ^& Evaluation)
-echo   [2] WIPE            (Token-Verified Complete Directory Erasure)
-echo   [3] EXPORT          (Serialize workspace to codebase.txt)
-echo   [4] EXIT
+echo   [1] RUN ^& EVALUATE     (Vite + Daemon, Auto-Export ^& Evaluation)
+echo   [2] GITHUB OPERATIONS  (Merge, Push Branch, Revert, Sync)
+echo   [3] WIPE               (Token-Verified Complete Directory Erasure)
+echo   [4] EXPORT             (Serialize workspace to codebase.txt)
+echo   [5] EXIT
 echo =================================================================
-set /p CHOICE=" Select action (1-4): "
+set /p CHOICE=" Select action (1-5): "
 
 if "%CHOICE%"=="1" goto RUN_EVAL
-if "%CHOICE%"=="2" goto WIPE
-if "%CHOICE%"=="3" goto EXPORT
-if "%CHOICE%"=="4" goto QUIT
+if "%CHOICE%"=="2" goto GITHUB_OPS
+if "%CHOICE%"=="3" goto WIPE
+if "%CHOICE%"=="4" goto EXPORT
+if "%CHOICE%"=="5" goto QUIT
 goto MENU
 
 :SETUP_NODE_ENV
+set "LOCAL_NODE_DIR=%PROJECT_ROOT%\bin\node"
+set "NODE_CMD=%LOCAL_NODE_DIR%\node.exe"
+set "NPM_CMD=%LOCAL_NODE_DIR%\npm.cmd"
+
+if exist "%NODE_CMD%" (
+    set "PATH=%LOCAL_NODE_DIR%;%PATH%"
+    goto :eof
+)
+
+if exist "%PROJECT_ROOT%\.atem_node_path" (
+    set /p CACHED_DIR=<"%PROJECT_ROOT%\.atem_node_path"
+    if exist "%CACHED_DIR%\node.exe" (
+        set "PATH=%CACHED_DIR%;%PATH%"
+        set "NODE_CMD=%CACHED_DIR%\node.exe"
+        set "NPM_CMD=%CACHED_DIR%\npm.cmd"
+        goto :eof
+    )
+)
+
 call node -v >nul 2>&1
 if %ERRORLEVEL% equ 0 (
+    echo [INFO] Global Node.js detected.
     set "NODE_CMD=node"
     set "NPM_CMD=npm"
     goto :eof
 )
 
-if not exist "%PROJECT_ROOT%\.atem_node_path" goto PROMPT_NODE_PATH
-set /p CACHED_NODE_DIR=<"%PROJECT_ROOT%\.atem_node_path"
-if exist "%CACHED_NODE_DIR%\node.exe" (
-    set "PATH=%CACHED_NODE_DIR%;%PATH%"
-    set "NODE_CMD=%CACHED_NODE_DIR%\node.exe"
-    set "NPM_CMD=%CACHED_NODE_DIR%\npm.cmd"
+echo.
+echo =================================================================
+echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.35)                
+echo =================================================================
+echo  Node.js was not found on your system or in bin\node.
+echo  Downloading official portable Node.js LTS (v20.18.0 x64)...
+echo =================================================================
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$ProgressPreference = 'SilentlyContinue';" ^
+    "$url = 'https://nodejs.org/dist/v20.18.0/node-v20.18.0-win-x64.zip';" ^
+    "$zip = Join-Path $env:TEMP 'node_portable.zip';" ^
+    "$ext = Join-Path $env:TEMP 'node_temp_extract';" ^
+    "$dest = '%LOCAL_NODE_DIR%';" ^
+    "Write-Host '[1/3] Downloading Node.js runtime archive...';" ^
+    "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;" ^
+    "Invoke-WebRequest -Uri $url -OutFile $zip;" ^
+    "Write-Host '[2/3] Extracting binaries into project folder bin\node...';" ^
+    "Expand-Archive -Path $zip -DestinationPath $ext -Force;" ^
+    "$inner = (Get-ChildItem -Path $ext -Directory | Select-Object -First 1).FullName;" ^
+    "if (!(Test-Path $dest)) { New-Item -ItemType Directory -Path $dest -Force | Out-Null };" ^
+    "Copy-Item -Path (Join-Path $inner '*') -Destination $dest -Recurse -Force;" ^
+    "Write-Host '[3/3] Cleaning up temporary files...';" ^
+    "Remove-Item -Path $zip, $ext -Recurse -Force;" ^
+    "Write-Host '>>> Portable Node.js successfully initialized in bin\node! <<<';"
+
+if exist "%NODE_CMD%" (
+    set "PATH=%LOCAL_NODE_DIR%;%PATH%"
     goto :eof
 )
 
-:PROMPT_NODE_PATH
-echo.
-echo =================================================================
-echo                 NODE.JS ENVIRONMENT REQUIRED
-echo =================================================================
-echo  'node' and 'npm' were not detected in your global system PATH.
-echo  Please enter the full folder path containing node.exe and npm.cmd
-echo  (e.g. C:\Tools\Node or C:\Users\user\Downloads\node-v20-win-x64):
-echo =================================================================
-set "USER_NODE_DIR="
+echo [ERROR] Automatic portable Node.js setup failed.
+echo Please enter the folder path containing node.exe manually:
 set /p USER_NODE_DIR=" Enter path: "
 if "%USER_NODE_DIR%"=="" goto MENU
 set "USER_NODE_DIR=%USER_NODE_DIR:"=%"
-
 if not exist "%USER_NODE_DIR%\node.exe" (
-    echo [ERROR] node.exe was not found in: "%USER_NODE_DIR%"
+    echo [ERROR] node.exe not found in "%USER_NODE_DIR%".
     pause
     goto MENU
 )
-
 echo %USER_NODE_DIR%>"%PROJECT_ROOT%\.atem_node_path"
 set "PATH=%USER_NODE_DIR%;%PATH%"
 set "NODE_CMD=%USER_NODE_DIR%\node.exe"
 set "NPM_CMD=%USER_NODE_DIR%\npm.cmd"
-echo [OK] Node.js path saved to .atem_node_path
 goto :eof
 
 :CHECK_DEPENDENCIES
@@ -133,16 +166,21 @@ echo ^>^>^> Starting Frontend Server on Port 3000 with auto-launch...
 call "%NPM_CMD%" run dev
 
 call :CLEANUP_PORTS
+goto GITHUB_OPS
 
-for /f "delims=" %%b in ('git rev-parse --abbrev-ref HEAD') do set "CURRENT_BRANCH=%%b"
-echo.
+:GITHUB_OPS
+call :CLEANUP_PORTS
+for /f "delims=" %%b in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set "CURRENT_BRANCH=%%b"
+if "%CURRENT_BRANCH%"=="" set "CURRENT_BRANCH=unknown"
+
+cls
 echo =================================================================
-echo                   EVALUATION / REVERT PIPELINE                   
+echo                        GITHUB OPERATIONS                         
 echo =================================================================
 echo  Active Branch: %CURRENT_BRANCH%
 echo -----------------------------------------------------------------
-echo   [1] MERGE TO MAIN   - Merge this feature branch into 'main',
-echo                         push to GitHub, and delete feature branch.
+echo   [1] MERGE TO MAIN   - Merge this feature branch into 'main'
+echo                         (preserves branch history on local/remote).
 echo.
 echo   [2] PUSH TO BRANCH  - Keep working on this branch. Commit and
 echo                         push progress to GitHub without merging.
@@ -150,47 +188,52 @@ echo.
 echo   [3] REVERT ^& DISCARD- Experiment failed. Reset codebase back to
 echo                         clean HEAD state (git reset --hard ^& clean).
 echo.
-echo   [4] RETURN TO MENU  - Leave all files exactly as they are without
-echo                         committing or reverting.
+echo   [4] RETURN TO MENU  - Return to main menu without changes.
 echo =================================================================
-set /p EVAL_CHOICE=" Select post-run action (1-4): "
+set /p EVAL_CHOICE=" Select Git action (1-4): "
 
 if "%EVAL_CHOICE%"=="1" goto MERGE_MAIN
 if "%EVAL_CHOICE%"=="2" goto PUSH_BRANCH
 if "%EVAL_CHOICE%"=="3" goto REVERT_DISCARD
-goto MENU
+if "%EVAL_CHOICE%"=="4" goto MENU
+goto GITHUB_OPS
 
 :MERGE_MAIN
-set "CMSG="
-set /p CMSG=" Enter iteration description / commit message: "
-if "%CMSG%"=="" set "CMSG=feat: iteration update"
+echo.
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$msg = Read-Host 'Enter iteration description / commit message'; if ([string]::IsNullOrWhiteSpace($msg)) { $msg = 'feat: iteration update' }; [System.IO.File]::WriteAllText((Join-Path $env:TEMP 'atem_commit_msg.txt'), $msg, [System.Text.Encoding]::UTF8)"
 
-if "%CURRENT_BRANCH%"=="main" (
-    git add -A
-    git commit -m "%CMSG%"
-    git push origin main
-    echo ^>^>^> Main branch updated and pushed. ^<^<^<
-) else (
-    git add -A
-    git commit -m "%CMSG%"
-    git push origin %CURRENT_BRANCH%
-    git checkout main
-    git pull origin main
-    git merge %CURRENT_BRANCH% --no-edit
-    git push origin main
-    git branch -d %CURRENT_BRANCH%
-    git push origin --delete %CURRENT_BRANCH% 2>nul
-    echo ^>^>^> Feature branch successfully merged into main and pruned. ^<^<^<
-)
+git rm --cached public/Top.mp4 2>nul
+git add -A
+git commit -F "%TEMP%\atem_commit_msg.txt"
+del "%TEMP%\atem_commit_msg.txt" 2>nul
+
+if "%CURRENT_BRANCH%"=="main" goto MERGE_MAIN_DIRECT
+
+git push origin %CURRENT_BRANCH%
+git checkout main
+git pull origin main
+git merge %CURRENT_BRANCH% --no-edit
+git push origin main
+git checkout %CURRENT_BRANCH%
+echo ^>^>^> Feature successfully merged into main (branch preserved). ^<^<^<
+pause
+goto MENU
+
+:MERGE_MAIN_DIRECT
+git push origin main
+echo ^>^>^> Main branch updated and pushed. ^<^<^<
 pause
 goto MENU
 
 :PUSH_BRANCH
+echo.
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$msg = Read-Host 'Enter commit message'; if ([string]::IsNullOrWhiteSpace($msg)) { $msg = 'wip: evaluation checkpoint' }; [System.IO.File]::WriteAllText((Join-Path $env:TEMP 'atem_commit_msg.txt'), $msg, [System.Text.Encoding]::UTF8)"
+
+git rm --cached public/Top.mp4 2>nul
 git add -A
-set "CMSG="
-set /p CMSG=" Enter commit message: "
-if "%CMSG%"=="" set "CMSG=wip: evaluation checkpoint"
-git commit -m "%CMSG%"
+git commit -F "%TEMP%\atem_commit_msg.txt"
+del "%TEMP%\atem_commit_msg.txt" 2>nul
+
 git push origin %CURRENT_BRANCH%
 echo ^>^>^> Committed and pushed to %CURRENT_BRANCH%. ^<^<^<
 pause
