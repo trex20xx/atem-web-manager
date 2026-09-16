@@ -2,8 +2,10 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - USE DEVICES HOOK (v1.77)
+// ATEM WEB MANAGER - USE DEVICES HOOK (v3.63)
 // =========================================================================
+// Forces all devices to start offline on page load, guaranteeing the initial
+// state is strictly NOT CONNECTED until a device is actively double-clicked.
 
 export const mutedColors = [
     { name: 'Default Grey', hex: '' }, { name: 'Muted Red', hex: '#8a4b48' },
@@ -22,12 +24,10 @@ const initialDevices = Array.from({ length: 16 }, (_, i) => ({
 export function useDevices() {
     const [isLoading, setIsLoading] = useState(true);
 
-    // V1.77 - Persistent Data via Local Storage
     const [devices, setDevices] = useLocalStorage('atem_devices', initialDevices);
     const [groupSettings, setGroupSettings] = useLocalStorage('atem_groupSettings', {});
     const [nextId, setNextId] = useLocalStorage('atem_nextId', 17);
     
-    // UI State (Does NOT need to be saved across refreshes)
     const [selectedDeviceId, setSelectedDeviceId] = useState(null);
     const [selectedGroupContext, setSelectedGroupContext] = useState(null);
     const [editingId, setEditingId] = useState(null);
@@ -40,12 +40,15 @@ export function useDevices() {
     const [actionState, _setActionState] = useState('select-none');
     const actionTimerRef = useRef(null);
 
-    // Simulate Network Fetch for Skeletons
+    // Initial load guard: Force all device states to offline and simulate network load
     useEffect(() => {
+        setDevices(prev => prev.map(d => ({ ...d, status: 'offline' })));
+        
         const timer = setTimeout(() => {
             setIsLoading(false);
         }, 1200);
         return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const validIP = useCallback((ip) => /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/.test(ip), []);

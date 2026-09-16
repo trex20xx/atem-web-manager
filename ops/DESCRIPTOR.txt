@@ -1,2 +1,2 @@
-v3.62
-Engineered full-height (100vh) gapless left-edge overlay sidebar in collapsed mode, and synchronized hardware-accelerated 16:9 quadrant grid scaling with the sidebar slide animation.
+v3.64
+Synchronized CLI scripts to complete zero-jitter CSS padding-inset layout, default disconnected routing, backtick hotkey, Cmd+, capture, and corrected timeline versioning.

@@ -9,7 +9,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { APP_VERSION } from './version';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v3.62)
+// ATEM WEB MANAGER - MASTER LAYOUT (v3.63)
 // =========================================================================
 
 function App() {
@@ -46,16 +46,16 @@ function App() {
   const connectedDevice = deviceState.devices.find(d => d.status === 'online');
   const isConnected = !!connectedDevice;
 
-  // Real-time aspect ratio lock calculation
-  const getQuadrantDimensions = (collapsed) => {
-    const topBarHeight = collapsed ? 0 : 42;
-    const sidebarWidth = collapsed ? 0 : 260;
-    const gap = collapsed ? 0 : 8;
-    const horizontalPadding = 32;
-    const verticalPadding = collapsed ? 16 : 24;
+  // Real-time aspect ratio lock syncing: cleanly calculates absolute padding insets
+  const handleResize = () => {
+    const isDocked = !isSidebarCollapsed;
+    const paddingLeft = isDocked ? 284 : 16;
+    const paddingRight = 16;
+    const paddingTop = isDocked ? 50 : 16;
+    const paddingBottom = 16;
 
-    const availableWidth = Math.max(100, window.innerWidth - sidebarWidth - gap - horizontalPadding);
-    const availableHeight = Math.max(100, window.innerHeight - topBarHeight - verticalPadding);
+    const availableWidth = Math.max(100, window.innerWidth - paddingLeft - paddingRight);
+    const availableHeight = Math.max(100, window.innerHeight - paddingTop - paddingBottom);
 
     let width = availableWidth;
     let height = width * 9 / 16;
@@ -64,14 +64,10 @@ function App() {
       width = height * 16 / 9;
     }
 
-    return {
+    setDashboardStyle({
       width: Math.max(100, Math.round(width)),
       height: Math.max(100, Math.round(height))
-    };
-  };
-
-  const handleResize = () => {
-    setDashboardStyle(getQuadrantDimensions(isSidebarCollapsed));
+    });
   };
 
   useEffect(() => {
@@ -116,18 +112,30 @@ function App() {
     }
   };
 
+  // Aggressive Capture-Phase Keyboard Shortcuts (Prevents macOS Safari preferences opening)
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Ignore keystrokes inside text inputs so we don't block typing
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
       if ((e.metaKey || e.ctrlKey) && e.key === ',') {
         e.preventDefault();
+        e.stopPropagation();
         setIsSettingsOpen((prev) => !prev);
       }
       if (e.key === 'Escape') {
         setIsSettingsOpen(false);
       }
+      if (e.key === '`' || e.key === '~') {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsSidebarCollapsed(prev => !prev);
+        setIsToolbarRevealed(false);
+        setIsSidebarRevealed(false);
+      }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, { capture: true, passive: false });
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
   }, []);
 
   useEffect(() => {
@@ -196,7 +204,7 @@ function App() {
               setIsToolbarRevealed(false);
               setIsSidebarRevealed(false);
             }}
-            data-description={isSidebarCollapsed ? "Expand navigation menu" : "Collapse navigation menu"}
+            data-description={isSidebarCollapsed ? "Expand navigation menu (`)" : "Collapse navigation menu (`)"}
           >
             <svg viewBox="0 0 24 24">
               <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
@@ -293,7 +301,6 @@ function App() {
 
       <div className={`dashboard ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <Sidebar 
-          height={dashboardStyle.height}
           showActionButton={showActionButton}
           enableDragDrop={enableDragDrop}
           forceUppercase={forceUppercase}

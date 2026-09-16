@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.62)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.63)
  * =========================================================================
  */
 
@@ -135,24 +135,22 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 
 /* Primary Top Toolbar */
 .app-top-bar { 
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
     height: 42px; 
-    min-height: 42px; 
     display: flex; 
     align-items: center; 
     justify-content: space-between; 
     padding: 0 16px; 
     background: transparent; 
     z-index: 1000; 
-    position: relative; 
-    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s ease;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s ease;
 }
 
 /* Collapsed Overlay Mode (Slid up, dark grey background, drops down on hover) */
 .app-top-bar.collapsed-mode {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
     background: #181818 !important;
     border-bottom: 1px solid var(--atem-border);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
@@ -273,28 +271,45 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .apple-theme-switch.active { background: #383838; border-color: #666; }
 .apple-theme-switch.active .apple-switch-thumb { transform: translateX(16px); }
 
-.dashboard{ flex: 1; width: 100%; display: flex; justify-content: center; align-items: center; gap: var(--gap); padding: 8px 16px 16px 16px; box-sizing: border-box; overflow: hidden; position: relative; }
-.dashboard.sidebar-collapsed { justify-content: center; }
+/* Main layout padding container ensuring zero jitter during scale */
+.dashboard {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Docked mode base padding: 50px top, 16px bottom, 284px left (sidebar + gap), 16px right */
+    padding: 50px 16px 16px 284px;
+    transition: padding 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1;
+}
+
+.dashboard.sidebar-collapsed {
+    padding: 16px;
+}
 
 /* Sidebar Base (Docked Mode) */
-.sidebar{ 
-    width: 260px; 
-    min-width: 260px; 
+.sidebar { 
+    position: fixed;
+    top: 50px;
+    bottom: 16px;
+    left: 16px;
+    width: 260px;
     background: var(--panel); 
     border-radius: var(--panel-radius); 
     display: flex; 
     flex-direction: column; 
     overflow: hidden; 
-    height: 100%;
+    z-index: 1000;
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
-                margin-left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                top 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                bottom 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                border-radius 0.35s cubic-bezier(0.4, 0, 0.2, 1),
                 background-color 0.25s ease, 
                 box-shadow 0.25s ease;
     transform: translateX(0);
-    flex-shrink: 0;
     box-sizing: border-box;
-    position: relative;
-    z-index: 100;
 }
 
 .sidebar > * {
@@ -306,15 +321,9 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 
 /* Collapsed Overlay Mode: Takes 100% full top-to-bottom viewport height with zero gaps */
 .sidebar.collapsed { 
-    position: fixed !important;
-    top: 0 !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    height: 100vh !important;
-    max-height: 100vh !important;
-    width: 260px !important;
-    min-width: 260px !important;
-    margin: 0 !important;
+    top: 0;
+    bottom: 0;
+    left: 0;
     background: #181818 !important;
     border: none !important;
     border-right: 1px solid var(--atem-border) !important;
@@ -336,7 +345,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 /* Slide in smoothly when revealed by hover */
 .sidebar.collapsed.revealed,
 .sidebar.collapsed:hover {
-    transform: translateX(0) !important;
+    transform: translateX(0);
 }
 
 .search-container{ padding: 8px 8px 4px 8px; }
@@ -416,7 +425,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .edit-save{ background:var(--green); }
 .edit-cancel{ background:#4a4a4a; }
 
-/* Quadrant grid with hardware-accelerated dimensional transition */
+/* Quadrant grid perfectly synchronized with absolute padding layout shifts */
 .quadrant-wrapper{ 
     display:grid; 
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); 
@@ -1135,7 +1144,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     color: var(--text);
 }
 
-/* Enforce font-weight 400 across all active states */
+/* Enforce font-weight 400 across all active states - prevents bolder buttons */
 .macro-action-text-btn.active-orange { color: var(--orange-hl) !important; opacity: 1; font-weight: 400 !important; }
 .macro-action-text-btn.active-green { color: #2e7d32 !important; opacity: 1; font-weight: 400 !important; }
 .macro-action-text-btn.active-red { color: #d32f2f !important; opacity: 1; font-weight: 400 !important; }

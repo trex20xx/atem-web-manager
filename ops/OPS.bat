@@ -2,7 +2,7 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.60)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.64)
 :: =============================================================================
 :: This CLI manages the end-to-end development lifecycle:
 :: 1. Self-contained portable Node.js runtime resolution and integrity verification.
@@ -31,7 +31,7 @@ cd /d "%PROJECT_ROOT%"
 :MENU
 cls
 echo -----------------------------------------------------------------
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.60)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.64)       
 echo -----------------------------------------------------------------
 echo   [1] RUN ^& EVALUATE     (Vite + Daemon, Auto-Export ^& Evaluation)
 echo   [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)
@@ -128,7 +128,7 @@ if %ERRORLEVEL% equ 0 (
 
 echo.
 echo -----------------------------------------------------------------
-echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.60)                
+echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.64)                
 echo -----------------------------------------------------------------
 echo  Node.js was not found on your system or in bin\node.
 echo  Downloading official portable Node.js LTS (v20.18.0 x64)...
@@ -249,7 +249,7 @@ set "DESC_FILE=%PROJECT_ROOT%\ops\DESCRIPTOR.txt"
 
 set "DETECTED_VER="
 for /f "usebackq tokens=2 delims='" %%v in (`powershell -NoProfile -Command "Select-String -Path 'src\version.js' -Pattern 'v[0-9]+\.[0-9]+' | ForEach-Object { $_.Matches.Value }"`) do set "DETECTED_VER=%%v"
-if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.60"
+if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.64"
 
 if not exist "%DESC_FILE%" goto MANUAL_PROMPT
 
@@ -472,7 +472,7 @@ git reset --hard HEAD
 git clean -fd
 echo ^>^>^> Workspace clean and reverted. ^<^<^<
 pause
-goto MENU
+goto GITHUB_OPS
 
 :WIPE_RECLONE
 call :VERIFY_TOKEN
