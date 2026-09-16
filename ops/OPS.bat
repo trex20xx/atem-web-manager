@@ -2,10 +2,11 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.36)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.39)
 :: =============================================================================
 
-:: Establish Project Root context
+taskkill /f /fi "WINDOWTITLE eq ATEM_GHOST_WIPER*" >nul 2>&1
+
 set "SCRIPT_DIR=%~dp0"
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 for %%I in ("%SCRIPT_DIR%") do (
@@ -21,12 +22,12 @@ cd /d "%PROJECT_ROOT%"
 :MENU
 cls
 echo =================================================================
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.36)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.39)       
 echo =================================================================
 echo   [1] RUN ^& EVALUATE     (Vite + Daemon, Auto-Export ^& Evaluation)
-echo   [2] GITHUB OPERATIONS  (Merge, Push, Switch, Branch, Re-clone)
-echo   [3] WIPE ^& RE-CLONE    (Ghost-Script Fresh Git Clone from Scratch)
-echo   [4] WIPE LOCAL CACHES  (Clear node_modules, dist, temp files)
+echo   [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)
+echo   [3] WIPE ^& RE-CLONE    (Token-Verified Total Scratch Re-Clone)
+echo   [4] WIPE LOCAL CACHES  (Token-Verified Cache ^& Build Erasure)
 echo   [5] EXPORT CODEBASE    (Serialize workspace to codebase.txt)
 echo   [6] EXIT
 echo =================================================================
@@ -40,19 +41,65 @@ if "%CHOICE%"=="5" goto EXPORT
 if "%CHOICE%"=="6" goto QUIT
 goto MENU
 
+:VERIFY_TOKEN
+set "TOKEN_FILE=%PROJECT_ROOT%\.atem_workspace_token"
+set "REQUIRED_KEY=ATEM_MANAGER_SECURE_WIPE_KEY_2026"
+
+if not exist "%TOKEN_FILE%" (
+    echo.
+    echo =================================================================
+    echo  [SECURITY ABORT] Missing token: .atem_workspace_token not found!
+    echo  Wipe refused to prevent deleting unintended drive directories.
+    echo =================================================================
+    pause
+    exit /b 1
+)
+
+set "FOUND_KEY="
+set /p FOUND_KEY=<"%TOKEN_FILE%"
+if not "%FOUND_KEY%"=="%REQUIRED_KEY%" (
+    echo.
+    echo =================================================================
+    echo  [SECURITY ABORT] Invalid security key inside .atem_workspace_token!
+    echo  Wipe refused to prevent deleting unintended drive directories.
+    echo =================================================================
+    pause
+    exit /b 1
+)
+
+if "%PROJECT_ROOT%"=="" (
+    echo [SECURITY ABORT] PROJECT_ROOT variable is empty.
+    pause
+    exit /b 1
+)
+if "%PROJECT_ROOT:~1,2%"==":\" if "%PROJECT_ROOT:~3%"=="" (
+    echo [SECURITY ABORT] Dangerous target: PROJECT_ROOT is a drive root.
+    pause
+    exit /b 1
+)
+
+exit /b 0
+
 :SETUP_NODE_ENV
 set "LOCAL_NODE_DIR=%PROJECT_ROOT%\bin\node"
 set "NODE_CMD=%LOCAL_NODE_DIR%\node.exe"
 set "NPM_CMD=%LOCAL_NODE_DIR%\npm.cmd"
 
-if exist "%NODE_CMD%" (
+if not exist "%PROJECT_ROOT%\bin" mkdir "%PROJECT_ROOT%\bin"
+
+if exist "%NODE_CMD%" if exist "%LOCAL_NODE_DIR%\node_modules\npm\bin\npm-cli.js" (
     set "PATH=%LOCAL_NODE_DIR%;%PATH%"
     goto :eof
 )
 
+if exist "%LOCAL_NODE_DIR%" (
+    echo [REPAIR] Incomplete portable Node.js runtime detected. Cleaning up...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-Item -LiteralPath '%LOCAL_NODE_DIR%' -Recurse -Force -ErrorAction SilentlyContinue"
+)
+
 if exist "%PROJECT_ROOT%\.atem_node_path" (
     set /p CACHED_DIR=<"%PROJECT_ROOT%\.atem_node_path"
-    if exist "%CACHED_DIR%\node.exe" (
+    if exist "%CACHED_DIR%\node.exe" if exist "%CACHED_DIR%\node_modules\npm\bin\npm-cli.js" (
         set "PATH=%CACHED_DIR%;%PATH%"
         set "NODE_CMD=%CACHED_DIR%\node.exe"
         set "NPM_CMD=%CACHED_DIR%\npm.cmd"
@@ -70,31 +117,35 @@ if %ERRORLEVEL% equ 0 (
 
 echo.
 echo =================================================================
-echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.36)                
+echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.39)                
 echo =================================================================
 echo  Node.js was not found on your system or in bin\node.
 echo  Downloading official portable Node.js LTS (v20.18.0 x64)...
 echo =================================================================
 
+set "DL_ZIP=%PROJECT_ROOT%\bin\node_setup.zip"
+set "EXT_DIR=%PROJECT_ROOT%\bin\node_setup_ext"
+
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$ProgressPreference = 'SilentlyContinue';" ^
     "$url = 'https://nodejs.org/dist/v20.18.0/node-v20.18.0-win-x64.zip';" ^
-    "$zip = Join-Path $env:TEMP 'node_portable.zip';" ^
-    "$ext = Join-Path $env:TEMP 'node_temp_extract';" ^
+    "$zip = '%DL_ZIP%';" ^
+    "$ext = '%EXT_DIR%';" ^
     "$dest = '%LOCAL_NODE_DIR%';" ^
     "Write-Host '[1/3] Downloading Node.js runtime archive...';" ^
     "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;" ^
     "Invoke-WebRequest -Uri $url -OutFile $zip;" ^
-    "Write-Host '[2/3] Extracting binaries into project folder bin\node...';" ^
-    "Expand-Archive -Path $zip -DestinationPath $ext -Force;" ^
-    "$inner = (Get-ChildItem -Path $ext -Directory | Select-Object -First 1).FullName;" ^
-    "if (!(Test-Path $dest)) { New-Item -ItemType Directory -Path $dest -Force | Out-Null };" ^
-    "Copy-Item -Path (Join-Path $inner '*') -Destination $dest -Recurse -Force;" ^
-    "Write-Host '[3/3] Cleaning up temporary files...';" ^
-    "Remove-Item -Path $zip, $ext -Recurse -Force;" ^
+    "Write-Host '[2/3] Extracting complete binaries and npm modules...';" ^
+    "if (Test-Path -LiteralPath $ext) { Remove-Item -LiteralPath $ext -Recurse -Force -ErrorAction SilentlyContinue };" ^
+    "Expand-Archive -LiteralPath $zip -DestinationPath $ext -Force;" ^
+    "$inner = (Get-ChildItem -LiteralPath $ext -Directory | Select-Object -First 1).FullName;" ^
+    "Move-Item -LiteralPath $inner -Destination $dest -Force;" ^
+    "Write-Host '[3/3] Cleaning up temporary archive files...';" ^
+    "Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue;" ^
+    "Remove-Item -LiteralPath $ext -Recurse -Force -ErrorAction SilentlyContinue;" ^
     "Write-Host '>>> Portable Node.js successfully initialized in bin\node! <<<';"
 
-if exist "%NODE_CMD%" (
+if exist "%NODE_CMD%" if exist "%LOCAL_NODE_DIR%\node_modules\npm\bin\npm-cli.js" (
     set "PATH=%LOCAL_NODE_DIR%;%PATH%"
     goto :eof
 )
@@ -168,7 +219,34 @@ echo ^>^>^> Starting Frontend Server on Port 3000 with auto-launch...
 call "%NPM_CMD%" run dev
 
 call :CLEANUP_PORTS
-goto GITHUB_OPS
+
+for /f "delims=" %%b in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set "CURRENT_BRANCH=%%b"
+if "%CURRENT_BRANCH%"=="" set "CURRENT_BRANCH=unknown"
+
+echo.
+echo =================================================================
+echo                   EVALUATION / REVERT PIPELINE                   
+echo =================================================================
+echo  Active Branch: %CURRENT_BRANCH%
+echo -----------------------------------------------------------------
+echo   [1] MERGE TO MAIN   - Merge this feature branch into 'main'
+echo                         (preserves branch history on local/remote).
+echo.
+echo   [2] PUSH TO BRANCH  - Keep working on this branch. Commit and
+echo                         push progress to GitHub without merging.
+echo.
+echo   [3] REVERT ^& DISCARD- Experiment failed. Reset codebase back to
+echo                         clean HEAD state (git reset --hard ^& clean).
+echo.
+echo   [4] RETURN TO MENU  - Leave all files exactly as they are without
+echo                         committing or reverting.
+echo =================================================================
+set /p EVAL_CHOICE=" Select post-run action (1-4): "
+
+if "%EVAL_CHOICE%"=="1" goto MERGE_MAIN
+if "%EVAL_CHOICE%"=="2" goto PUSH_BRANCH
+if "%EVAL_CHOICE%"=="3" goto REVERT_DISCARD
+goto MENU
 
 :GITHUB_OPS
 call :CLEANUP_PORTS
@@ -193,33 +271,30 @@ echo                              (to test or revert to older versions).
 echo.
 echo   [4] CREATE NEW BRANCH    - Create and switch to a new branch.
 echo.
-echo   [5] WIPE ^& RE-CLONE      - Erase workspace and re-clone fresh
-echo                              from GitHub via detached ghost script.
-echo.
-echo   [6] REVERT ^& DISCARD     - Reset active branch back to clean
+echo   [5] REVERT ^& DISCARD     - Reset active branch back to clean
 echo                              HEAD state (git reset --hard ^& clean).
 echo.
-echo   [7] RETURN TO MENU       - Return to main operations menu.
+echo   [6] RETURN TO MENU       - Return to main operations menu.
 echo =================================================================
-set /p GCHOICE=" Select Git action (1-7): "
+set /p GCHOICE=" Select Git action (1-6): "
 
 if "%GCHOICE%"=="1" goto MERGE_MAIN
 if "%GCHOICE%"=="2" goto PUSH_BRANCH
 if "%GCHOICE%"=="3" goto SWITCH_BRANCH
 if "%GCHOICE%"=="4" goto CREATE_BRANCH
-if "%GCHOICE%"=="5" goto WIPE_RECLONE
-if "%GCHOICE%"=="6" goto REVERT_DISCARD
-if "%GCHOICE%"=="7" goto MENU
+if "%GCHOICE%"=="5" goto REVERT_DISCARD
+if "%GCHOICE%"=="6" goto MENU
 goto GITHUB_OPS
 
 :MERGE_MAIN
 echo.
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$msg = Read-Host 'Enter iteration description / commit message'; if ([string]::IsNullOrWhiteSpace($msg)) { $msg = 'feat: iteration update' }; [System.IO.File]::WriteAllText((Join-Path $env:TEMP 'atem_commit_msg.txt'), $msg, [System.Text.Encoding]::UTF8)"
+set "COMMIT_TMP=%PROJECT_ROOT%\bin\.commit_msg.txt"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$msg = Read-Host 'Enter iteration description / commit message'; if ([string]::IsNullOrWhiteSpace($msg)) { $msg = 'feat: iteration update' }; [System.IO.File]::WriteAllText('%COMMIT_TMP%', $msg, [System.Text.Encoding]::UTF8)"
 
 git rm --cached public/Top.mp4 2>nul
 git add -A
-git commit -F "%TEMP%\atem_commit_msg.txt"
-del "%TEMP%\atem_commit_msg.txt" 2>nul
+git commit -F "%COMMIT_TMP%"
+del "%COMMIT_TMP%" 2>nul
 
 if "%CURRENT_BRANCH%"=="main" goto MERGE_MAIN_DIRECT
 
@@ -231,27 +306,28 @@ git push origin main
 echo ^>^>^> Feature merged into main and pushed. Branch '%CURRENT_BRANCH%' preserved. ^<^<^<
 echo ^>^>^> Active branch is now 'main'. ^<^<^<
 pause
-goto GITHUB_OPS
+goto MENU
 
 :MERGE_MAIN_DIRECT
 git push origin main
 echo ^>^>^> Main branch updated and pushed to remote origin. ^<^<^<
 pause
-goto GITHUB_OPS
+goto MENU
 
 :PUSH_BRANCH
 echo.
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$msg = Read-Host 'Enter commit message'; if ([string]::IsNullOrWhiteSpace($msg)) { $msg = 'wip: evaluation checkpoint' }; [System.IO.File]::WriteAllText((Join-Path $env:TEMP 'atem_commit_msg.txt'), $msg, [System.Text.Encoding]::UTF8)"
+set "COMMIT_TMP=%PROJECT_ROOT%\bin\.commit_msg.txt"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$msg = Read-Host 'Enter commit message'; if ([string]::IsNullOrWhiteSpace($msg)) { $msg = 'wip: evaluation checkpoint' }; [System.IO.File]::WriteAllText('%COMMIT_TMP%', $msg, [System.Text.Encoding]::UTF8)"
 
 git rm --cached public/Top.mp4 2>nul
 git add -A
-git commit -F "%TEMP%\atem_commit_msg.txt"
-del "%TEMP%\atem_commit_msg.txt" 2>nul
+git commit -F "%COMMIT_TMP%"
+del "%COMMIT_TMP%" 2>nul
 
 git push origin %CURRENT_BRANCH%
 echo ^>^>^> Committed and pushed to branch '%CURRENT_BRANCH%'. ^<^<^<
 pause
-goto GITHUB_OPS
+goto MENU
 
 :SWITCH_BRANCH
 echo.
@@ -281,15 +357,18 @@ git reset --hard HEAD
 git clean -fd
 echo ^>^>^> Workspace clean and reverted. ^<^<^<
 pause
-goto GITHUB_OPS
+goto MENU
 
 :WIPE_RECLONE
+call :VERIFY_TOKEN
+if %ERRORLEVEL% neq 0 goto MENU
+
 echo.
 echo =================================================================
 echo             TOTAL WORKSPACE WIPE ^& RE-CLONE PROTOCOL             
 echo =================================================================
-echo  WARNING: This will completely destroy this folder, terminate all
-echo  port locks, and clone a fresh copy from GitHub via ghost script.
+echo  WARNING: This will completely destroy this folder and clone a
+echo  fresh copy from GitHub. Run this ONLY when you want a clean reset.
 echo =================================================================
 
 set "REPO_URL="
@@ -297,12 +376,13 @@ for /f "delims=" %%u in ('git config --get remote.origin.url 2^>nul') do set "RE
 if "%REPO_URL%"=="" set "REPO_URL=https://github.com/trex20xx/atem-web-manager.git"
 
 for %%I in ("%PROJECT_ROOT%") do set "PARENT_DIR=%%~dpI"
+if "%PARENT_DIR:~-1%"=="\" set "PARENT_DIR=%PARENT_DIR:~0,-1%"
 for %%I in ("%PROJECT_ROOT%") do set "FOLDER_NAME=%%~nxI"
 
 echo  Remote Repository: %REPO_URL%
 echo  Target Folder:     %PROJECT_ROOT%
 echo =================================================================
-set /p WIPE_CONFIRM=" Type 'RECLONE' to execute: "
+set /p WIPE_CONFIRM=" Type 'RECLONE' to execute (or press Enter to cancel): "
 if not "%WIPE_CONFIRM%"=="RECLONE" (
     echo ^>^>^> Wipe and re-clone aborted. ^<^<^<
     pause
@@ -311,30 +391,43 @@ if not "%WIPE_CONFIRM%"=="RECLONE" (
 
 call :CLEANUP_PORTS
 
-:: Build detached ghost batch script in %TEMP%
-set "GHOST_BAT=%TEMP%\atem_ghost_reclone.bat"
+set "GHOST_BAT=%USERPROFILE%\atem_ghost_reclone.bat"
 (
     echo @echo off
-    echo echo [GHOST] Waiting for parent process to release folder lock...
-    echo timeout /t 2 /nobreak ^>nul
+    echo title ATEM_GHOST_WIPER
+    echo echo [GHOST] Terminating lingering background port handles...
     echo powershell -NoProfile -Command "8080, 3000, 8000 | ForEach-Object { $p = (Get-NetTCPConnection -LocalPort $_ -State Listen -ErrorAction SilentlyContinue).OwningProcess; if ($p) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue } }"
+    echo timeout /t 2 /nobreak ^>nul
+    echo if not exist "%PROJECT_ROOT%\.atem_workspace_token" ^(
+    echo     echo [GHOST SECURITY ABORT] Token file missing from target directory! Aborting deletion.
+    echo     pause
+    echo     del "%%~f0" ^>nul 2^>^&1
+    echo     exit
+    echo ^)
     echo echo [GHOST] Deleting old project directory: "%PROJECT_ROOT%"...
-    echo rmdir /S /Q "%PROJECT_ROOT%"
-    echo echo [GHOST] Cloning fresh repository into: "%PROJECT_ROOT%"...
+    echo rmdir /S /Q "%PROJECT_ROOT%" ^>nul 2^>^&1
+    echo echo [GHOST] Cloning fresh repository from GitHub...
     echo cd /d "%PARENT_DIR%"
     echo git clone "%REPO_URL%" "%FOLDER_NAME%"
-    echo cd /d "%PROJECT_ROOT%"
-    echo echo [GHOST] Launching freshly cloned master CLI...
-    echo start "" "%PROJECT_ROOT%\ops\OPS.bat"
+    echo echo.
+    echo echo =================================================================
+    echo echo  Fresh clone complete: %PARENT_DIR%\%FOLDER_NAME%
+    echo echo  You can now open the folder in VS Code and run ops\OPS.bat.
+    echo echo =================================================================
+    echo echo  Press any key to close this window...
+    echo pause ^>nul
     echo del "%%~f0" ^>nul 2^>^&1
     echo exit
 ) > "%GHOST_BAT%"
 
-echo ^>^>^> Spawning detached ghost script and exiting parent process...
+echo ^>^>^> Spawning ghost cloner...
 start "" cmd /c "%GHOST_BAT%"
 exit /b 0
 
 :WIPE_CACHES
+call :VERIFY_TOKEN
+if %ERRORLEVEL% neq 0 goto MENU
+
 echo.
 echo =================================================================
 echo                   CLEAR LOCAL CACHES ^& BUILD ARTIFACTS           
