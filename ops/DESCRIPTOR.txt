@@ -1,2 +1,2 @@
-v3.68
-Implemented dim/bright tally state logic in Media Pool slots, rendering active media assignments with a muted 40% opacity border that fully illuminates only when the respective MP1 or MP2 routing button is selected.
+v3.69
+Configured OPS.BAT and OPS.SH to cleanly clear the terminal screen upon exit and removed deprecated WIPE LOCAL CACHES option from Windows script for complete cross-platform menu parity.

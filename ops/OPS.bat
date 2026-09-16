@@ -2,7 +2,7 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.64)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.69)
 :: =============================================================================
 :: This CLI manages the end-to-end development lifecycle:
 :: 1. Self-contained portable Node.js runtime resolution and integrity verification.
@@ -11,6 +11,7 @@ setlocal
 :: 4. Consolidated GitHub Operations menu with automated branching, tagging, and merges.
 :: 5. Standard interactive text prompts with Enter submission and empty-Enter cancellation.
 :: 6. Token-guarded workspace cleaning and silent scratch re-cloning via ghost scripts.
+:: 7. Clean terminal exit logic.
 :: =============================================================================
 
 chcp 65001 >nul
@@ -31,7 +32,7 @@ cd /d "%PROJECT_ROOT%"
 :MENU
 cls
 echo -----------------------------------------------------------------
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.64)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.69)       
 echo -----------------------------------------------------------------
 echo   [1] RUN ^& EVALUATE     (Vite + Daemon, Auto-Export ^& Evaluation)
 echo   [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)
@@ -128,7 +129,7 @@ if %ERRORLEVEL% equ 0 (
 
 echo.
 echo -----------------------------------------------------------------
-echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.64)                
+echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.69)                
 echo -----------------------------------------------------------------
 echo  Node.js was not found on your system or in bin\node.
 echo  Downloading official portable Node.js LTS (v20.18.0 x64)...
@@ -249,7 +250,7 @@ set "DESC_FILE=%PROJECT_ROOT%\ops\DESCRIPTOR.txt"
 
 set "DETECTED_VER="
 for /f "usebackq tokens=2 delims='" %%v in (`powershell -NoProfile -Command "Select-String -Path 'src\version.js' -Pattern 'v[0-9]+\.[0-9]+' | ForEach-Object { $_.Matches.Value }"`) do set "DETECTED_VER=%%v"
-if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.64"
+if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.69"
 
 if not exist "%DESC_FILE%" goto MANUAL_PROMPT
 
@@ -428,7 +429,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "foreach ($r in $bRefs) {" ^
     "    if ($r -match 'HEAD' -or $r -match '^origin$') { continue };" ^
     "    $parts = $r.Split('|');" ^
-    "    $name = $parts[0].Replace('origin/', '');" ^
+    "    $rawName = $parts[0];" ^
+    "    $name = $rawName.Replace('origin/', '');" ^
     "    if ($seen.ContainsKey($name)) { continue };" ^
     "    $seen[$name] = $true;" ^
     "    $subj = if ($parts.Count -gt 1) { $parts[1] } else { '' };" ^
@@ -536,5 +538,5 @@ goto MENU
 
 :QUIT
 call :CLEANUP_PORTS
-echo ^>^>^> Exiting master CLI. Goodbye! ^<^<^<
+cls
 exit /b 0

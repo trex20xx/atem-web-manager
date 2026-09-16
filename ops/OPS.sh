@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # =============================================================================
-# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / POSIX) (v3.64)
+# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / POSIX) (v3.69)
 # =============================================================================
 # Manages runtime resolution, Vite + bridge daemon execution, consolidated
-# GitHub Operations menu, Enter confirmation, and empty-Enter cancellation.
+# GitHub Operations menu, Enter confirmation, empty-Enter cancellation,
+# cross-platform menu parity, and clean terminal exits.
 # Target macOS Location: /Users/robert.mirt/Downloads/PROGRAMMING/atem-web-manager/
 # =============================================================================
 
@@ -67,7 +68,7 @@ verify_token() {
 resolve_commit_msg() {
     DESC_FILE="$PROJECT_ROOT/ops/DESCRIPTOR.txt"
     DETECTED_VER=$(grep -o "v[0-9]\+\.[0-9]\+" src/version.js | head -n 1)
-    if [ -z "$DETECTED_VER" ]; then DETECTED_VER="v3.64"; fi
+    if [ -z "$DETECTED_VER" ]; then DETECTED_VER="v3.69"; fi
 
     if [ -f "$DESC_FILE" ]; then
         FILE_VER=$(head -n 1 "$DESC_FILE" | tr -d '\r\n')
@@ -264,7 +265,7 @@ github_operations() {
 while true; do
     clear
     echo "-------------------------------------------------------------------------"
-    echo "ATEM WEB MANAGER - OPERATIONS SUITE (macOS) (v3.64)"
+    echo "ATEM WEB MANAGER - OPERATIONS SUITE (macOS) (v3.69)"
     echo "-------------------------------------------------------------------------"
     echo "[1] RUN & EVALUATE     - Launch Vite Frontend & Node Bridge Daemon"
     echo "[2] GITHUB OPERATIONS  - Merge to Main, Push Branch, Switch"
@@ -276,6 +277,7 @@ while true; do
 
     if [ -z "$choice" ] || [ "$choice" = "0" ] || [ "$choice" = "5" ] || [ "$choice" = "q" ]; then
         cleanup_bridge
+        clear
         exit 0
     fi
 
