@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / POSIX) (v3.50)
+# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS / POSIX) (v3.60)
 # =============================================================================
 # Manages runtime resolution, Vite + bridge daemon execution, consolidated
 # GitHub Operations menu, Enter confirmation, and empty-Enter cancellation.
@@ -67,7 +67,7 @@ verify_token() {
 resolve_commit_msg() {
     DESC_FILE="$PROJECT_ROOT/ops/DESCRIPTOR.txt"
     DETECTED_VER=$(grep -o "v[0-9]\+\.[0-9]\+" src/version.js | head -n 1)
-    if [ -z "$DETECTED_VER" ]; then DETECTED_VER="v3.50"; fi
+    if [ -z "$DETECTED_VER" ]; then DETECTED_VER="v3.60"; fi
 
     if [ -f "$DESC_FILE" ]; then
         FILE_VER=$(head -n 1 "$DESC_FILE" | tr -d '\r\n')
@@ -164,8 +164,8 @@ github_operations() {
         echo "  [2] PUSH TO BRANCH    (Checkpoint progress on active branch)"
         echo "  [3] SWITCH BRANCH     (View branch history and checkout version)"
         echo "  [4] CREATE NEW BRANCH (Create and checkout new feature branch)"
-        echo "  [5] WIPE & RE-CLONE   (Token-Verified Total Scratch Re-Clone)"
-        echo "  [6] REVERT & DISCARD  (Discard uncommitted changes and clean)"
+        echo "  [5] WIPE ^& RE-CLONE   (Token-Verified Total Scratch Re-Clone)"
+        echo "  [6] REVERT ^& DISCARD  (Discard uncommitted changes and clean)"
         echo "  [7] RETURN TO MENU    (Return to main operations menu)"
         echo "-----------------------------------------------------------------"
         read -p " Select Git action (1-7, or press Enter/0 to return): " GCHOICE
@@ -264,7 +264,7 @@ github_operations() {
 while true; do
     clear
     echo "-------------------------------------------------------------------------"
-    echo "ATEM WEB MANAGER - OPERATIONS SUITE (macOS) (v3.50)"
+    echo "ATEM WEB MANAGER - OPERATIONS SUITE (macOS) (v3.60)"
     echo "-------------------------------------------------------------------------"
     echo "[1] RUN & EVALUATE     - Launch Vite Frontend & Node Bridge Daemon"
     echo "[2] GITHUB OPERATIONS  - Merge to Main, Push Branch, Switch"
@@ -296,6 +296,20 @@ while true; do
             if [ ! -d "bridge/node_modules" ]; then
                 echo "Installing bridge dependencies..."
                 cd bridge && "$NPM_CMD" install && cd ..
+            fi
+
+            # Download embedded local Roboto webfonts if absent
+            if [ ! -f "$PROJECT_ROOT/public/fonts/roboto-400.woff2" ]; then
+                echo ""
+                echo "-----------------------------------------------------------------"
+                echo "    DOWNLOADING EMBEDDED ROBOTO FONTS INTO PROJECT (OFFLINE USE) "
+                echo "-----------------------------------------------------------------"
+                mkdir -p "$PROJECT_ROOT/public/fonts"
+                curl -sL "https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.woff2" -o "$PROJECT_ROOT/public/fonts/roboto-400.woff2"
+                curl -sL "https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmEU9fBBc4.woff2" -o "$PROJECT_ROOT/public/fonts/roboto-500.woff2"
+                curl -sL "https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc4.woff2" -o "$PROJECT_ROOT/public/fonts/roboto-700.woff2"
+                curl -sL "https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmYUtfBBc4.woff2" -o "$PROJECT_ROOT/public/fonts/roboto-900.woff2"
+                echo "  [DONE] Embedded Roboto webfonts downloaded successfully."
             fi
 
             cleanup_bridge

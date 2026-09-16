@@ -9,7 +9,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { APP_VERSION } from './version';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v3.51)
+// ATEM WEB MANAGER - MASTER LAYOUT (v3.62)
 // =========================================================================
 
 function App() {
@@ -31,6 +31,8 @@ function App() {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarRevealed, setIsSidebarRevealed] = useState(false);
+  const [isToolbarRevealed, setIsToolbarRevealed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   
   const [dashboardStyle, setDashboardStyle] = useState({ width: '100%', height: '100%' });
@@ -44,14 +46,13 @@ function App() {
   const connectedDevice = deviceState.devices.find(d => d.status === 'online');
   const isConnected = !!connectedDevice;
 
-  // Real-time aspect ratio lock syncing to completely eliminate vertical jumping
-  const handleResize = () => {
-    const topBarHeight = 42;
-    const sidebarEl = document.querySelector('.sidebar');
-    const sidebarWidth = sidebarEl ? sidebarEl.getBoundingClientRect().width : (isSidebarCollapsed ? 0 : 260);
-    const gap = isSidebarCollapsed ? 0 : 8;
+  // Real-time aspect ratio lock calculation
+  const getQuadrantDimensions = (collapsed) => {
+    const topBarHeight = collapsed ? 0 : 42;
+    const sidebarWidth = collapsed ? 0 : 260;
+    const gap = collapsed ? 0 : 8;
     const horizontalPadding = 32;
-    const verticalPadding = 24;
+    const verticalPadding = collapsed ? 16 : 24;
 
     const availableWidth = Math.max(100, window.innerWidth - sidebarWidth - gap - horizontalPadding);
     const availableHeight = Math.max(100, window.innerHeight - topBarHeight - verticalPadding);
@@ -63,31 +64,20 @@ function App() {
       width = height * 16 / 9;
     }
 
-    setDashboardStyle({
+    return {
       width: Math.max(100, Math.round(width)),
       height: Math.max(100, Math.round(height))
-    });
+    };
+  };
+
+  const handleResize = () => {
+    setDashboardStyle(getQuadrantDimensions(isSidebarCollapsed));
   };
 
   useEffect(() => {
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Synchronize dynamic recalculations during the 350ms sidebar slide
-  useEffect(() => {
-    let start = null;
-    let animationFrameId;
-    const step = (timestamp) => {
-        if (!start) start = timestamp;
-        handleResize();
-        if (timestamp - start < 360) {
-            animationFrameId = requestAnimationFrame(step);
-        }
-    };
-    animationFrameId = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(animationFrameId);
   }, [isSidebarCollapsed]);
 
   // Anti-Zoom Global Enforcement
@@ -150,7 +140,6 @@ function App() {
     document.documentElement.style.setProperty('--tally-opacity', tallyOpacity / 100);
   }, [panelRadius, tallyOpacity]);
 
-  // Sync Enhanced Text (Accessibility) attribute with DOM root
   useEffect(() => {
     if (enhancedText) {
       document.documentElement.setAttribute('data-enhanced-text', 'true');
@@ -163,8 +152,7 @@ function App() {
       setTheme(prev => prev === 'light' ? 'default' : 'light');
   };
 
-  // Resolve active device for top-of-page header title:
-  // Displays Name only if set, Group only if set and not 'UNGROUPED', and IP.
+  // Resolve active device for top-of-page header title
   const activeDevice = connectedDevice 
     || deviceState.devices.find(d => d.id === deviceState.selectedDeviceId)
     || deviceState.devices.find(d => d.ip === '192.168.10.240')
@@ -174,31 +162,70 @@ function App() {
   const hasCustomGroup = activeDevice && activeDevice.group && activeDevice.group.trim() !== '' && activeDevice.group.toUpperCase() !== 'UNGROUPED';
   const deviceIp = activeDevice ? activeDevice.ip : '192.168.10.240';
 
-  const titleParts = [];
-  if (hasCustomName) titleParts.push(activeDevice.name.trim());
-  if (hasCustomGroup) titleParts.push(activeDevice.group.trim());
-  titleParts.push(deviceIp);
-
-  const rawHeaderTitle = titleParts.join(' · ');
-  const headerTitle = forceUppercase ? rawHeaderTitle.toUpperCase() : rawHeaderTitle;
-
   return (
     <div className="app-root-container">
       <GlobalTooltip />
 
-      <header className="app-top-bar">
+      {/* Top Hover Sensor Zone for collapsed toolbar reveal */}
+      {isSidebarCollapsed && (
+        <div 
+          className="toolbar-hover-sensor"
+          onMouseEnter={() => setIsToolbarRevealed(true)}
+        />
+      )}
+
+      {/* Left Full-Height Hover Sensor Zone for collapsed sidebar reveal */}
+      {isSidebarCollapsed && (
+        <div 
+          className="sidebar-hover-sensor"
+          onMouseEnter={() => setIsSidebarRevealed(true)}
+        />
+      )}
+
+      {/* Top Application Toolbar */}
+      <header 
+        className={`app-top-bar ${isSidebarCollapsed ? 'collapsed-mode' : ''} ${isToolbarRevealed ? 'revealed' : ''}`}
+        onMouseEnter={() => isSidebarCollapsed && setIsToolbarRevealed(true)}
+        onMouseLeave={() => isSidebarCollapsed && setIsToolbarRevealed(false)}
+      >
         <div className="top-bar-left">
           <button 
             className="top-bar-btn"
-            onClick={() => setIsSidebarCollapsed(prev => !prev)}
-            data-description="Collapse navigation menu"
+            onClick={() => {
+              setIsSidebarCollapsed(prev => !prev);
+              setIsToolbarRevealed(false);
+              setIsSidebarRevealed(false);
+            }}
+            data-description={isSidebarCollapsed ? "Expand navigation menu" : "Collapse navigation menu"}
           >
             <svg viewBox="0 0 24 24">
               <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
             </svg>
           </button>
 
-          <span className="app-title">{headerTitle}</span>
+          {!isConnected ? (
+            <span className="app-title not-connected">NOT CONNECTED</span>
+          ) : (
+            <span className="app-title">
+              {hasCustomName && (
+                <>
+                  <span className="app-title-name">
+                    {forceUppercase ? activeDevice.name.trim().toUpperCase() : activeDevice.name.trim()}
+                  </span>
+                  <span className="app-title-dot">·</span>
+                </>
+              )}
+              {hasCustomGroup && (
+                <>
+                  <span className="app-title-group">
+                    {forceUppercase ? activeDevice.group.trim().toUpperCase() : activeDevice.group.trim()}
+                  </span>
+                  <span className="app-title-dot">·</span>
+                </>
+              )}
+              <span className="app-title-ip">{deviceIp}</span>
+            </span>
+          )}
         </div>
 
         <div className="top-bar-right">
@@ -273,6 +300,8 @@ function App() {
           deviceState={deviceState}
           variant={sidebarVariant}
           isCollapsed={isSidebarCollapsed}
+          isRevealed={isSidebarRevealed}
+          setIsRevealed={setIsSidebarRevealed}
         />
         <main className="quadrant-wrapper" style={{ width: `${dashboardStyle.width}px`, height: `${dashboardStyle.height}px` }}>
           <QuadrantGrid 

@@ -2,7 +2,15 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.50)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.60)
+:: =============================================================================
+:: This CLI manages the end-to-end development lifecycle:
+:: 1. Self-contained portable Node.js runtime resolution and integrity verification.
+:: 2. Dual-package dependency installations and local Roboto font bootstrapping.
+:: 3. Background hardware bridge daemon management with automated port cleanup.
+:: 4. Consolidated GitHub Operations menu with automated branching, tagging, and merges.
+:: 5. Standard interactive text prompts with Enter submission and empty-Enter cancellation.
+:: 6. Token-guarded workspace cleaning and silent scratch re-cloning via ghost scripts.
 :: =============================================================================
 
 chcp 65001 >nul
@@ -23,7 +31,7 @@ cd /d "%PROJECT_ROOT%"
 :MENU
 cls
 echo -----------------------------------------------------------------
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.50)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.60)       
 echo -----------------------------------------------------------------
 echo   [1] RUN ^& EVALUATE     (Vite + Daemon, Auto-Export ^& Evaluation)
 echo   [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)
@@ -120,7 +128,7 @@ if %ERRORLEVEL% equ 0 (
 
 echo.
 echo -----------------------------------------------------------------
-echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.50)                
+echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.60)                
 echo -----------------------------------------------------------------
 echo  Node.js was not found on your system or in bin\node.
 echo  Downloading official portable Node.js LTS (v20.18.0 x64)...
@@ -185,6 +193,30 @@ if not exist "%PROJECT_ROOT%\bridge\node_modules\" (
     call "%NPM_CMD%" install
     cd /d "%PROJECT_ROOT%"
 )
+
+:: Download embedded local Roboto webfonts if absent
+if not exist "%PROJECT_ROOT%\public\fonts\roboto-400.woff2" (
+    echo.
+    echo -----------------------------------------------------------------
+    echo     DOWNLOADING EMBEDDED ROBOTO FONTS INTO PROJECT (OFFLINE USE)  
+    echo -----------------------------------------------------------------
+    if not exist "%PROJECT_ROOT%\public\fonts" mkdir "%PROJECT_ROOT%\public\fonts"
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "$dest = '%PROJECT_ROOT%\public\fonts';" ^
+        "$fonts = @(" ^
+        "    @{ name='roboto-400.woff2'; url='https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.woff2' }," ^
+        "    @{ name='roboto-500.woff2'; url='https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmEU9fBBc4.woff2' }," ^
+        "    @{ name='roboto-700.woff2'; url='https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc4.woff2' }," ^
+        "    @{ name='roboto-900.woff2'; url='https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmYUtfBBc4.woff2' }" ^
+        ");" ^
+        "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;" ^
+        "foreach ($f in $fonts) {" ^
+        "    $target = Join-Path $dest $f.name;" ^
+        "    Write-Host ('  [*] Downloading ' + $f.name + '...');" ^
+        "    Invoke-WebRequest -Uri $f.url -OutFile $target -UseBasicParsing;" ^
+        "};" ^
+        "Write-Host '  [DONE] Embedded Roboto webfonts downloaded successfully.';"
+)
 goto :eof
 
 :SYNC_CHANGELOG
@@ -217,7 +249,7 @@ set "DESC_FILE=%PROJECT_ROOT%\ops\DESCRIPTOR.txt"
 
 set "DETECTED_VER="
 for /f "usebackq tokens=2 delims='" %%v in (`powershell -NoProfile -Command "Select-String -Path 'src\version.js' -Pattern 'v[0-9]+\.[0-9]+' | ForEach-Object { $_.Matches.Value }"`) do set "DETECTED_VER=%%v"
-if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.50"
+if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.60"
 
 if not exist "%DESC_FILE%" goto MANUAL_PROMPT
 
@@ -440,7 +472,7 @@ git reset --hard HEAD
 git clean -fd
 echo ^>^>^> Workspace clean and reverted. ^<^<^<
 pause
-goto GITHUB_OPS
+goto MENU
 
 :WIPE_RECLONE
 call :VERIFY_TOKEN

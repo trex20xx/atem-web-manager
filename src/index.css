@@ -1,10 +1,52 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.57)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.62)
  * =========================================================================
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700;800;900&display=swap');
+/* Locally Embedded Roboto Webfonts (Self-hosted for offline execution) */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/roboto-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/roboto-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/roboto-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/roboto-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('/fonts/roboto-900.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url('/fonts/roboto-900.woff2') format('woff2');
+}
 
 :root{
     --bg:#121212;
@@ -64,21 +106,127 @@ html, body{ width:100%; height:100%; overflow:hidden; background:var(--bg); colo
 button, input, select { outline: none !important; }
 button:focus, input:focus, select:focus { outline: none !important; box-shadow: none !important; }
 
-.app-root-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+.app-root-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; position: relative; }
 
-.app-top-bar { height: 42px; min-height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: transparent; z-index: 1000; position: relative; }
+/* Top Invisible Hover Sensor Zone */
+.toolbar-hover-sensor {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 16px;
+    z-index: 9999;
+    background: transparent;
+    pointer-events: auto;
+}
+
+/* Left Invisible Full-Height Hover Sensor Zone (Gapless 100vh) */
+.sidebar-hover-sensor {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    width: 16px !important;
+    height: 100vh !important;
+    z-index: 10000 !important;
+    background: transparent;
+    pointer-events: auto;
+}
+
+/* Primary Top Toolbar */
+.app-top-bar { 
+    height: 42px; 
+    min-height: 42px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    padding: 0 16px; 
+    background: transparent; 
+    z-index: 1000; 
+    position: relative; 
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s ease;
+}
+
+/* Collapsed Overlay Mode (Slid up, dark grey background, drops down on hover) */
+.app-top-bar.collapsed-mode {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #181818 !important;
+    border-bottom: 1px solid var(--atem-border);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transform: translateY(-100%);
+    z-index: 10000;
+}
+
+[data-theme="light"] .app-top-bar.collapsed-mode {
+    background: #e5e5ea !important;
+    border-bottom: 1px solid #d1d1d6;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Slide Down when revealed by hover */
+.app-top-bar.collapsed-mode.revealed,
+.app-top-bar.collapsed-mode:hover {
+    transform: translateY(0);
+}
+
 .top-bar-left { display: flex; align-items: center; gap: 12px; }
 .top-bar-right { display: flex; align-items: center; gap: 10px; height: 100%; }
 
-/* Top-of-page header title: muted grey, clean modern typography */
+/* Top-of-page header title typography */
 .app-title { 
     font-size: 13px; 
     font-weight: 500; 
     color: var(--muted); 
     letter-spacing: 0.5px; 
+    display: inline-flex;
+    align-items: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.app-title.not-connected {
+    color: var(--red) !important;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+}
+
+.app-title-name {
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.app-title-group {
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.app-title-ip {
+    color: #9da5b4;
+    font-weight: 500;
+    letter-spacing: 0.6px;
+}
+
+[data-theme="light"] .app-title-ip {
+    color: #5c6370;
+}
+
+/* Larger, vertically centered separator dots */
+.app-title-dot {
+    display: inline-block;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+    margin: 0 6px;
+    color: var(--muted);
+    opacity: 0.55;
+    user-select: none;
+    vertical-align: middle;
 }
 
 .top-bar-btn { 
@@ -125,34 +273,70 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .apple-theme-switch.active { background: #383838; border-color: #666; }
 .apple-theme-switch.active .apple-switch-thumb { transform: translateX(16px); }
 
-.dashboard{ flex: 1; width: 100%; display: flex; justify-content: flex-start; align-items: center; gap: var(--gap); padding: 8px 16px 16px 16px; box-sizing: border-box; overflow: hidden; position: relative; }
+.dashboard{ flex: 1; width: 100%; display: flex; justify-content: center; align-items: center; gap: var(--gap); padding: 8px 16px 16px 16px; box-sizing: border-box; overflow: hidden; position: relative; }
 .dashboard.sidebar-collapsed { justify-content: center; }
 
+/* Sidebar Base (Docked Mode) */
 .sidebar{ 
-    width: 260px; min-width: 260px; background: var(--panel); border-radius: var(--panel-radius); 
-    display: flex; flex-direction: column; overflow: hidden; height: 100%;
+    width: 260px; 
+    min-width: 260px; 
+    background: var(--panel); 
+    border-radius: var(--panel-radius); 
+    display: flex; 
+    flex-direction: column; 
+    overflow: hidden; 
+    height: 100%;
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
-                width 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
-                min-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
-                margin 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+                margin-left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                background-color 0.25s ease, 
+                box-shadow 0.25s ease;
     transform: translateX(0);
     flex-shrink: 0;
     box-sizing: border-box;
+    position: relative;
+    z-index: 100;
 }
+
 .sidebar > * {
     width: 260px;
     min-width: 260px;
     flex-shrink: 0;
     box-sizing: border-box;
 }
+
+/* Collapsed Overlay Mode: Takes 100% full top-to-bottom viewport height with zero gaps */
 .sidebar.collapsed { 
-    width: 0 !important; 
-    min-width: 0 !important; 
-    margin-right: calc(-1 * var(--gap)) !important; 
-    margin-left: 0 !important; 
-    transform: translateX(-100%) !important;
-    pointer-events: none !important; 
-    visibility: hidden !important; 
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    width: 260px !important;
+    min-width: 260px !important;
+    margin: 0 !important;
+    background: #181818 !important;
+    border: none !important;
+    border-right: 1px solid var(--atem-border) !important;
+    border-radius: 0 !important;
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    transform: translateX(-100%);
+    pointer-events: auto;
+    z-index: 10001 !important;
+}
+
+[data-theme="light"] .sidebar.collapsed {
+    background: #e5e5ea !important;
+    border-right: 1px solid #d1d1d6 !important;
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.2);
+}
+
+/* Slide in smoothly when revealed by hover */
+.sidebar.collapsed.revealed,
+.sidebar.collapsed:hover {
+    transform: translateX(0) !important;
 }
 
 .search-container{ padding: 8px 8px 4px 8px; }
@@ -232,7 +416,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .edit-save{ background:var(--green); }
 .edit-cancel{ background:#4a4a4a; }
 
-/* Quadrant grid strictly locked to 16:9 ratio and minmax(0, 1fr) */
+/* Quadrant grid with hardware-accelerated dimensional transition */
 .quadrant-wrapper{ 
     display:grid; 
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); 
@@ -240,6 +424,9 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     gap:var(--gap); 
     flex-shrink: 0; 
     overflow: hidden;
+    transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+                height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: width, height;
 }
 
 .panel { 
@@ -285,7 +472,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     box-sizing: border-box;
 }
 
-/* Global Quadrant Inner Normalization (padding: 0 prevents double-padding overflow) */
+/* Global Quadrant Inner Normalization */
 .quadrant-master-panel {
     width: 100%; 
     height: 100%; 
@@ -948,7 +1135,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     color: var(--text);
 }
 
-/* Enforce font-weight 400 across all active states - prevents bolder buttons */
+/* Enforce font-weight 400 across all active states */
 .macro-action-text-btn.active-orange { color: var(--orange-hl) !important; opacity: 1; font-weight: 400 !important; }
 .macro-action-text-btn.active-green { color: #2e7d32 !important; opacity: 1; font-weight: 400 !important; }
 .macro-action-text-btn.active-red { color: #d32f2f !important; opacity: 1; font-weight: 400 !important; }
@@ -1107,7 +1294,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .cut-btn:active { background: var(--panel) !important; color: var(--text) !important; }
 .auto-btn.trans-active { background: var(--orange-hl) !important; color: #000000 !important; border-color: var(--atem-border) !important; outline: none !important; }
 
-/* Scrub/Click Rate Button matching 74px x 36px button geometry exactly (font-weight: 400) */
+/* Scrub/Click Rate Button matching 74px x 36px button geometry exactly */
 .rate-box-button { 
     background: #000000; 
     border: 1px solid rgba(255, 255, 255, 0.1); 
@@ -1288,7 +1475,21 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 [data-enhanced-text="true"] .app-title {
     font-size: 14px;
     font-weight: 700 !important;
+}
+
+[data-enhanced-text="true"] .app-title-name {
     color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+[data-enhanced-text="true"] .app-title-group {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+[data-enhanced-text="true"] .app-title-ip {
+    color: #b0c4de !important;
+    font-weight: 700 !important;
 }
 
 [data-enhanced-text="true"] .atem-section-title,
