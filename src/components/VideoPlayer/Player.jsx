@@ -4,11 +4,12 @@ import QualityMenu from './QualityMenu';
 import { takeSnapshot } from './SnapshotEngine';
 
 // =========================================================================
-// ATEM WEB MANAGER - PLAYER COMPONENT (v3.57)
+// ATEM WEB MANAGER - PLAYER COMPONENT (v3.78)
 // =========================================================================
 // YouTube IFrame API + HTML5 Video Engine with bespoke desktop controls.
 // Features discrete muted-grey crossed-out camera placeholder when disconnected,
-// and dynamic corner radius clipping matching all other quadrant windows.
+// dynamic corner radius clipping matching all other quadrant windows, and
+// system telemetry logging for stream lifecycle and interactions.
 
 const extractYouTubeId = (url) => {
     if (!url) return null;
@@ -61,6 +62,10 @@ const Player = ({ currentVideoSource, isConnected = true }) => {
 
     const ytId = extractYouTubeId(currentVideoSource);
     const isYouTube = Boolean(ytId);
+
+    const dispatchSysLog = (msg) => {
+        window.dispatchEvent(new CustomEvent('atem:system-log', { detail: msg }));
+    };
 
     const resetHideTimer = useCallback(() => {
         setShowControls(true);
@@ -122,6 +127,7 @@ const Player = ({ currentVideoSource, isConnected = true }) => {
                         setDuration(dur);
                         e.target.setVolume(volume);
                         if (isMuted) e.target.mute();
+                        dispatchSysLog(`YouTube stream established (ID: ${ytId})`);
                         try {
                             if (typeof e.target.unloadModule === 'function') {
                                 e.target.unloadModule('captions');
@@ -190,6 +196,7 @@ const Player = ({ currentVideoSource, isConnected = true }) => {
         const onPause = () => setIsPlaying(false);
         const onLoadedMeta = () => {
             setDuration(v.duration || 0);
+            dispatchSysLog('HTML5 video stream connected and metadata loaded');
         };
 
         v.addEventListener('timeupdate', onTimeUpdate);
@@ -220,6 +227,7 @@ const Player = ({ currentVideoSource, isConnected = true }) => {
                 videoRef.current.play().catch(() => {});
             }
         }
+        dispatchSysLog(isPlaying ? 'Stream paused' : 'Stream playing');
         resetHideTimer();
     };
 
@@ -251,6 +259,7 @@ const Player = ({ currentVideoSource, isConnected = true }) => {
         } else if (videoRef.current) {
             videoRef.current.muted = next;
         }
+        dispatchSysLog(next ? 'Stream muted' : 'Stream unmuted');
     };
 
     const handleScrubberClick = (e) => {
@@ -269,8 +278,10 @@ const Player = ({ currentVideoSource, isConnected = true }) => {
     const toggleFullscreen = () => {
         if (!document.fullscreenElement) {
             wrapperRef.current?.requestFullscreen().catch(() => {});
+            dispatchSysLog('Video player entered fullscreen');
         } else {
             document.exitFullscreen().catch(() => {});
+            dispatchSysLog('Video player exited fullscreen');
         }
     };
 
@@ -281,6 +292,7 @@ const Player = ({ currentVideoSource, isConnected = true }) => {
             const reader = new FileReader();
             reader.onload = (evt) => setOverlaySrc(evt.target.result);
             reader.readAsDataURL(file);
+            dispatchSysLog(`Stream overlay image loaded: ${file.name}`);
         }
     };
 
@@ -288,11 +300,13 @@ const Player = ({ currentVideoSource, isConnected = true }) => {
         setOverlayImg(null);
         setOverlaySrc('');
         setWipeState({ ...wipeState, clipH: 0, clipV: 0 });
+        dispatchSysLog('Stream overlay image cleared');
     };
 
     const handleSnapshot = () => {
         const videoTech = wrapperRef.current?.querySelector('video');
         takeSnapshot(videoTech, imgRef.current, wipeState);
+        dispatchSysLog('Stream snapshot captured locally');
     };
 
     // -------------------------------------------------------------------------
@@ -378,7 +392,10 @@ const Player = ({ currentVideoSource, isConnected = true }) => {
             {/* Quality Menu */}
             <QualityMenu 
                 show={showQuality} 
-                onResolutionSelect={() => setShowQuality(false)} 
+                onResolutionSelect={(res) => {
+                    setShowQuality(false);
+                    dispatchSysLog(`Stream quality set to ${res.toUpperCase()}`);
+                }} 
             />
 
             {/* YouTube Replica Controls Overlay */}

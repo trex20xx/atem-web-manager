@@ -1,9 +1,9 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.75)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.78)
 // =========================================================================
-// High-performance, zero-latency switcher bus bridge.
-// Stripped of heavy background image transfers to dedicate 100% of UDP 9910
-// bandwidth and the Node.js event loop to real-time mixer commands and tally telemetry.
+// Bidirectional switcher bus, macro execution, aux router, DSK, FTB, and Media Pool.
+// Features discrete multi-source logging telemetry (USER, ATEM, BRIDGE, SYSTEM),
+// noise-filtered hardware packet interceptions, and 0ms latency switcher execution.
 
 const { Atem } = require('atem-connection');
 const WebSocket = require('ws');
@@ -13,9 +13,6 @@ let ATEM_IP = process.env.ATEM_IP || '192.168.10.240';
 const BRIDGE_PORT = 8080;
 const VITE_PORT = 3000;
 const startTime = Date.now();
-
-console.log('[ATEM Bridge v3.75] Starting bridge service (Zero-Latency Core)...');
-console.log('[ATEM Bridge v3.75] Target ATEM Switcher IP: ' + ATEM_IP);
 
 let atem = new Atem();
 let isAtemConnected = false;
@@ -39,12 +36,47 @@ let mediaPlayers = [
     { sourceType: 1, stillIndex: 1, clipIndex: 0 }
 ];
 
+const wss = new WebSocket.Server({ port: BRIDGE_PORT }, () => {
+    broadcastLog('info', 'BRIDGE', ['WebSocket server running on ws://localhost:' + BRIDGE_PORT]);
+});
+
+function broadcastLog(level, source, args) {
+    try {
+        const msg = Array.from(args).map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+        const payload = JSON.stringify({ type: 'LOG', level, source, message: msg, timestamp: Date.now() });
+        wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) client.send(payload);
+        });
+    } catch (e) {}
+}
+
+const originalLog = console.log;
+const originalWarn = console.warn;
+const originalError = console.error;
+
+console.log = function() { originalLog.apply(console, arguments); broadcastLog('info', 'BRIDGE', arguments); };
+console.warn = function() { originalWarn.apply(console, arguments); broadcastLog('warn', 'BRIDGE', arguments); };
+console.error = function() { originalError.apply(console, arguments); broadcastLog('error', 'BRIDGE', arguments); };
+
+console.log('[ATEM Bridge v3.78] Starting bridge service...');
+console.log('[ATEM Bridge v3.78] Target ATEM Switcher IP: ' + ATEM_IP);
+
 function setupAtemListeners() {
+    atem.on('receivedCommand', (command) => {
+        if (handleHardwareCommand(command)) {
+            broadcastLog('info', 'ATEM', [`Hardware Triggered: ${command.constructor.name}`]);
+            broadcastState();
+        }
+    });
+
     atem.on('receivedCommands', (commands) => {
         if (Array.isArray(commands)) {
             let changed = false;
             for (const cmd of commands) {
-                if (handleHardwareCommand(cmd)) changed = true;
+                if (handleHardwareCommand(cmd)) {
+                    broadcastLog('info', 'ATEM', [`Hardware Triggered: ${cmd.constructor.name}`]);
+                    changed = true;
+                }
             }
             if (changed) broadcastState();
         }
@@ -117,7 +149,7 @@ function broadcastState(targetWs = null, immediate = false) {
         broadcastTimeout = setTimeout(() => {
             sendStatePayload();
             broadcastTimeout = null;
-        }, 20); // 50fps max to protect React render pipeline
+        }, 20); 
     }
 }
 
@@ -210,12 +242,9 @@ function sendStatePayload(targetWs = null) {
         });
 
         if (targetWs && targetWs.readyState === WebSocket.OPEN) {
-            targetWs.send(payload);
-            return;
+            targetWs.send(payload); return;
         }
-        wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) client.send(payload);
-        });
+        wss.clients.forEach(client => { if (client.readyState === WebSocket.OPEN) client.send(payload); });
     } catch (err) {}
 }
 
@@ -228,26 +257,6 @@ function handleHardwareCommand(cmd) {
     return false;
 }
 
-const wss = new WebSocket.Server({ port: BRIDGE_PORT }, () => console.log('[ATEM Bridge] WebSocket server running on ws://localhost:' + BRIDGE_PORT));
-
-const originalLog = console.log;
-const originalWarn = console.warn;
-const originalError = console.error;
-
-function broadcastLog(level, args) {
-    try {
-        const msg = Array.from(args).map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-        const payload = JSON.stringify({ type: 'LOG', level, message: msg, timestamp: Date.now() });
-        wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) client.send(payload);
-        });
-    } catch (e) {}
-}
-
-console.log = function() { originalLog.apply(console, arguments); broadcastLog('info', arguments); };
-console.warn = function() { originalWarn.apply(console, arguments); broadcastLog('warn', arguments); };
-console.error = function() { originalError.apply(console, arguments); broadcastLog('error', arguments); };
-
 wss.on('connection', (ws) => {
     broadcastState(ws, true);
 
@@ -256,8 +265,15 @@ wss.on('connection', (ws) => {
             const data = JSON.parse(message);
             if (data.ip && data.ip !== ATEM_IP) connectToAtem(data.ip);
 
+            // Handle explicitly routed System/UI logs
+            if (data.action === 'SYSTEM_LOG') {
+                broadcastLog('info', 'SYSTEM', [data.message]);
+                return;
+            }
+
+            // Log interactive User actions
             if (data.action && data.action !== 'GET_STATE' && data.action !== 'CONNECT') {
-                console.log('[ATEM Bridge -> Hardware Dispatch] Action: ' + data.action + ' | Params: ' + JSON.stringify(data));
+                broadcastLog('info', 'USER', [`Executed ${data.action} ${JSON.stringify(data)}`]);
             }
 
             if (data.action === 'CONNECT' || data.action === 'GET_STATE') {

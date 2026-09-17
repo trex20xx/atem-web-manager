@@ -1,5 +1,5 @@
 # ATEM WEB MANAGER - AI HANDOVER SPECIFICATION
-Current Application Version: v3.77
+Current Application Version: v3.78
 
 This document serves as the master architectural memory bank for the ATEM Web Manager. It must be provided as the primary source of truth to any incoming AI assistant initializing a new session. It defines the application state, structural invariants, execution context, and operational protocols.
 
@@ -35,12 +35,12 @@ This document serves as the master architectural memory bank for the ATEM Web Ma
 - Button Symmetries: Switcher keys are hard-locked to exactly 74px width by 36px height. Ten-column rows equal exactly 786px with zero internal box offset. Active tallies maintain border: 1px solid var(--atem-border) parity.
 - Radii: Global variables define --pill-radius: 24px and --panel-radius: 9px.
 
-### Panel Routing Configurations (Quadrant Contexts)
-1. STREAM: Embedded YouTube IFrame / HTML5 replica player overlay.
-2. MEDIA POOL: Hardware-synced thumbnail loader and RGBA uploader.
-3. MIXER: 1 M/E Constellation HD bus replica with locking state.
+### Default Panel Routing Configurations (Quadrant Contexts)
+1. STREAM (Q1): Embedded YouTube IFrame / HTML5 replica player overlay.
+2. MEDIA POOL (Q2): Hardware-synced thumbnail loader and RGBA uploader.
+3. MIXER (Q3): 1 M/E Constellation HD bus replica with locking state.
 4. MACROS (PAGINATED): 100-macro selector (currently deactivated).
-5. MACROS (COMPACT): 40-macro grid matching mixer dimensions.
+5. MACROS (COMPACT) (Q4): 40-macro grid matching mixer dimensions.
 6. CONSOLE: Bridge daemon telemetry readout with text log exporter.
 0. NONE: Displays a discrete muted ID number centered in the panel.
 
@@ -53,7 +53,7 @@ The workspace relies on a robust pair of cross-platform CLI tools: OPS.BAT for W
 ### Menu Pathways
 - [1] RUN & EVALUATE: Installs dependencies, cleans ports (8080/3000), bootstraps WOFF2 fonts, merges changelogs, serializes codebase.txt, starts the Node.js bridge silently in the background, and boots Vite. Upon Vite termination, intercepts control directly into GitHub Operations.
 - [2] GITHUB OPERATIONS (TRUNK-BASED): Access point for all Git tasks. [1] MERGE TO MAIN utilizes a Trunk-Based approach:
-  - If executed from main, it directly commits, pushes (using explicit refs/heads/ and refs/tags/), and then tags a historical marker branch (e.g. v3.77), leaving the workspace cleanly on main.
+  - If executed from main, it directly commits, pushes (using explicit refs/heads/ and refs/tags/), and then tags a historical marker branch (e.g. v3.78), leaving the workspace cleanly on main.
   - If executed from a feature branch, it updates the branch, checks out main, merges the branch in, tags it, pushes, and then returns the operator back to the feature branch.
 - [3] WIPE & RE-CLONE: Requires the .atem_workspace_token with the secure key ATEM_MANAGER_SECURE_WIPE_KEY_2026. Triggers a detached ghost script to terminate locks, delete the root folder, and re-clone the repo dynamically to cure corrupt states.
 - [4] EXPORT CODEBASE: Manually serializes all JS, JSX, CSS, and configuration files into codebase.txt for AI prompt ingestion.
@@ -65,10 +65,14 @@ The workspace relies on a robust pair of cross-platform CLI tools: OPS.BAT for W
 
 ---
 
-## 4. CURRENT FEATURES & RECENT UPGRADES (v3.77)
+## 4. CURRENT FEATURES & RECENT UPGRADES (v3.78)
 
-- Git Refspec Fix: OPS.BAT and OPS.SH push commands now explicitly target refs/heads/ and refs/tags/ to prevent refspec collisions when pushing iteration branches that share a name with a tag.
-- Comprehensive Mixer Optimistic Locks: The 450ms optimistic state guard in AtemConstellationBus.jsx covers PGM, PVW, AUX, KEY 1-4, USK ON AIR, DSK TIE, and DSK ON AIR, ensuring zero rubber-banding or state reversions during rapid switching.
+- Multi-Source Console Telemetry Engine: The Bridge Console (ConsolePanel.jsx) now logs events across four dedicated sources: [USER] (Cyan), [ATEM] (Pink), [BRIDGE] (Orange), and [SYSTEM] (Mint).
+- Actionable ATEM Filtering: The bridge daemon intelligently filters out UDP noise, logging only meaningful hardware dispatches (cuts, state transitions, connections) alongside explicit user UI clicks.
+- Console Filter Tray & Export: A sliding, color-coded filter tray allows users to toggle visibility for USER, ATEM, BRIDGE, and SYSTEM logs instantly. The EXPORT function strictly exports only the logs currently active in the filtered view.
+- System Dispatchers: App.jsx and Player.jsx actively dispatch [SYSTEM] events for global UI actions (e.g., Theme switches, Fullscreen toggles, Stream connection lifecycles, and Snapshot captures).
+- Trunk-Based Development Sync: ops/OPS.BAT and ops/OPS.SH now use Trunk-Based rules. Merging from main applies commits directly to main and creates a tagged backup branch (v3.78), deliberately keeping the user's active checkout pinned to main to avoid diverged heads.
+- Comprehensive Mixer Optimistic Locks: A 450ms optimistic state guard in AtemConstellationBus.jsx covers PGM, PVW, AUX, KEY 1-4, USK ON AIR, DSK TIE, and DSK ON AIR, ensuring zero rubber-banding or state reversions during rapid switching.
 - Media Pool Redesign:
   - Empty (unassigned) slots render with a dimmed 0.35 opacity.
   - Slot numbers are centered cleanly when empty, and nest in the bottom-left corner when populated. The 'X' clear button and circular borders have been removed entirely.

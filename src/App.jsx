@@ -9,7 +9,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { APP_VERSION } from './version';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v3.77)
+// ATEM WEB MANAGER - MASTER LAYOUT (v3.78)
 // =========================================================================
 
 function App() {
@@ -30,6 +30,8 @@ function App() {
   const [deviceCsvContent, setDeviceCsvContent] = useLocalStorage('atem_deviceCsvContent', '');
   
   const [currentVideoSource, setCurrentVideoSource] = useLocalStorage('atem_currentVideoSource', 'https://stream.mux.com/BV3YZtogl89mg9VcNBhhnHm02Y34zI1nlMuMQfAbl3dM/highest.mp4');
+  
+  // Default routing mapping to STREAM, MEDIA POOL, MIXER, and MACROS
   const [quadrantOrder, setQuadrantOrder] = useLocalStorage('atem_quadrantOrder', [1, 2, 3, 5]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -48,6 +50,14 @@ function App() {
 
   const connectedDevice = deviceState.devices.find(d => d.status === 'online');
   const isConnected = !!connectedDevice;
+
+  const dispatchSysLog = (msg) => {
+      window.dispatchEvent(new CustomEvent('atem:system-log', { detail: msg }));
+  };
+
+  useEffect(() => {
+      dispatchSysLog('Application mounted. UI initialized.');
+  }, []);
 
   const getResolvedStreamSource = () => {
     if (useDeviceCsv && isConnected && connectedDevice) {
@@ -132,8 +142,10 @@ function App() {
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
+      dispatchSysLog('Entered Fullscreen Mode');
     } else {
       document.exitFullscreen().catch(() => {});
+      dispatchSysLog('Exited Fullscreen Mode');
     }
   };
 
@@ -145,7 +157,11 @@ function App() {
         e.preventDefault();
         e.stopPropagation();
         if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-        setIsSettingsOpen((prev) => !prev);
+        setIsSettingsOpen((prev) => {
+            const next = !prev;
+            if (next) dispatchSysLog('Settings modal opened');
+            return next;
+        });
       }
       if (e.key === 'Escape') {
         setIsSettingsOpen(false);
@@ -182,7 +198,9 @@ function App() {
   }, [enhancedText]);
 
   const toggleLightMode = () => {
-      setTheme(prev => prev === 'light' ? 'default' : 'light');
+      const next = theme === 'light' ? 'default' : 'light';
+      setTheme(next);
+      dispatchSysLog(`Theme switched to ${next.toUpperCase()}`);
   };
 
   const activeDevice = connectedDevice 
@@ -316,7 +334,10 @@ function App() {
 
           <button 
             className="top-bar-btn"
-            onClick={() => setIsSettingsOpen(true)}
+            onClick={() => {
+                setIsSettingsOpen(true);
+                dispatchSysLog('Settings modal opened');
+            }}
             data-description="Settings (Cmd/Ctrl + ,)"
           >
             <svg viewBox="0 0 24 24" fill="currentColor">
