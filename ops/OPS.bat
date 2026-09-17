@@ -2,13 +2,13 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.72)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.74)
 :: =============================================================================
 :: This CLI manages the end-to-end development lifecycle:
 :: 1. Self-contained portable Node.js runtime resolution and integrity verification.
 :: 2. Dual-package dependency installations and local Roboto font bootstrapping.
 :: 3. Background hardware bridge daemon management with automated port cleanup.
-:: 4. Consolidated GitHub Operations menu with automated branching, tagging, and merges.
+:: 4. Consolidated GitHub Operations menu via Trunk-Based Development.
 :: 5. Standard interactive text prompts with Enter submission and empty-Enter cancellation.
 :: 6. Token-guarded workspace cleaning and silent scratch re-cloning via ghost scripts.
 :: 7. Clean terminal exit logic.
@@ -32,7 +32,7 @@ cd /d "%PROJECT_ROOT%"
 :MENU
 cls
 echo -----------------------------------------------------------------
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.72)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.74)       
 echo -----------------------------------------------------------------
 echo   [1] RUN ^& EVALUATE     (Vite + Daemon, Auto-Export ^& Evaluation)
 echo   [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)
@@ -129,7 +129,7 @@ if %ERRORLEVEL% equ 0 (
 
 echo.
 echo -----------------------------------------------------------------
-echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.72)                
+echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.74)                
 echo -----------------------------------------------------------------
 echo  Node.js was not found on your system or in bin\node.
 echo  Downloading official portable Node.js LTS (v20.18.0 x64)...
@@ -196,7 +196,6 @@ if not exist "%PROJECT_ROOT%\bridge\node_modules\" (
     cd /d "%PROJECT_ROOT%"
 )
 
-:: Download embedded local Roboto webfonts if absent
 if not exist "%PROJECT_ROOT%\public\fonts\roboto-400.woff2" (
     echo.
     echo -----------------------------------------------------------------
@@ -243,7 +242,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "if (Test-Path 'bridge') { Get-ChildItem -Path 'bridge' -File | Where-Object { $_.Name -ne 'package-lock.json' } | ForEach-Object { $all += ('=== FILE: bridge/' + $_.Name + ' === '); $all += (Get-Content $_.FullName -Raw); $all += ' ' } };" ^
     "if (Test-Path 'src') { $baseLen=(Get-Location).Path.Length + 1; Get-ChildItem -Path 'src' -Recurse -File | Where-Object { $_.Extension -match '^\.(js|jsx|css)$' } | ForEach-Object { $rel=$_.FullName.Substring($baseLen).Replace('\', '/'); $all += ('=== FILE: ' + $rel + ' === '); $all += (Get-Content $_.FullName -Raw); $all += ' ' } };" ^
     "[System.IO.File]::WriteAllLines((Join-Path (Get-Location) $out), $all, [System.Text.Encoding]::UTF8);" ^
-    "Write-Host \"`r  [DONE] Serialized workspace to codebase.txt        \";"
+    "Write-Host '  [DONE] Serialized workspace to codebase.txt';"
 goto :eof
 
 :RESOLVE_COMMIT_MSG
@@ -251,8 +250,8 @@ set "COMMIT_TMP=%PROJECT_ROOT%\bin\.commit_msg.txt"
 set "DESC_FILE=%PROJECT_ROOT%\ops\DESCRIPTOR.txt"
 
 set "DETECTED_VER="
-for /f "usebackq tokens=2 delims='" %%v in (`powershell -NoProfile -Command "Select-String -Path 'src\version.js' -Pattern 'v[0-9]+\.[0-9]+' | ForEach-Object { $_.Matches.Value }"`) do set "DETECTED_VER=%%v"
-if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.72"
+for /f "tokens=2 delims='" %%v in ('powershell -NoProfile -Command "Select-String -Path 'src\version.js' -Pattern 'v[0-9]+\.[0-9]+' | ForEach-Object { $_.Matches.Value }"' ) do set "DETECTED_VER=%%v"
+if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.74"
 
 if not exist "%DESC_FILE%" goto MANUAL_PROMPT
 
@@ -351,27 +350,24 @@ git rm --cached public/Top.mp4 2>nul
 git rm --cached bin/.commit_msg.txt 2>nul
 
 if /I "%CURRENT_BRANCH%"=="main" (
-    echo [BRANCHING] Creating feature branch '%DETECTED_VER%' from main...
-    git checkout -b "%DETECTED_VER%" 2>nul
     git add -A
     git commit -F "%COMMIT_TMP%"
     del "%COMMIT_TMP%" 2>nul
-    echo [PUSHING] Publishing feature branch '%DETECTED_VER%' to GitHub...
-    git push -u origin "%DETECTED_VER%"
+    echo [BRANCHING] Spawning marker branch '%DETECTED_VER%'...
+    git branch "%DETECTED_VER%" 2>nul
+    echo [TAGGING] Tagging release '%DETECTED_VER%'...
     git tag -a "%DETECTED_VER%" -m "Release %DETECTED_VER%" 2>nul
+    echo [PUSHING] Pushing main, branch, and tags to GitHub...
+    git push -u origin main
+    git push origin "%DETECTED_VER%"
     git push origin --tags 2>nul
-    echo [MERGING] Switching to main and folding '%DETECTED_VER%' into main...
-    git checkout main
-    git pull origin main 2>nul
-    git merge "%DETECTED_VER%" --no-edit
-    git push origin main
     echo.
     echo -----------------------------------------------------------------
     echo  Iteration successfully published:
-    echo  - Feature branch '%DETECTED_VER%' published on GitHub.
-    echo  - Release tag '%DETECTED_VER%' published on GitHub.
-    echo  - Changes merged into 'main' and pushed.
-    echo  - Active working branch is now 'main'.
+    echo  - Commits saved and pushed directly to 'main'.
+    echo  - Marker branch '%DETECTED_VER%' published.
+    echo  - Release tag '%DETECTED_VER%' published.
+    echo  - Active working branch remains 'main'.
     echo -----------------------------------------------------------------
     pause
     goto GITHUB_OPS
@@ -382,20 +378,23 @@ git commit -F "%COMMIT_TMP%"
 del "%COMMIT_TMP%" 2>nul
 echo [PUSHING] Publishing '%CURRENT_BRANCH%' to GitHub...
 git push -u origin "%CURRENT_BRANCH%"
-git tag -a "%DETECTED_VER%" -m "Release %DETECTED_VER%" 2>nul
-git push origin --tags 2>nul
-echo [MERGING] Switching to main and folding '%CURRENT_BRANCH%' into main...
+echo [MERGING] Folding '%CURRENT_BRANCH%' into main...
 git checkout main
 git pull origin main 2>nul
 git merge "%CURRENT_BRANCH%" --no-edit
 git push origin main
+echo [TAGGING] Tagging release '%DETECTED_VER%'...
+git tag -a "%DETECTED_VER%" -m "Release %DETECTED_VER%" 2>nul
+git push origin --tags 2>nul
+echo [RETURNING] Switching back to feature branch '%CURRENT_BRANCH%'...
+git checkout "%CURRENT_BRANCH%"
 echo.
 echo -----------------------------------------------------------------
 echo  Iteration successfully published:
-echo  - Feature branch '%CURRENT_BRANCH%' published on GitHub.
-echo  - Release tag '%DETECTED_VER%' published on GitHub.
+echo  - Feature branch '%CURRENT_BRANCH%' updated and pushed.
 echo  - Changes merged into 'main' and pushed.
-echo  - Active working branch is now 'main'.
+echo  - Release tag '%DETECTED_VER%' published.
+echo  - Active working branch returned to '%CURRENT_BRANCH%'.
 echo -----------------------------------------------------------------
 pause
 goto GITHUB_OPS
@@ -425,7 +424,7 @@ echo.
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "Write-Host -NoNewline '  [*] Fetching latest branch telemetry from GitHub...';" ^
     "git fetch --all --prune --tags > $null 2>&1;" ^
-    "Write-Host \"`r                                                          `r\";" ^
+    "Write-Host '';" ^
     "$bRefs = git for-each-ref --sort=-committerdate refs/heads/ refs/remotes/origin/ --format='%%(refname:short)|%%(subject)|%%(committerdate:relative)';" ^
     "$seen = @{};" ^
     "foreach ($r in $bRefs) {" ^

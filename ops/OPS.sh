@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
 # =============================================================================
-# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS/Linux) (v3.72)
+# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS/Linux) (v3.74)
 # =============================================================================
 # This CLI manages the end-to-end development lifecycle:
 # 1. Self-contained Node.js runtime resolution and integrity verification.
 # 2. Dual-package dependency installations and local Roboto font bootstrapping.
 # 3. Background hardware bridge daemon management with automated port cleanup.
-# 4. Consolidated GitHub Operations menu with automated branching, tagging, and merges.
+# 4. Consolidated GitHub Operations menu via Trunk-Based Development.
 # 5. Standard interactive text prompts with Enter submission and empty-Enter cancellation.
 # 6. Token-guarded workspace cleaning and silent scratch re-cloning via ghost scripts.
 # 7. Clean terminal exit logic.
@@ -181,7 +181,7 @@ resolve_commit_msg() {
     
     DETECTED_VER=$(grep -oE 'v[0-9]+\.[0-9]+' src/version.js | head -n 1)
     if [ -z "$DETECTED_VER" ]; then
-        DETECTED_VER="v3.72"
+        DETECTED_VER="v3.74"
     fi
 
     if [ ! -f "$DESC_FILE" ]; then
@@ -205,7 +205,7 @@ resolve_commit_msg() {
         echo "  src/version.js:      $DETECTED_VER"
         echo "-----------------------------------------------------------------"
         echo "  [1] Enter commit description manually"
-        echo "  [2] Abort to download/replace ops/DESCRIPTOR.txt"
+        echo "  [2] Abort to download/replace ops\DESCRIPTOR.txt"
         echo "-----------------------------------------------------------------"
         read -p " Select (1-2, or Enter to abort): " MISMATCH_CHOICE
         if [ "$MISMATCH_CHOICE" == "1" ]; then
@@ -297,27 +297,24 @@ merge_main() {
     git rm --cached bin/.commit_msg.txt 2>/dev/null
 
     if [ "$CURRENT_BRANCH" == "main" ]; then
-        echo "[BRANCHING] Creating feature branch '$DETECTED_VER' from main..."
-        git checkout -b "$DETECTED_VER" 2>/dev/null
         git add -A
         git commit -F "$COMMIT_TMP"
         rm -f "$COMMIT_TMP" 2>/dev/null
-        echo "[PUSHING] Publishing feature branch '$DETECTED_VER' to GitHub..."
-        git push -u origin "$DETECTED_VER"
+        echo "[BRANCHING] Spawning marker branch '$DETECTED_VER'..."
+        git branch "$DETECTED_VER" 2>/dev/null
+        echo "[TAGGING] Tagging release '$DETECTED_VER'..."
         git tag -a "$DETECTED_VER" -m "Release $DETECTED_VER" 2>/dev/null
+        echo "[PUSHING] Pushing main, branch, and tags to GitHub..."
+        git push -u origin main
+        git push origin "$DETECTED_VER"
         git push origin --tags 2>/dev/null
-        echo "[MERGING] Switching to main and folding '$DETECTED_VER' into main..."
-        git checkout main
-        git pull origin main 2>/dev/null
-        git merge "$DETECTED_VER" --no-edit
-        git push origin main
         echo ""
         echo "-----------------------------------------------------------------"
         echo " Iteration successfully published:"
-        echo " - Feature branch '$DETECTED_VER' published on GitHub."
-        echo " - Release tag '$DETECTED_VER' published on GitHub."
-        echo " - Changes merged into 'main' and pushed."
-        echo " - Active working branch is now 'main'."
+        echo " - Commits saved and pushed directly to 'main'."
+        echo " - Marker branch '$DETECTED_VER' published."
+        echo " - Release tag '$DETECTED_VER' published."
+        echo " - Active working branch remains 'main'."
         echo "-----------------------------------------------------------------"
         read -p "Press Enter to continue..."
         return
@@ -328,20 +325,23 @@ merge_main() {
     rm -f "$COMMIT_TMP" 2>/dev/null
     echo "[PUSHING] Publishing '$CURRENT_BRANCH' to GitHub..."
     git push -u origin "$CURRENT_BRANCH"
-    git tag -a "$DETECTED_VER" -m "Release $DETECTED_VER" 2>/dev/null
-    git push origin --tags 2>/dev/null
-    echo "[MERGING] Switching to main and folding '$CURRENT_BRANCH' into main..."
+    echo "[MERGING] Folding '$CURRENT_BRANCH' into main..."
     git checkout main
     git pull origin main 2>/dev/null
     git merge "$CURRENT_BRANCH" --no-edit
     git push origin main
+    echo "[TAGGING] Tagging release '$DETECTED_VER...'..."
+    git tag -a "$DETECTED_VER" -m "Release $DETECTED_VER" 2>/dev/null
+    git push origin --tags 2>/dev/null
+    echo "[RETURNING] Switching back to feature branch '$CURRENT_BRANCH'..."
+    git checkout "$CURRENT_BRANCH"
     echo ""
     echo "-----------------------------------------------------------------"
     echo " Iteration successfully published:"
-    echo " - Feature branch '$CURRENT_BRANCH' published on GitHub."
-    echo " - Release tag '$DETECTED_VER' published on GitHub."
+    echo " - Feature branch '$CURRENT_BRANCH' updated and pushed."
     echo " - Changes merged into 'main' and pushed."
-    echo " - Active working branch is now 'main'."
+    echo " - Release tag '$DETECTED_VER' published."
+    echo " - Active working branch returned to '$CURRENT_BRANCH'."
     echo "-----------------------------------------------------------------"
     read -p "Press Enter to continue..."
 }
@@ -463,7 +463,7 @@ EOF
 while true; do
     clear
     echo "-----------------------------------------------------------------"
-    echo "           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.72)       "
+    echo "           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.74)       "
     echo "-----------------------------------------------------------------"
     echo "  [1] RUN & EVALUATE     (Vite + Daemon, Auto-Export & Evaluation)"
     echo "  [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)"

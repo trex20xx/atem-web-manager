@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.70)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.74)
  * =========================================================================
  */
 
@@ -146,7 +146,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s ease;
 }
 
-/* Collapsed Overlay Mode (Slid up, dark grey background, drops down on hover) */
+/* Collapsed Overlay Mode */
 .app-top-bar.collapsed-mode {
     background: #181818 !important;
     border-bottom: 1px solid var(--atem-border);
@@ -211,7 +211,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     color: #5c6370;
 }
 
-/* Larger, vertically centered separator dots */
+/* Separator dots */
 .app-title-dot {
     display: inline-block;
     font-size: 18px;
@@ -268,14 +268,13 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .apple-theme-switch.active { background: #383838; border-color: #666; }
 .apple-theme-switch.active .apple-switch-thumb { transform: translateX(16px); }
 
-/* Main layout padding container ensuring zero jitter during scale */
+/* Main layout padding container */
 .dashboard {
     position: absolute;
     inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    /* Docked mode base padding: 50px top, 16px bottom, 284px left (sidebar + gap), 16px right */
     padding: 50px 16px 16px 284px;
     transition: padding 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 1;
@@ -285,7 +284,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     padding: 16px;
 }
 
-/* Sidebar Base (Docked Mode) */
+/* Sidebar Base */
 .sidebar { 
     position: fixed;
     left: 16px;
@@ -315,10 +314,6 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     box-sizing: border-box;
 }
 
-/* Collapsed Overlay Mode: Exact Parallel Scaling 
- * - translateX(-268px) geometrically identically matches the 284px->16px padding contraction 
- *   of the quadrant grid, resulting in absolute 0px overlap during the animation.
- */
 .sidebar.collapsed { 
     background: #181818 !important;
     border: 1px solid var(--atem-border) !important;
@@ -336,7 +331,6 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     box-shadow: 8px 8px 32px rgba(0, 0, 0, 0.2);
 }
 
-/* Slide in smoothly when revealed by hover */
 .sidebar.collapsed.revealed,
 .sidebar.collapsed:hover {
     transform: translateX(0);
@@ -419,7 +413,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .edit-save{ background:var(--green); }
 .edit-cancel{ background:#4a4a4a; }
 
-/* Quadrant grid perfectly synchronized with absolute padding layout shifts */
+/* Quadrant grid */
 .quadrant-wrapper{ 
     display:grid; 
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); 
@@ -452,7 +446,6 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     box-sizing: border-box;
 }
 
-/* Video panel fills entire quadrant bounds with zero padding and clipped corners */
 .panel.video-panel {
     padding: 0 !important;
 }
@@ -464,7 +457,6 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 
 .panel.drag-over-quadrant { background:rgba(150,150,150,0.2); }
 
-/* Core Inner Panel Block (Strictly 786px x 424px inside 16:9 Quadrants) */
 .panel-layout-frame {
     width: 786px;
     height: 424px;
@@ -475,7 +467,6 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     box-sizing: border-box;
 }
 
-/* Global Quadrant Inner Normalization (padding: 0 prevents double-padding overflow) */
 .quadrant-master-panel {
     width: 100%; 
     height: 100%; 
@@ -610,7 +601,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .toggle-switch:checked { background: #383838 !important; border-color: #666 !important; }
 .toggle-switch:checked::after { transform: translateX(16px) !important; background: #ffffff !important; }
 
-/* Small Apple Switch for Panel Lock */
 .toggle-switch-small { -webkit-appearance: none !important; appearance: none !important; position: relative; width: 24px !important; height: 14px !important; background: #222 !important; border: 1px solid #444 !important; outline: none !important; border-radius: 7px !important; transition: 0.2s !important; cursor: pointer; margin: 0 !important; flex-shrink: 0; }
 .toggle-switch-small::after { content: '' !important; position: absolute !important; top: 1px !important; left: 1px !important; width: 10px !important; height: 10px !important; background: #666 !important; border-radius: 50% !important; transition: 0.2s !important; }
 .toggle-switch-small:checked { background: var(--green) !important; border-color: #2b8a3e !important; }
@@ -850,7 +840,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     cursor: pointer;
     border-radius: 50% !important;
     transition: background 0.15s, color 0.15s, transform 0.1s;
-    padding: 0;
+    padding: 0; 
 }
 
 .yt-ctrl-btn:hover {
@@ -1018,7 +1008,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     border-color: var(--orange-hl);
 }
 
-/* Tally Rectangles for Media Pool routing */
+/* Reverted Concentric Tally: Red outer border, Green inner 4px inset */
 .mp-slot.mp-tally-green {
     border-color: var(--green) !important;
     box-shadow: inset 0 0 0 1px var(--green);
@@ -1027,15 +1017,9 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     border-color: var(--red) !important;
     box-shadow: inset 0 0 0 1px var(--red);
 }
-
-/* Dim/Muted Tally States for Unselected Routing (40% Opacity) */
-.mp-slot.mp-tally-green-dim {
-    border-color: rgba(52, 168, 83, 0.4) !important;
-    box-shadow: inset 0 0 0 1px rgba(52, 168, 83, 0.4);
-}
-.mp-slot.mp-tally-red-dim {
-    border-color: rgba(234, 67, 53, 0.4) !important;
-    box-shadow: inset 0 0 0 1px rgba(234, 67, 53, 0.4);
+.mp-slot.mp-tally-both {
+    border-color: var(--red) !important;
+    box-shadow: inset 0 0 0 1px var(--red), inset 0 0 0 4px var(--green) !important;
 }
 
 .mp-thumb-container {
@@ -1054,8 +1038,9 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     top: 4px;
     padding: 3px 6px;
     border-radius: var(--pill-radius);
-    background: rgba(150, 150, 150, 0.15);
-    color: var(--muted);
+    background: var(--panel2);
+    color: var(--text);
+    border: 1px solid var(--atem-border);
     font-size: 10px;
     font-weight: 500;
     display: inline-flex;
@@ -1063,6 +1048,52 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     justify-content: center;
     z-index: 10;
     line-height: 1;
+    pointer-events: none;
+}
+
+.mp-clear-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(18, 18, 18, 0.75);
+    color: var(--text);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 15;
+    padding: 0;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.mp-slot:hover .mp-clear-btn {
+    display: flex;
+}
+.mp-clear-btn:hover {
+    background: var(--red);
+    border-color: transparent;
+    color: #ffffff;
+}
+
+.mp-slot-num-circle {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(18, 18, 18, 0.75);
+    color: var(--text);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
     pointer-events: none;
 }
 
@@ -1086,39 +1117,10 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     background: transparent;
 }
 
-.mp-label-bar {
-    height: 20px;
-    background: var(--atem-hl);
-    display: flex;
-    align-items: center;
-    padding: 0 4px;
-    gap: 6px;
-    border-top: 1px solid var(--atem-border);
-}
-
-.mp-label-num {
-    border: 1px solid var(--atem-border);
-    color: var(--muted);
-    padding: 0 3px;
-    font-size: 9px;
-    border-radius: 2px;
-    line-height: 1.2;
-}
-
-.mp-label-text {
-    color: var(--text);
-    font-size: 10px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex: 1;
-}
-
 /* =========================================================================
    ATEM SWITCHER BUS CSS (QUADRANT 3)
    ========================================================================= */
 
-/* Connection Status Indicator in Program row */
 .atem-bus-status { 
     display: flex; 
     align-items: center; 
@@ -1137,7 +1139,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 }
 .atem-bus-online-dot.offline { background: var(--red); }
 
-/* Unified Typography Core for all Header Elements (font-weight: 400) */
 .atem-section-title,
 .macro-action-text-btn,
 .atem-bus-ip {
@@ -1163,13 +1164,11 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     color: var(--text);
 }
 
-/* Enforce font-weight 400 across all active states - prevents bolder buttons */
 .macro-action-text-btn.active-orange { color: var(--orange-hl) !important; opacity: 1; font-weight: 400 !important; }
 .macro-action-text-btn.active-green { color: #2e7d32 !important; opacity: 1; font-weight: 400 !important; }
 .macro-action-text-btn.active-red { color: #d32f2f !important; opacity: 1; font-weight: 400 !important; }
 .macro-action-text-btn.disabled { opacity: 0.35; cursor: default !important; pointer-events: none; font-weight: 400 !important; }
 
-/* Global Header Flex Row Containers */
 .atem-section-header-row,
 .macro-compact-header-row {
     display: flex;
@@ -1187,7 +1186,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     padding: 0 5px;
 }
 
-/* Flex Groups inside Headers */
 .macro-title-group,
 .macro-actions-group {
     display: flex;
@@ -1204,7 +1202,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     gap: 6px;
 }
 
-/* 74px x 36px Widened Grid Button Dimensions */
 .atem-btn-standard { 
     width: 74px; 
     height: 36px !important; 
@@ -1225,20 +1222,17 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-btn-standard:hover { background: rgba(150,150,150,0.2); color: var(--text); }
 .atem-btn-standard .btn-number { font-size: var(--le-font-size); font-weight: var(--device-font-weight); line-height: 1; font-family: var(--le-font-family); white-space: nowrap; }
 
-/* Muted disabled button style (PVW/PGM in normal bus switching mode) */
 .atem-btn-standard.btn-muted {
     opacity: 0.35 !important;
     pointer-events: none !important;
     cursor: default !important;
 }
 
-/* Tally Active States */
 .atem-btn-standard.tally-red { background: #d32f2f !important; border-color: var(--atem-border) !important; color: #fff !important; box-shadow: none !important; outline: none !important; }
 .atem-btn-standard.tally-green { background: #2e7d32 !important; border-color: var(--atem-border) !important; color: #fff !important; box-shadow: none !important; outline: none !important; }
 .atem-btn-standard.tally-orange { background: #e67e22 !important; border-color: var(--atem-border) !important; color: #fff !important; box-shadow: none !important; outline: none !important; }
 .atem-btn-standard.tally-yellow { background: var(--yellow-hl) !important; border-color: var(--atem-border) !important; color: #000 !important; box-shadow: none !important; outline: none !important; }
 
-/* 786px Fixed Row Wrappers */
 .atem-flex-row {
     display: flex;
     width: 786px;
@@ -1246,7 +1240,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     box-sizing: border-box;
 }
 
-/* Row 3 Column Alignment: Next Trans (396px), DSK (162px), FTB flush right (84px) */
 .row-three .next-trans-col {
     width: 396px;
 }
@@ -1261,7 +1254,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     margin-left: auto;
 }
 
-/* Row 4 Column Alignment: Outputs (474px), Transition flush right (240px) */
 .row-four .outputs-col {
     width: 474px;
 }
@@ -1279,7 +1271,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 .router-label { color: var(--orange-hl); }
 
-/* Bounding box: 4px padding strictly equal to 4px button spacing all around */
 .atem-section-box {
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.05);
@@ -1293,7 +1284,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 .aux-source-btn .btn-number { font-size: 11px; }
 
-/* Central 10-Column Bus Grid (Fixed 74px per button, strictly horizontal) */
 .atem-bus-grid { 
     display: grid; 
     grid-template-columns: repeat(10, 74px);
@@ -1303,7 +1293,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-bus-grid.six-cols { grid-template-columns: repeat(6, 74px); }
 .atem-bus-grid.three-cols { grid-template-columns: repeat(3, 74px); }
 
-/* Two-Row Action Grids */
 .two-row-grid {
     display: grid;
     gap: 4px;
@@ -1322,7 +1311,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .cut-btn:active { background: var(--panel) !important; color: var(--text) !important; }
 .auto-btn.trans-active { background: var(--orange-hl) !important; color: #000000 !important; border-color: var(--atem-border) !important; outline: none !important; }
 
-/* Scrub/Click Rate Button matching 74px x 36px button geometry exactly */
 .rate-box-button { 
     background: #000000; 
     border: 1px solid rgba(255, 255, 255, 0.1); 
@@ -1370,7 +1358,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     margin: 0; 
 }
 
-/* OUT button active state - matched strictly to bright orange tally (#e67e22) */
 .out-active { 
     background: #e67e22 !important; 
     border-color: var(--atem-border) !important; 
@@ -1388,7 +1375,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
    ATEM MACROS PANEL (QUADRANT 4)
    ========================================================================= */
 
-/* Enclosed bounding box: 786px wide with 4px padding all around */
 .macro-section-box {
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.05);
@@ -1413,7 +1399,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     align-content: start; 
 }
 
-/* Buttons designed identically to Mixer switcher buttons (36px height) */
 .macro-compact-btn {
     background: var(--panel2);
     border: 1px solid var(--atem-border) !important;
@@ -1442,7 +1427,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     height: 100%;
 }
 
-/* Fixed number width: 24px */
 .macro-compact-num {
     font-family: var(--le-font-family);
     font-size: var(--le-font-size);
@@ -1455,7 +1439,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     line-height: 1;
 }
 
-/* Left-justified macro text preserving original casing */
 .macro-compact-text {
     font-family: var(--le-font-family);
     font-size: var(--le-font-size);

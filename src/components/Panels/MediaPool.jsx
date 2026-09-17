@@ -2,18 +2,17 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.68)
+// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.74)
 // =========================================================================
 // Hardware-Locked IP: 192.168.10.240
 // Features persistent localStorage thumbnail caching (0ms reload on app launch),
-// single-flight sequential downloading with SYNC button & click-to-fetch,
-// drag-and-drop RGBA still uploading, and contextual dim/bright tally borders.
+// concentric dual-tally rendering (Red outer, Green inner), flat Material slot clearing,
+// dynamic local cache clearing, and master Picture Engine toggle switch on the far right.
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
 
 const MediaPool = ({ connectedDevice }) => {
-    // Determine active connection state
     const isPanelActive = Boolean(connectedDevice && connectedDevice.ip === LOCKED_ATEM_IP);
 
     const [currentPage, setCurrentPage] = useState(1);
@@ -29,6 +28,9 @@ const MediaPool = ({ connectedDevice }) => {
     const [dragActive, setDragActive] = useState(null);
     const [uploadingSlot, setUploadingSlot] = useState(null);
     const [isSyncing, setIsSyncing] = useState(false);
+    
+    // Master Picture Engine switch (default disabled to eliminate ATEM UDP traffic)
+    const [isEngineEnabled, setIsEngineEnabled] = useLocalStorage('atem_mp_engine', false);
 
     // Persistent browser-side thumbnail cache
     const [cachedThumbnails, setCachedThumbnails] = useLocalStorage('atem_media_pool_thumbs', {});
@@ -37,14 +39,16 @@ const MediaPool = ({ connectedDevice }) => {
     const reconnectTimerRef = useRef(null);
     const lastWheelTimeRef = useRef(0);
 
-    // Single-flight download queue refs
     const atemStillsRef = useRef([]);
     const inFlightIdxRef = useRef(null);
     const pendingQueueRef = useRef([]);
     const watchdogTimerRef = useRef(null);
 
     const processDownloadQueue = useCallback(() => {
-        if (!isPanelActive) return;
+        if (!isPanelActive || !isEngineEnabled) {
+            setIsSyncing(false);
+            return;
+        }
         if (inFlightIdxRef.current !== null || pendingQueueRef.current.length === 0) {
             if (pendingQueueRef.current.length === 0) {
                 setIsSyncing(false);
@@ -65,7 +69,6 @@ const MediaPool = ({ connectedDevice }) => {
             index: nextIdx 
         }));
 
-        // 8-second watchdog timeout fallback
         if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
         watchdogTimerRef.current = setTimeout(() => {
             if (inFlightIdxRef.current === nextIdx) {
@@ -73,19 +76,18 @@ const MediaPool = ({ connectedDevice }) => {
                 processDownloadQueue();
             }
         }, 8000);
-    }, [isPanelActive]);
+    }, [isPanelActive, isEngineEnabled]);
 
-    // Manual fetch trigger for a single slot or batch sync
     const triggerSlotFetch = useCallback((idx) => {
-        if (!isPanelActive) return;
+        if (!isPanelActive || !isEngineEnabled) return;
         if (!pendingQueueRef.current.includes(idx) && inFlightIdxRef.current !== idx) {
             pendingQueueRef.current.push(idx);
             processDownloadQueue();
         }
-    }, [isPanelActive, processDownloadQueue]);
+    }, [isPanelActive, isEngineEnabled, processDownloadQueue]);
 
     const handleSyncAllStills = () => {
-        if (!isPanelActive) return;
+        if (!isPanelActive || !isEngineEnabled) return;
         atemStillsRef.current.forEach((still, idx) => {
             if (still.isUsed) {
                 triggerSlotFetch(idx);
@@ -95,7 +97,7 @@ const MediaPool = ({ connectedDevice }) => {
 
     useEffect(() => {
         const initWebSocket = () => {
-            const wsUrl = `ws://localhost:${BRIDGE_PORT}`;
+            const wsUrl = 'ws://localhost:' + BRIDGE_PORT;
             try {
                 wsRef.current = new WebSocket(wsUrl);
 
@@ -112,7 +114,6 @@ const MediaPool = ({ connectedDevice }) => {
                                 setAtemStills(data.mediaPool.stills);
                                 atemStillsRef.current = data.mediaPool.stills;
 
-                                // Purge thumbnails from cache if the slot was emptied on hardware
                                 data.mediaPool.stills.forEach((still, idx) => {
                                     if (!still.isUsed && cachedThumbnails[idx]) {
                                         setCachedThumbnails(prev => {
@@ -130,7 +131,6 @@ const MediaPool = ({ connectedDevice }) => {
                             setMediaPlayers(data.mediaPlayers);
                         }
 
-                        // Received thumbnail BMP data
                         if (data.type === 'STILL_DATA' && data.data && data.index !== undefined) {
                             if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
                             const idx = data.index;
@@ -148,7 +148,6 @@ const MediaPool = ({ connectedDevice }) => {
                                 inFlightIdxRef.current = null;
                             }
 
-                            // 250ms gap between still downloads to guarantee zero mixer interference
                             setTimeout(processDownloadQueue, 250);
                         }
                     } catch (err) {}
@@ -226,7 +225,7 @@ const MediaPool = ({ connectedDevice }) => {
                 
                 setLocalPreviews(prev => ({
                     ...prev,
-                    [`${type}-${index}`]: { src: dataUrl, name: file.name }
+                    [type + '-' + index]: { src: dataUrl, name: file.name }
                 }));
 
                 const img = new Image();
@@ -277,8 +276,7 @@ const MediaPool = ({ connectedDevice }) => {
     const handleSlotClick = (slotIndex, type) => {
         if (!isPanelActive) return;
 
-        // If an image is used but not yet cached, click immediately fetches it
-        if (type === 'still' && atemStills[slotIndex]?.isUsed && !cachedThumbnails[slotIndex]) {
+        if (isEngineEnabled && type === 'still' && atemStills[slotIndex]?.isUsed && !cachedThumbnails[slotIndex]) {
             triggerSlotFetch(slotIndex);
         }
 
@@ -299,7 +297,7 @@ const MediaPool = ({ connectedDevice }) => {
     const MediaSlot = ({ index, type, startIndex = 0 }) => {
         const slotNumber = startIndex + index + 1;
         const actualSlotIndex = startIndex + index;
-        const dropId = `${type}-${actualSlotIndex}`;
+        const dropId = type + '-' + actualSlotIndex;
         const isDragOver = isPanelActive && dragActive === dropId;
         const isUploading = isPanelActive && uploadingSlot === actualSlotIndex && type === 'still';
 
@@ -309,47 +307,70 @@ const MediaPool = ({ connectedDevice }) => {
 
         const isUsed = atemData ? atemData.isUsed : false;
         const displayName = localPreview ? localPreview.name : (atemData ? atemData.name : '');
-        const displaySrc = localPreview ? localPreview.src : (cachedRecord ? cachedRecord.src : null);
+        const displaySrc = isEngineEnabled ? (localPreview ? localPreview.src : (cachedRecord ? cachedRecord.src : null)) : null;
 
         const isMp1 = isPanelActive && mediaPlayers[0] && (type === 'still' ? (mediaPlayers[0].sourceType === 1 && mediaPlayers[0].stillIndex === actualSlotIndex) : (mediaPlayers[0].sourceType === 2 && mediaPlayers[0].clipIndex === actualSlotIndex));
         const isMp2 = isPanelActive && mediaPlayers[1] && (type === 'still' ? (mediaPlayers[1].sourceType === 1 && mediaPlayers[1].stillIndex === actualSlotIndex) : (mediaPlayers[1].sourceType === 2 && mediaPlayers[1].clipIndex === actualSlotIndex));
 
-        // Evaluate context-aware dim vs bright tally borders
+        // Reverted Concentric Tally: Red outer border, Green inner 4px shadow
         let tallyClass = '';
-        if (isMp2) {
-            tallyClass = selectedMp === 2 ? 'mp-tally-red' : 'mp-tally-red-dim';
+        if (isMp1 && isMp2) {
+            tallyClass = 'mp-tally-both';
         } else if (isMp1) {
-            tallyClass = selectedMp === 1 ? 'mp-tally-green' : 'mp-tally-green-dim';
+            tallyClass = 'mp-tally-green';
+        } else if (isMp2) {
+            tallyClass = 'mp-tally-red';
         }
 
         return (
             <div 
-                className={`mp-slot ${isDragOver ? 'drag-over' : ''} ${tallyClass}`}
+                className={'mp-slot ' + (isDragOver ? 'drag-over ' : '') + tallyClass}
                 onDragOver={(e) => handleDragOver(e, dropId)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, actualSlotIndex, type)}
                 onClick={() => handleSlotClick(actualSlotIndex, type)}
                 style={{ opacity: isUploading ? 0.5 : 1 }}
-                title={isPanelActive && isUsed && !displaySrc ? "Click to fetch image from ATEM" : undefined}
+                data-description={isPanelActive && (isUsed || displayName) ? (displayName || ('Slot ' + slotNumber)) : undefined}
             >
                 {isMp1 && <div className="mp-badge" style={{ left: '4px' }}>MP1</div>}
                 {isMp2 && <div className="mp-badge" style={{ left: isMp1 ? '38px' : '4px' }}>MP2</div>}
 
+                {isPanelActive && type === 'still' && isUsed && (
+                    <button 
+                        className="mp-clear-btn" 
+                        title="Clear slot from hardware" 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (isPanelActive && wsRef.current) {
+                                wsRef.current.send(JSON.stringify({ action: 'CLEAR_STILL', ip: LOCKED_ATEM_IP, index: actualSlotIndex }));
+                                setCachedThumbnails(prev => { 
+                                    const next = { ...prev }; 
+                                    delete next[actualSlotIndex]; 
+                                    return next; 
+                                });
+                            }
+                        }}
+                    >
+                        <svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                )}
+
+                {displaySrc && (
+                    <div className="mp-slot-num-circle">{slotNumber}</div>
+                )}
+
                 <div className="mp-thumb-container">
                     {displaySrc ? (
-                        <img src={displaySrc} alt={`Slot ${slotNumber}`} className="mp-thumbnail" />
+                        <img src={displaySrc} alt={'Slot ' + slotNumber} className="mp-thumbnail" />
                     ) : (
                         <div className="mp-empty-circle">
                             {isUploading ? 'UP...' : slotNumber}
                         </div>
                     )}
                 </div>
-                {isPanelActive && (isUsed || displayName) && (
-                    <div className="mp-label-bar">
-                        <span className="mp-label-num">{slotNumber.toString().padStart(2, '0')}</span>
-                        <span className="mp-label-text">{displayName || `Slot ${slotNumber}`}</span>
-                    </div>
-                )}
             </div>
         );
     };
@@ -372,8 +393,8 @@ const MediaPool = ({ connectedDevice }) => {
                             <div className="macro-page-buttons">
                                 {[1, 2].map((pageNum) => (
                                     <button
-                                        key={`mp-page-btn-${pageNum}`}
-                                        className={`macro-action-text-btn ${isPanelActive && currentPage === pageNum ? 'active-orange' : ''}`}
+                                        key={'mp-page-btn-' + pageNum}
+                                        className={'macro-action-text-btn ' + (isPanelActive && currentPage === pageNum ? 'active-orange' : '')}
                                         onClick={() => setCurrentPage(pageNum)}
                                     >
                                         {pageNum}
@@ -384,31 +405,42 @@ const MediaPool = ({ connectedDevice }) => {
 
                         <div className="macro-actions-group">
                             <button 
-                                className={`macro-action-text-btn ${isPanelActive && isSyncing ? 'active-red' : ''}`}
-                                onClick={handleSyncAllStills}
-                                title="Fetch thumbnails from ATEM"
+                                className="macro-action-text-btn"
+                                onClick={() => setCachedThumbnails({})}
+                                title="Clear local thumbnails cache"
                             >
-                                {isPanelActive && isSyncing ? 'SYNCING...' : 'SYNC'}
+                                CLEAR
                             </button>
                             <button 
-                                className={`macro-action-text-btn ${isPanelActive && selectedMp === 1 ? 'active-green' : ''}`}
+                                className={'macro-action-text-btn ' + (isPanelActive && isSyncing ? 'active-red' : '')}
+                                onClick={handleSyncAllStills}
+                                title="Fetch thumbnails from ATEM"
+                                disabled={!isEngineEnabled}
+                            >
+                                SYNC
+                            </button>
+                            <button 
+                                className={'macro-action-text-btn ' + (isPanelActive && selectedMp === 1 ? 'active-green' : '')}
                                 onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
                             >
                                 MP1
                             </button>
                             <button 
-                                className={`macro-action-text-btn ${isPanelActive && selectedMp === 2 ? 'active-red' : ''}`}
+                                className={'macro-action-text-btn ' + (isPanelActive && selectedMp === 2 ? 'active-red' : '')}
                                 onClick={() => setSelectedMp(prev => prev === 2 ? null : 2)}
                             >
                                 MP2
                             </button>
+                            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginLeft: '8px' }} title={isEngineEnabled ? "Disable Picture Engine" : "Enable Picture Engine"}>
+                                <input type="checkbox" className="toggle-switch-small" checked={isEngineEnabled} onChange={() => setIsEngineEnabled(!isEngineEnabled)} />
+                            </label>
                         </div>
                     </div>
 
                     <div className="macro-section-box">
                         <div className="mp-grid">
                             {Array.from({ length: 16 }).map((_, idx) => (
-                                <MediaSlot key={`still-${idx}`} index={idx} type="still" startIndex={0} />
+                                <MediaSlot key={'still-' + idx} index={idx} type="still" startIndex={0} />
                             ))}
                         </div>
                     </div>
@@ -432,8 +464,8 @@ const MediaPool = ({ connectedDevice }) => {
                                 <div className="macro-page-buttons">
                                     {[1, 2].map((pageNum) => (
                                         <button
-                                            key={`mp-page-btn-p2-${pageNum}`}
-                                            className={`macro-action-text-btn ${isPanelActive && currentPage === pageNum ? 'active-orange' : ''}`}
+                                            key={'mp-page-btn-p2-' + pageNum}
+                                            className={'macro-action-text-btn ' + (isPanelActive && currentPage === pageNum ? 'active-orange' : '')}
                                             onClick={() => setCurrentPage(pageNum)}
                                         >
                                             {pageNum}
@@ -444,31 +476,42 @@ const MediaPool = ({ connectedDevice }) => {
 
                             <div className="macro-actions-group">
                                 <button 
-                                    className={`macro-action-text-btn ${isPanelActive && isSyncing ? 'active-red' : ''}`}
-                                    onClick={handleSyncAllStills}
-                                    title="Fetch thumbnails from ATEM"
+                                    className="macro-action-text-btn"
+                                    onClick={() => setCachedThumbnails({})}
+                                    title="Clear local thumbnails cache"
                                 >
-                                    {isPanelActive && isSyncing ? 'SYNCING...' : 'SYNC'}
+                                    CLEAR
                                 </button>
                                 <button 
-                                    className={`macro-action-text-btn ${isPanelActive && selectedMp === 1 ? 'active-green' : ''}`}
+                                    className={'macro-action-text-btn ' + (isPanelActive && isSyncing ? 'active-red' : '')}
+                                    onClick={handleSyncAllStills}
+                                    title="Fetch thumbnails from ATEM"
+                                    disabled={!isEngineEnabled}
+                                >
+                                    SYNC
+                                </button>
+                                <button 
+                                    className={'macro-action-text-btn ' + (isPanelActive && selectedMp === 1 ? 'active-green' : '')}
                                     onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
                                 >
                                     MP1
                                 </button>
                                 <button 
-                                    className={`macro-action-text-btn ${isPanelActive && selectedMp === 2 ? 'active-red' : ''}`}
+                                    className={'macro-action-text-btn ' + (isPanelActive && selectedMp === 2 ? 'active-red' : '')}
                                     onClick={() => setSelectedMp(prev => prev === 2 ? null : 2)}
                                 >
                                     MP2
                                 </button>
+                                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginLeft: '8px' }} title={isEngineEnabled ? "Disable Picture Engine" : "Enable Picture Engine"}>
+                                    <input type="checkbox" className="toggle-switch-small" checked={isEngineEnabled} onChange={() => setIsEngineEnabled(!isEngineEnabled)} />
+                                </label>
                             </div>
                         </div>
 
                         <div className="macro-section-box">
                             <div className="mp-grid-single-row">
                                 {Array.from({ length: 4 }).map((_, idx) => (
-                                    <MediaSlot key={`still-p2-${idx}`} index={idx} type="still" startIndex={16} />
+                                    <MediaSlot key={'still-p2-' + idx} index={idx} type="still" startIndex={16} />
                                 ))}
                             </div>
                         </div>
@@ -483,7 +526,7 @@ const MediaPool = ({ connectedDevice }) => {
                         <div className="macro-section-box">
                             <div className="mp-grid-single-row">
                                 {Array.from({ length: 4 }).map((_, idx) => (
-                                    <MediaSlot key={`clip-${idx}`} index={idx} type="clip" startIndex={0} />
+                                    <MediaSlot key={'clip-' + idx} index={idx} type="clip" startIndex={0} />
                                 ))}
                             </div>
                         </div>

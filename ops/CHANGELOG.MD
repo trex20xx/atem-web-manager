@@ -1,4 +1,28 @@
-# ATEM WEB MANAGER - Complete Version History
+﻿# ATEM WEB MANAGER - Complete Version History
+
+## [v3.74] - Mixer Control Restoration, Media Engine Gating & Concentric Tally Inversion
+- Resolved Mixer Button Latency and Reversions: Injected immediate local optimistic state dispatch for KEY 1-4, BKGD, USK ON AIR, DSK TIE, DSK ON AIR, and DSK Rate, eliminating sluggishness and network dropouts.
+- Fixed Aux Output Reversion: Eliminated server-side stale cache rebroadcasting race conditions, locking Aux input changes into place immediately upon selection.
+- Renamed TIE 1 button to TIE in Mixer panel.
+- Decoupled Media Pool Picture Engine: Added a master toggle switch on the far right of the Media Pool header (default OFF). When disabled, all background UDP thumbnail requests to the ATEM switcher are completely halted, freeing 100% of network bandwidth for video transitions.
+- File names and Media Player routing (MP1/MP2) remain fully interactive even with the Picture Engine disabled.
+- Redesigned Slot Clearing Button: Replaced the cartoonish X with a minimalist, flat Material vector cross icon.
+- Reverted Concentric Tally Order: When both MP1 and MP2 sit on the same slot, the red tally border sits on the outer boundary with the green tally nested 4px inside.
+- Solidified MP1 and MP2 badges with an opaque base color (var(--panel2)) for maximum contrast.
+- Synchronized Trunk-Based Development routines across ops/OPS.BAT and ops/OPS.SH.
+
+
+## [v3.73] - Git Trunk-Based Execution, Media Pool Cache Controls & Concentric Tallies
+- Re-architected Git Operations MERGE_MAIN in OPS.BAT and OPS.SH: Scripts now utilize Trunk-Based Development mechanics. Commits are saved and pushed directly to main, and a historical marker branch (e.g. v3.73) and tag are spawned and pushed without leaving main, permanently eliminating merge conflicts.
+- Added CLEAR button to Media Pool headers that flushes the localized thumbnail cache (setCachedThumbnails).
+- Added an Apple-style toggle switch to the Media Pool header allowing operators to instantly hide all downloaded pictures and revert to numbered slot placeholders.
+- Added a hover-activated 'X' overlay button to the top-right corner of each Media Pool slot. Clicking it clears the local cache for that slot and dispatches a CLEAR_STILL command to the physical ATEM switcher via the bridge server.
+- Replaced the bottom textual filename bar (.mp-label-bar) in the Media Pool with a hover-based GlobalTooltip overlay, maximizing image real estate.
+- Redesigned Media Pool Tallies: Eliminated dim tally states. Selected MP1 slots always render with a bright green border, and MP2 slots with a bright red border. When both players are assigned to the same slot, the tally displays concentrically (red nested 4px inside the green border).
+- Solidified .mp-badge (MP1/MP2 tags) with an opaque base color (var(--panel2)) to ensure legibility over bright thumbnails.
+- Added a permanent dark-grey numbered circle overlay to the bottom-left corner of Media Pool slots when an image is loaded, matching the 'X' button geometry.
+- Fixed the SYNC button to maintain its text label ("SYNC") while turning red when active, rather than transforming to "SYNCING...".
+
 
 ## [v3.72] - Mixer Lock Switch Inversion, Console Layout Parity & Keyboard Bounce Shielding
 - Fixed duplicate command triggers on keyboard input: added e.repeat checks to the physical key listener, ignoring auto-repeating keystrokes from held-down buttons.
@@ -24,7 +48,7 @@
 
 ## [v3.30] - Perfect 424px Centralization & Flexbox Alignment
 - Resolved the vertical alignment of Media Pool Page 2 by replacing broken CSS grid row definitions with a flexbox architecture powered by `justify-content: space-between` inside the fixed `424px` `.panel-layout-frame`.
-- Preserved perfect quadrant margin parity: Both Page 1 and Page 2 are strictly locked to `786px` width × `424px` height and centered vertically inside the quadrant panel.
+- Preserved perfect quadrant margin parity: Both Page 1 and Page 2 are strictly locked to `786px` width Ã— `424px` height and centered vertically inside the quadrant panel.
 
 ## [v3.29] - Top-Alignment Offset Fix
 - Solved the top-alignment layout anomaly: `justify-content: flex-start` was restored to `.panel-layout-frame` across both Media Pool and Macro panels, ensuring headers stay permanently pinned to the absolute top of the 424px rigid frame.
@@ -176,7 +200,7 @@
 
 ## [v2.91] - Section Text Button Edge Alignment, Title Distance Lock & 4px Box Padding Symmetry
 - Aligned all section titles (`PROGRAM`, `PREVIEW`, `NEXT TRANSITION`, `DSK 1`, `FTB`, `OUTPUTS`, `TRANSITION`) flush with the left edge of the first button inside their section (`margin-left: 4px`).
-- Aligned the Program IP status indicator (`● 192.168.10.240`) flush with the right edge of the last button (Input 10).
+- Aligned the Program IP status indicator (`â— 192.168.10.240`) flush with the right edge of the last button (Input 10).
 - Locked the vertical distance of all section titles to a fixed `4px` directly above their respective bounding boxes, eliminating the previous height offset on `PROGRAM` and `IP`.
 - Equalized all bounding box margins strictly to `padding: 4px !important;` on all 4 sides, matching the `4px` button spacing.
 - Synchronized application version tag to v2.91 across all modules.
@@ -279,7 +303,7 @@
 ## [v2.74] - Multiview 16:9 Track Lockdown, Horizontal Bus Restoration & Keyer Array Protocol
 - Enforced `minmax(0, 1fr)` and strict `min-height: 0` constraints across `.quadrant-wrapper` and `.panel`, mathematically preventing any panel content from stretching or distorting the 16:9 aspect ratio.
 - Restored `grid-template-columns: repeat(10, 70px)` to `.atem-bus-grid`, resolving the vertical button stack glitch and returning Program and Preview to horizontal dual-row layouts.
-- Rewrote the ATEM Transition Selection handler in `bridge/server.js` to support both array-based enum mapping (`[1, 2]`) and bitmask parameters, restoring physical switcher Key 1–4 control.
+- Rewrote the ATEM Transition Selection handler in `bridge/server.js` to support both array-based enum mapping (`[1, 2]`) and bitmask parameters, restoring physical switcher Key 1â€“4 control.
 - Hardened Upstream Keyer execution (`setUpstreamKeyerOnAir`) with bidirectional state extraction.
 - Fortified markdown code delivery blocks to prevent nested code fences from prematurely terminating artifacts.
 - Synchronized application version tag to v2.74 across all modules.
@@ -310,15 +334,15 @@
 ## [v2.70] - Lower Control Modules Alignment Realignment, FTB Relocation & Rate Drag Shielding
 - Relocated FTB control module from Input 9 to Input 10, establishing clean 50px buffer gaps at Column 6 and Column 9.
 - Re-architected `.atem-lower-sections-grid` to match the exact 764px bounding box width and 10px 14px padding of `.pgm-pvw-box`.
-- Formatted NEXT TRANSITION (Cols 1–5), DSK 1 (Cols 7–8), and FTB (Col 10) so every button aligns with PGM/PVW inputs and bottom outputs.
+- Formatted NEXT TRANSITION (Cols 1â€“5), DSK 1 (Cols 7â€“8), and FTB (Col 10) so every button aligns with PGM/PVW inputs and bottom outputs.
 - Fixed sticky mouse cursor bug in `DragRateInput` by correctly binding and removing `onMouseUp` on the window event listener.
 - Added live real-time ATEM hardware rate dispatching during scrub dragging, Enter submission, and click-away blur.
 - Synchronized application version tag to v2.70 across all documentation and runtime modules.
 
 ## [v2.69] - Two-Row Control Modules Architecture & Scrub-Drag Interaction Stabilization
 - Re-architected `DragRateInput` by separating display and editing modes, enabling smooth vertical scrub-dragging without input element event collisions while retaining single-click typing with Enter submission.
-- Created the "NEXT TRANSITION" section matching the official software layout aligned directly under Inputs 1–5 (Row 1: On Air 1–4; Row 2: BKGD, Key 1–4).
-- Added the "DSK 1" section aligned under Inputs 7–8 across two rows (TIE 1, Rate, ON AIR, AUTO).
+- Created the "NEXT TRANSITION" section matching the official software layout aligned directly under Inputs 1â€“5 (Row 1: On Air 1â€“4; Row 2: BKGD, Key 1â€“4).
+- Added the "DSK 1" section aligned under Inputs 7â€“8 across two rows (TIE 1, Rate, ON AIR, AUTO).
 - Added the "FADE TO BLACK" section aligned under Input 9 across two rows (Rate, FTB).
 - Formatted sections to an exact two-button-tall height wrapped in individual `atem-section-box` borders.
 - Moved keyer triggers into the Next Transition section, returning bus row 2 to standard sources (`BLK`, `BARS`, `COL 1`, `COL 2`, `MP1`, `MP2`).
@@ -334,7 +358,7 @@
 - Synchronized master application version tag to v2.68 across all metadata and documentation.
 
 ## [v2.67] - Strict Grid Realignment, Rate Drag Shielding & Bottom Row Symmetry
-- Restructured the bottom control row into the exact same 10-column grid (`repeat(10, 70px)`) as the buses above: OUT 1–6 (Cols 1–6), Spacer (Col 7), Rate (Col 8), CUT (Col 9 under Input 9), and AUTO (Col 10 under Input 10).
+- Restructured the bottom control row into the exact same 10-column grid (`repeat(10, 70px)`) as the buses above: OUT 1â€“6 (Cols 1â€“6), Spacer (Col 7), Rate (Col 8), CUT (Col 9 under Input 9), and AUTO (Col 10 under Input 10).
 - Applied `width: fit-content; margin: 0 auto;` to `.pgm-pvw-box` to tightly wrap the bus grid with zero spillover.
 - Suppressed HTML5 quadrant drag-event collisions on the Rate button during click-and-drag adjustments.
 - Aligned Rate input font family, size (`var(--le-font-size)`), and weight (`var(--device-font-weight)`) with switcher button numbers while preserving the orange highlight.
@@ -367,7 +391,7 @@
 - Synchronized master application version tag to v2.64 across metadata and documentation.
 
 ## [v2.63] - Master Changelog Restoration
-- Restored the complete historical archive in `ops/CHANGELOG.MD` spanning v1.72 through v2.63, fixing the missing v1.72–v2.50 entries.
+- Restored the complete historical archive in `ops/CHANGELOG.MD` spanning v1.72 through v2.63, fixing the missing v1.72â€“v2.50 entries.
 - Synchronized master application version tag to v2.63.
 
 ## [v2.62] - Dual-Row Bus Routing, Active Transition Control Arrays & Drag Rates
@@ -421,7 +445,7 @@
 - Added a `SELECT NONE` option to `QuadrantContextMenu.jsx`, rendering centered numbers when slots are unpopulated.
 - Embedded a Fullscreen toggle button in `App.jsx` top bar between theme and settings buttons.
 - Integrated official ATEM internal sources into PGM and PVW buses (`BLK`, `BARS`, `COL 1`, `COL 2`, `MP 1`, `MP 2`).
-- Implemented an Aux output router bar with 6 output buttons (`OUT 1`–`OUT 6`), enabling direct source routing through the PGM row.
+- Implemented an Aux output router bar with 6 output buttons (`OUT 1`â€“`OUT 6`), enabling direct source routing through the PGM row.
 - Added bidirectional `SET_AUX` WebSocket command handling and auxiliary telemetry broadcasting in `bridge/server.js`.
 - Synchronized master application version tag to v2.58.
 
@@ -486,7 +510,7 @@
 - Replaced macro selected state with a subtle, flat grey highlight (`#404040`), removing all orange fills.
 - Redesigned Recall & Run icon to a clean double-play vector arrow matching standard play sizing.
 - Added GlobalTooltip hover descriptions on all transport buttons and dynamically enabled tooltips for macro names that exceed button width boundaries.
-- Reordered the 20-button macro matrix into column-first orientation (Column 1: 1–10; Column 2: 11–20).
+- Reordered the 20-button macro matrix into column-first orientation (Column 1: 1â€“10; Column 2: 11â€“20).
 - Bolstered pagination navigation arrows with bold 2.8px stroke chevrons for improved legibility.
 - Accelerated mouse wheel pagination scrolling response by reducing debounce to 35ms.
 
@@ -542,7 +566,7 @@
 - Configured automatic codebase serialization (`codebase.txt`) on every execution of `[1] RUN & EVALUATE`.
 
 ## [v2.42.0] - Descriptive Evaluation Menu & Protocol Optimization
-- Added comprehensive, plain-English descriptions to options [1–4] in the Post-Vite Evaluation menu across `ops/OPS.SH` and `ops/OPS.BAT`.
+- Added comprehensive, plain-English descriptions to options [1â€“4] in the Post-Vite Evaluation menu across `ops/OPS.SH` and `ops/OPS.BAT`.
 - Optimized delivery protocol: decoupled unchanged component re-rendering (e.g. `App.jsx`) from operational and documentation updates, preserving prompt efficiency.
 
 ## [v2.41.0] - Vite Auto-Browser Launch & Post-Run Evaluation / Revert Pipeline
@@ -659,7 +683,7 @@
 
 ## [v2.16.0] - Compact Apple Switch Icons, Fade-Toggle Version Tag ^& Alignment Precision
 - Embedded responsive SVG Sun and Moon icons directly inside the sliding Apple-style theme toggle switch.
-- Scaled Apple switch geometry to 36px × 20px to match the proportions of the adjacent settings gear.
+- Scaled Apple switch geometry to 36px Ã— 20px to match the proportions of the adjacent settings gear.
 - Added smooth opacity fade transition (0.3s) to the version tag, allowing click-to-hide and click-to-reveal.
 - Anchored multiview quadrant grid left alignment to match the sidebar's uncollapsed left boundary when the sidebar collapses.
 
@@ -706,8 +730,8 @@
 - Restored settings gear icon to the bottom-right corner (`bottom: 16px; right: 16px`).
 - Mathematically centered edit buttons (`.edit-btn`, `.group-edit-btn`) with exact 4px equidistant top, bottom, and right padding inside `30px` pill rows.
 - Standardized all edit panel inputs (`Name`, `IP`, `Group`, `Color`, `Description`) with pill-rounded geometry (`24px`).
-- Added "Clear Color" (`×`) button inside the Color Dropdown to reset colors to transparent ("No Color").
-- Implemented right-click quadrant context menu routing specific Quadrant numbers (1–4) into target slots.
+- Added "Clear Color" (`Ã—`) button inside the Color Dropdown to reset colors to transparent ("No Color").
+- Implemented right-click quadrant context menu routing specific Quadrant numbers (1â€“4) into target slots.
 - Added Tally LED brightness global settings slider.
 
 ## [v2.06.0] - Synchronization ^& Full Rollup Release

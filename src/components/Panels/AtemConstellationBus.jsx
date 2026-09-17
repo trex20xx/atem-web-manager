@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.72)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.74)
 // =========================================================================
 // Hardware-Locked IP: 192.168.10.240
 // Switcher Button Geometry: 74px x 36px | 4px Padding Symmetry
@@ -314,27 +314,21 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (!isPanelActive || !isUnlocked) return;
-
-            // Guard: Prevent auto-repeat bouncing from held down keys
             if (e.repeat) return;
 
-            // Guard: Do not intercept if typing in an input, textarea, or editable element
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
                 return;
             }
-            // Guard: Protect browser shortcuts (Ctrl+1..9, Cmd+1..9, Alt+...)
             if (e.ctrlKey || e.altKey || e.metaKey) {
                 return;
             }
 
-            // CUT shortcut: Space
             if (e.code === 'Space') {
                 e.preventDefault();
                 sendAtemCommandRef.current('CUT');
                 return;
             }
 
-            // AUTO shortcut: Enter
             if (e.code === 'Enter' || e.code === 'NumpadEnter') {
                 e.preventDefault();
                 sendAtemCommandRef.current('AUTO');
@@ -369,6 +363,42 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isPanelActive, isUnlocked]);
 
+    // Action Handlers with Instant Optimistic UI Feedback
+    const handleTransSelection = (bit) => {
+        if (!isPanelActive || !isUnlocked) return;
+        const current = transitionSelection !== null ? transitionSelection : 1;
+        const next = current ^ bit;
+        setTransitionSelection(next || 1);
+        sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit });
+    };
+
+    const handleUskToggle = (usk) => {
+        if (!isPanelActive || !isUnlocked) return;
+        setUskOnAir(prev => {
+            const next = [...prev];
+            next[usk] = !next[usk];
+            return next;
+        });
+        sendAtemCommand('TOGGLE_USK_ONAIR', { usk });
+    };
+
+    const handleDskTie = () => {
+        if (!isPanelActive || !isUnlocked) return;
+        setDsk(prev => ({ ...prev, tie: !prev.tie }));
+        sendAtemCommand('TOGGLE_DSK_TIE', { tie: !dsk.tie });
+    };
+
+    const handleDskOnAir = () => {
+        if (!isPanelActive || !isUnlocked) return;
+        setDsk(prev => ({ ...prev, onAir: !prev.onAir }));
+        sendAtemCommand('TOGGLE_DSK_ONAIR', { onAir: !dsk.onAir });
+    };
+
+    const handleDskRateChange = (val) => {
+        setLocalDskRate(val);
+        setDsk(prev => ({ ...prev, rate: val }));
+    };
+
     const inputSources = [
         { id: 1, label: '1' }, { id: 2, label: '2' }, { id: 3, label: '3' }, { id: 4, label: '4' }, { id: 5, label: '5' }, 
         { id: 6, label: '6' }, { id: 7, label: '7' }, { id: 8, label: '8' }, { id: 9, label: '9' }, { id: 10, label: '10' }
@@ -389,7 +419,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
     const auxOutputsList = [1, 2, 3, 4, 5, 6];
 
-    // Suppress all tallies when disconnected (!isPanelActive)
     const getIsActivePgm = (sourceId) => {
         if (!isPanelActive || pgmInput === null) return false;
         return selectedOut !== null ? (auxSources[selectedOut] === sourceId) : (pgmInput === sourceId);
@@ -400,7 +429,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         return selectedOut !== null ? false : (pvwInput === sourceId);
     };
 
-    // Styling configuration for locked / standby muting
     const activeLockStyle = {
         opacity: !isUnlocked ? 0.45 : 1,
         pointerEvents: !isUnlocked ? 'none' : 'auto',
@@ -519,7 +547,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                     <button 
                                         key={`usk-${usk}`} 
                                         className={`atem-btn-standard ${isPanelActive && uskOnAir[usk] ? 'tally-red' : ''}`} 
-                                        onClick={() => sendAtemCommand('TOGGLE_USK_ONAIR', { usk })}
+                                        onClick={() => handleUskToggle(usk)}
                                     >
                                         <span className="btn-number">ON AIR</span>
                                     </button>
@@ -532,7 +560,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                         <button 
                                             key={`trans-${bit}`} 
                                             className={`atem-btn-standard ${isLit ? 'tally-yellow' : ''}`} 
-                                            onClick={() => sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit })}
+                                            onClick={() => handleTransSelection(bit)}
                                         >
                                             <span className="btn-number">{labels[idx]}</span>
                                         </button>
@@ -550,23 +578,23 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                             <div className="two-row-grid two-cols">
                                 <button 
                                     className={`atem-btn-standard ${isPanelActive && dsk.tie ? 'tally-yellow' : ''}`} 
-                                    onClick={() => sendAtemCommand('TOGGLE_DSK_TIE', { tie: !dsk.tie })}
+                                    onClick={handleDskTie}
                                 >
-                                    <span className="btn-number">TIE 1</span>
+                                    <span className="btn-number">TIE</span>
                                 </button>
                                 <DragRateInput 
                                     value={isPanelActive ? localDskRate : null} 
                                     disabled={!isPanelActive || !isUnlocked}
-                                    onChange={setLocalDskRate} 
+                                    onChange={handleDskRateChange} 
                                     onCommit={(val) => sendAtemCommand('SET_DSK_RATE', { rate: val })} 
                                     onDoubleClick={() => {
-                                        setLocalDskRate(25);
+                                        handleDskRateChange(25);
                                         sendAtemCommand('SET_DSK_RATE', { rate: 25 });
                                     }}
                                 />
                                 <button 
                                     className={`atem-btn-standard ${isPanelActive && dsk.onAir ? 'tally-red' : ''}`} 
-                                    onClick={() => sendAtemCommand('TOGGLE_DSK_ONAIR', { onAir: !dsk.onAir })}
+                                    onClick={handleDskOnAir}
                                 >
                                     <span className="btn-number">ON AIR</span>
                                 </button>

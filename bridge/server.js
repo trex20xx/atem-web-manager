@@ -1,5 +1,5 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.72)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.74)
 // =========================================================================
 // Bidirectional switcher bus, macro execution, aux router, DSK, FTB, and Media Pool.
 // Features native atem.downloadStill('rgba') decoding, 1000ms mixer preemption,
@@ -15,8 +15,8 @@ const BRIDGE_PORT = 8080;
 const VITE_PORT = 3000;
 const startTime = Date.now();
 
-console.log(`[ATEM Bridge v3.72] Starting bridge service...`);
-console.log(`[ATEM Bridge v3.72] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log('[ATEM Bridge v3.74] Starting bridge service...');
+console.log('[ATEM Bridge v3.74] Target ATEM Switcher IP: ' + ATEM_IP);
 
 let atem = new Atem();
 let isAtemConnected = false;
@@ -74,9 +74,8 @@ function queueDownloadStill(index) {
         if (!isAtemConnected) {
             return resolve();
         }
-        console.log(`[ATEM Bridge] Downloading Still ${index + 1} from ATEM...`);
+        console.log('[ATEM Bridge] Downloading Still ' + (index + 1) + ' from ATEM...');
 
-        // Use high-level atem.downloadStill(index, 'rgba') to ensure RLE decompression
         const dlPromise = (typeof atem.downloadStill === 'function')
             ? atem.downloadStill(index, 'rgba')
             : (atem.dataTransferManager ? atem.dataTransferManager.downloadStill(index) : Promise.reject('No transfer manager'));
@@ -92,12 +91,12 @@ function queueDownloadStill(index) {
                     wss.clients.forEach(client => {
                         if (client.readyState === WebSocket.OPEN) client.send(payload);
                     });
-                    console.log(`[ATEM Bridge] Successfully processed Still ${index + 1}`);
+                    console.log('[ATEM Bridge] Successfully processed Still ' + (index + 1));
                 }
                 resolve();
             })
             .catch(err => {
-                console.warn(`[ATEM Bridge] Download failed for Still ${index + 1}:`, err.message || err);
+                console.warn('[ATEM Bridge] Download failed for Still ' + (index + 1) + ':', err.message || err);
                 resolve();
             });
     });
@@ -113,18 +112,18 @@ function queueUploadStill(index, buffer, name) {
         if (!isAtemConnected || typeof atem.uploadStill !== 'function') {
             return resolve();
         }
-        console.log(`[ATEM Bridge] Uploading to Still ${index + 1}...`);
+        console.log('[ATEM Bridge] Uploading to Still ' + (index + 1) + '...');
         trafficPauseUntil = Date.now() + 2000;
 
-        atem.uploadStill(index, buffer, name || `Still ${index + 1}`, '')
+        atem.uploadStill(index, buffer, name || ('Still ' + (index + 1)), '')
             .then(() => {
-                console.log(`[ATEM Bridge] Successfully uploaded to Still ${index + 1}`);
+                console.log('[ATEM Bridge] Successfully uploaded to Still ' + (index + 1));
                 broadcastState(null, true);
                 setTimeout(() => queueDownloadStill(index), 800);
                 resolve();
             })
             .catch(err => {
-                console.warn(`[ATEM Bridge] Upload failed for Still ${index + 1}:`, err.message || err);
+                console.warn('[ATEM Bridge] Upload failed for Still ' + (index + 1) + ':', err.message || err);
                 resolve();
             });
     });
@@ -221,20 +220,20 @@ function setupAtemListeners() {
             clearTimeout(reconnectTimer);
             reconnectTimer = null;
         }
-        console.log(`[ATEM Bridge] >>> SUCCESS: Connected to physical ATEM at ${ATEM_IP} <<<`);
+        console.log('[ATEM Bridge] >>> SUCCESS: Connected to physical ATEM at ' + ATEM_IP + ' <<<');
         broadcastState(null, true);
     });
 
     atem.on('disconnected', () => {
         isAtemConnected = false;
-        console.log(`[ATEM Bridge] >>> DISCONNECTED: Lost UDP link to physical ATEM at ${ATEM_IP} <<<`);
+        console.log('[ATEM Bridge] >>> DISCONNECTED: Lost UDP link to physical ATEM at ' + ATEM_IP + ' <<<');
         broadcastState(null, true);
         
         if (!reconnectTimer) {
             reconnectTimer = setTimeout(() => {
                 reconnectTimer = null;
                 if (!isAtemConnected) {
-                    console.log(`[ATEM Bridge] Attempting reconnection to ATEM at ${ATEM_IP}...`);
+                    console.log('[ATEM Bridge] Attempting reconnection to ATEM at ' + ATEM_IP + '...');
                     atem.connect(ATEM_IP).catch(() => {});
                 }
             }, 3000);
@@ -242,7 +241,7 @@ function setupAtemListeners() {
     });
 
     atem.on('error', (err) => {
-        console.error(`[ATEM Bridge Error]:`, err.message || err);
+        console.error('[ATEM Bridge Error]:', err.message || err);
     });
 }
 
@@ -251,7 +250,7 @@ setupAtemListeners();
 function connectToAtem(ip) {
     if (ip && ip !== ATEM_IP) {
         ATEM_IP = ip;
-        console.log(`[ATEM Bridge] Re-targeting ATEM IP to: ${ATEM_IP}`);
+        console.log('[ATEM Bridge] Re-targeting ATEM IP to: ' + ATEM_IP);
         try {
             atem.disconnect();
         } catch(e) {}
@@ -259,7 +258,7 @@ function connectToAtem(ip) {
         setupAtemListeners();
     }
     atem.connect(ATEM_IP).catch((err) => {
-        console.log(`[ATEM Bridge] Connection attempt to ${ATEM_IP} deferred:`, err.message || err);
+        console.log('[ATEM Bridge] Connection attempt to ' + ATEM_IP + ' deferred:', err.message || err);
     });
 }
 
@@ -300,27 +299,40 @@ function sendStatePayload(targetWs = null) {
                     if (typeof sel === 'number') currentTransitionSelection = sel;
                     else if (Array.isArray(sel)) currentTransitionSelection = sel.reduce((acc, v) => acc | (typeof v === 'number' ? v : 0), 0) || 1;
                 }
-                if (me.upstreamKeyers) currentUskOnAir = [0, 1, 2, 3].map(i => Boolean(me.upstreamKeyers[i] && me.upstreamKeyers[i].onAir));
+                if (me.upstreamKeyers) {
+                    const uskObj = me.upstreamKeyers;
+                    currentUskOnAir = [0, 1, 2, 3].map(i => {
+                        const k = uskObj[i] || Object.values(uskObj)[i];
+                        return Boolean(k && k.onAir);
+                    });
+                }
                 if (me.fadeToBlack) ftb = me.fadeToBlack;
             }
         }
 
         if (atem && atem.state && atem.state.video && atem.state.video.auxiliaries) {
             const auxObj = atem.state.video.auxiliaries;
-            const keys = Object.keys(auxObj).map(Number).sort((a, b) => a - b);
-            if (keys.length > 0) currentAux = [0, 1, 2, 3, 4, 5].map(idx => typeof auxObj[keys[idx]] === 'number' ? auxObj[keys[idx]] : (currentAux[idx] || 1));
+            currentAux = [0, 1, 2, 3, 4, 5].map(idx => {
+                if (typeof auxObj[idx] === 'number') return auxObj[idx];
+                const keys = Object.keys(auxObj).map(Number).sort((a, b) => a - b);
+                if (keys[idx] !== undefined && typeof auxObj[keys[idx]] === 'number') return auxObj[keys[idx]];
+                return currentAux[idx] || 1;
+            });
         }
 
         if (atem && atem.state && atem.state.video && atem.state.video.downstreamKeyers) {
-            const d = atem.state.video.downstreamKeyers[0];
+            const dskObj = atem.state.video.downstreamKeyers;
+            const d = dskObj[0] || (Array.isArray(dskObj) ? dskObj[0] : Object.values(dskObj)[0]);
             if (d) {
-                dsk.onAir = d.onAir;
-                dsk.inTransition = d.inTransition;
-                dsk.autoOnAir = d.autoOnAir;
+                if (typeof d.onAir === 'boolean') dsk.onAir = d.onAir;
+                if (typeof d.inTransition === 'boolean') dsk.inTransition = d.inTransition;
+                if (typeof d.autoOnAir === 'boolean') dsk.autoOnAir = d.autoOnAir;
                 if (d.properties) {
-                    dsk.tie = d.properties.tie;
-                    dsk.rate = d.properties.rate;
+                    if (typeof d.properties.tie === 'boolean') dsk.tie = d.properties.tie;
+                    if (typeof d.properties.rate === 'number') dsk.rate = d.properties.rate;
                 }
+                if (typeof d.tie === 'boolean') dsk.tie = d.tie;
+                if (typeof d.rate === 'number') dsk.rate = d.rate;
             }
         }
 
@@ -342,7 +354,7 @@ function sendStatePayload(targetWs = null) {
                     return {
                         isUsed: Boolean(s && s.isUsed),
                         name: fileName,
-                        hash: hashStr || `${fileName}_${Boolean(s && s.isUsed)}`
+                        hash: hashStr || (fileName + '_' + Boolean(s && s.isUsed))
                     };
                 });
             }
@@ -381,9 +393,8 @@ function handleHardwareCommand(cmd) {
     return false;
 }
 
-const wss = new WebSocket.Server({ port: BRIDGE_PORT }, () => console.log(`[ATEM Bridge] WebSocket server running on ws://localhost:${BRIDGE_PORT}`));
+const wss = new WebSocket.Server({ port: BRIDGE_PORT }, () => console.log('[ATEM Bridge] WebSocket server running on ws://localhost:' + BRIDGE_PORT));
 
-// Console Output Interceptor for UI Broadcasting
 const originalLog = console.log;
 const originalWarn = console.warn;
 const originalError = console.error;
@@ -410,16 +421,14 @@ wss.on('connection', (ws) => {
             const data = JSON.parse(message);
             if (data.ip && data.ip !== ATEM_IP) connectToAtem(data.ip);
 
-            // Log UI interactions to the ConsolePanel
             if (data.action && data.action !== 'GET_STATE' && data.action !== 'CONNECT') {
-                console.log(`[ATEM Bridge -> Hardware Dispatch] Action: ${data.action} | Params: ${JSON.stringify(data)}`);
+                console.log('[ATEM Bridge -> Hardware Dispatch] Action: ' + data.action + ' | Params: ' + JSON.stringify(data));
             }
 
-            // Absolute Mixer Priority: Any switcher interaction halts transfers for 1000ms
             const SWITCHER_ACTIONS = [
                 'SET_PGM', 'SET_PVW', 'CUT', 'AUTO', 'SET_AUX',
                 'SET_TRANSITION_RATE', 'TOGGLE_USK_ONAIR', 'TOGGLE_TRANS_SELECTION',
-                'TOGGLE_DSK_ONAIR', 'TOGGLE_DSK_TIE', 'SET_DSK_RATE', 'EXECUTE_DSK_AUTO',
+                'TOGGLE_DSK_TIE', 'TOGGLE_DSK_ONAIR', 'SET_DSK_RATE', 'EXECUTE_DSK_AUTO',
                 'EXECUTE_FTB', 'SET_FTB_RATE', 'MACRO_RUN', 'MACRO_STOP', 'MACRO_LOOP'
             ];
 
@@ -430,60 +439,94 @@ wss.on('connection', (ws) => {
             if (data.action === 'CONNECT' || data.action === 'GET_STATE') {
                 broadcastState(ws, true);
             } else if (data.action === 'SET_PGM' && data.input !== undefined) {
+                currentPgm = parseInt(data.input, 10);
                 atem.changeProgramInput(parseInt(data.input, 10), 0).catch(e => {});
+                broadcastState(null, true);
             } else if (data.action === 'SET_PVW' && data.input !== undefined) {
+                currentPvw = parseInt(data.input, 10);
                 atem.changePreviewInput(parseInt(data.input, 10), 0).catch(e => {});
+                broadcastState(null, true);
             } else if (data.action === 'SET_AUX' && data.aux !== undefined && data.source !== undefined) {
+                const auxIdx = parseInt(data.aux, 10);
+                const srcId = parseInt(data.source, 10);
+                currentAux[auxIdx] = srcId;
                 if (typeof atem.setAuxSource === 'function') {
-                    atem.setAuxSource(parseInt(data.source, 10), parseInt(data.aux, 10)).catch(e => {});
+                    atem.setAuxSource(srcId, auxIdx).catch(e => {});
                 }
+                broadcastState(null, true);
             } else if (data.action === 'CUT') {
                 atem.cut(0).catch(e => {});
             } else if (data.action === 'AUTO') {
                 atem.autoTransition(0).catch(e => {});
             } else if (data.action === 'SET_TRANSITION_RATE' && data.rate !== undefined) {
-                atem.setMixTransitionSettings({ rate: parseInt(data.rate, 10) || 30 }, 0).catch(e => {});
+                currentTransitionRate = parseInt(data.rate, 10) || 30;
+                atem.setMixTransitionSettings({ rate: currentTransitionRate }, 0).catch(e => {});
+                broadcastState(null, true);
             } else if (data.action === 'TOGGLE_USK_ONAIR' && data.usk !== undefined) {
                 const uskIdx = parseInt(data.usk, 10);
                 const targetState = !currentUskOnAir[uskIdx];
+                currentUskOnAir[uskIdx] = targetState;
                 if (typeof atem.setUpstreamKeyerOnAir === 'function') {
                     atem.setUpstreamKeyerOnAir(targetState, 0, uskIdx).catch(e => {});
                 }
+                broadcastState(null, true);
             } else if (data.action === 'TOGGLE_TRANS_SELECTION' && data.bit !== undefined) {
                 const bit = parseInt(data.bit, 10);
                 const newSelection = currentTransitionSelection ^ bit;
+                currentTransitionSelection = newSelection || 1;
                 if (typeof atem.setTransitionProperties === 'function') {
-                    atem.setTransitionProperties({ selection: newSelection || 1 }, 0).catch(e => {});
+                    atem.setTransitionProperties({ selection: currentTransitionSelection, nextSelection: currentTransitionSelection }, 0).catch(e => {
+                        const selArray = [];
+                        if (currentTransitionSelection & 1) selArray.push(1);
+                        if (currentTransitionSelection & 2) selArray.push(2);
+                        if (currentTransitionSelection & 4) selArray.push(4);
+                        if (currentTransitionSelection & 8) selArray.push(8);
+                        if (currentTransitionSelection & 16) selArray.push(16);
+                        atem.setTransitionProperties({ selection: selArray.length ? selArray : [1] }, 0).catch(() => {});
+                    });
                 }
+                broadcastState(null, true);
             } else if (data.action === 'TOGGLE_DSK_TIE') {
+                dsk.tie = Boolean(data.tie);
                 if (typeof atem.setDownstreamKeyerTie === 'function') {
                     atem.setDownstreamKeyerTie(Boolean(data.tie), 0).catch(e => {});
                 }
+                broadcastState(null, true);
             } else if (data.action === 'TOGGLE_DSK_ONAIR') {
+                dsk.onAir = Boolean(data.onAir);
                 if (typeof atem.setDownstreamKeyerOnAir === 'function') {
                     atem.setDownstreamKeyerOnAir(Boolean(data.onAir), 0).catch(e => {});
                 }
+                broadcastState(null, true);
             } else if (data.action === 'EXECUTE_DSK_AUTO') {
                 if (typeof atem.autoDownstreamKey === 'function') {
                     atem.autoDownstreamKey(0).catch(e => {});
                 }
             } else if (data.action === 'SET_DSK_RATE' && data.rate !== undefined) {
+                dsk.rate = parseInt(data.rate, 10) || 30;
                 if (typeof atem.setDownstreamKeyerRate === 'function') {
-                    atem.setDownstreamKeyerRate(parseInt(data.rate, 10) || 30, 0).catch(e => {});
+                    atem.setDownstreamKeyerRate(dsk.rate, 0).catch(e => {});
                 }
+                broadcastState(null, true);
             } else if (data.action === 'EXECUTE_FTB') {
                 if (typeof atem.fadeToBlack === 'function') {
                     atem.fadeToBlack(0).catch(e => {});
                 }
             } else if (data.action === 'SET_FTB_RATE' && data.rate !== undefined) {
+                ftb.rate = parseInt(data.rate, 10) || 30;
                 if (typeof atem.setFadeToBlackRate === 'function') {
-                    atem.setFadeToBlackRate(parseInt(data.rate, 10) || 30, 0).catch(e => {});
+                    atem.setFadeToBlackRate(ftb.rate, 0).catch(e => {});
                 }
+                broadcastState(null, true);
             } else if (data.action === 'UPLOAD_STILL' && data.rgbaBase64) {
                 const buffer = Buffer.from(data.rgbaBase64, 'base64');
                 queueUploadStill(data.index, buffer, data.name);
             } else if (data.action === 'GET_STILL' && data.index !== undefined) {
                 queueDownloadStill(data.index);
+            } else if (data.action === 'CLEAR_STILL' && data.index !== undefined) {
+                if (typeof atem.clearMediaPoolStill === 'function') {
+                    atem.clearMediaPoolStill(data.index).catch(e => console.error('[ATEM Bridge] clearMediaPoolStill error:', e.message || e));
+                }
             } else if (data.action === 'SET_MEDIA_PLAYER_SOURCE' && data.player !== undefined) {
                 const playerIdx = parseInt(data.player, 10);
                 const props = {};
@@ -511,7 +554,7 @@ wss.on('connection', (ws) => {
 });
 
 setInterval(() => {
-    const req = http.get(`http://localhost:${VITE_PORT}`, () => {});
+    const req = http.get('http://localhost:' + VITE_PORT, () => {});
     req.on('error', (err) => {
         if (err.code === 'ECONNREFUSED' && Date.now() - startTime > 30000) {
             console.log('[ATEM Bridge Watchdog] Vite server closed. Terminating bridge daemon...');

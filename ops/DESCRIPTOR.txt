@@ -1,2 +1,2 @@
-v3.72
-[REPAIR] Fixed keyboard repeat bouncing in AtemConstellationBus by ignoring automated OS key-repeat loops. Swapped the operational state of the Mixer Lock Switch so that the OFF state locks input controls while maintaining active tally displays. Standardized ConsolePanel styling to match the quadrant-frame layout grid and integrated a log export function. Added inline PowerShell progress preference flags to suppress cyan terminal overlays in the master batch suite.
+v3.74
+[FIX] Mixer and Media Pool optimizations: restored instant responsive control to KEY 1-4, TIE, ON AIR, and Aux Routing via optimistic local dispatch. Relocated master Picture Engine toggle to far right of Media Pool, disabling background UDP thumbnail fetching when OFF. Redesigned flat Material clear button, inverted overlapping concentric tally borders (Red outer, Green inner), and finalized Trunk-Based Development Git operations in OPS scripts.
