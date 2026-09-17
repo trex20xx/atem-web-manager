@@ -1,5 +1,5 @@
 # ATEM WEB MANAGER - AI HANDOVER SPECIFICATION
-Current Application Version: v3.73
+Current Application Version: v3.77
 
 This document serves as the master architectural memory bank for the ATEM Web Manager. It must be provided as the primary source of truth to any incoming AI assistant initializing a new session. It defines the application state, structural invariants, execution context, and operational protocols.
 
@@ -17,8 +17,8 @@ This document serves as the master architectural memory bank for the ATEM Web Ma
     - Wrap .md documentation files inside plain text code fences to prevent web chat parser collisions.
     - Ensure every code block strictly closes before starting the next file.
 7. TOKEN BUDGET & OUTPUT CEILING GUARD:
-    - Never attempt to output more than 2-3 large files in a single response turn.
-    - When modifications span multiple large files, stage and chunk deliveries across consecutive turns or prompt the user before generating to guarantee zero mid-generation truncation and ensure all code blocks strictly close.
+    - Never attempt to output more than 1-2 large files in a single response turn. Multi-file dumps trigger Google AI Studio parser collapse.
+    - When modifications span multiple large files, stage and chunk deliveries across consecutive turns. Wait for the user to reply 'next' to guarantee zero mid-generation truncation.
 8. MANDATORY ITERATION DESCRIPTOR: Always conclude every turn with a concise, factual summary descriptor of all modifications made.
 
 ---
@@ -53,7 +53,7 @@ The workspace relies on a robust pair of cross-platform CLI tools: OPS.BAT for W
 ### Menu Pathways
 - [1] RUN & EVALUATE: Installs dependencies, cleans ports (8080/3000), bootstraps WOFF2 fonts, merges changelogs, serializes codebase.txt, starts the Node.js bridge silently in the background, and boots Vite. Upon Vite termination, intercepts control directly into GitHub Operations.
 - [2] GITHUB OPERATIONS (TRUNK-BASED): Access point for all Git tasks. [1] MERGE TO MAIN utilizes a Trunk-Based approach:
-  - If executed from main, it directly commits, pushes, and then tags a historical marker branch (e.g. v3.73), leaving the workspace cleanly on main.
+  - If executed from main, it directly commits, pushes (using explicit refs/heads/ and refs/tags/), and then tags a historical marker branch (e.g. v3.77), leaving the workspace cleanly on main.
   - If executed from a feature branch, it updates the branch, checks out main, merges the branch in, tags it, pushes, and then returns the operator back to the feature branch.
 - [3] WIPE & RE-CLONE: Requires the .atem_workspace_token with the secure key ATEM_MANAGER_SECURE_WIPE_KEY_2026. Triggers a detached ghost script to terminate locks, delete the root folder, and re-clone the repo dynamically to cure corrupt states.
 - [4] EXPORT CODEBASE: Manually serializes all JS, JSX, CSS, and configuration files into codebase.txt for AI prompt ingestion.
@@ -65,18 +65,16 @@ The workspace relies on a robust pair of cross-platform CLI tools: OPS.BAT for W
 
 ---
 
-## 4. CURRENT FEATURES & RECENT UPGRADES (v3.73)
+## 4. CURRENT FEATURES & RECENT UPGRADES (v3.77)
 
-- Trunk-Based Development Sync: ops/OPS.BAT and ops/OPS.SH now use Trunk-Based rules. Merging from main applies commits directly to main and creates a tagged backup branch (v3.73), deliberately keeping the user's active checkout pinned to main to avoid diverged heads.
-- Media Pool Controls & Concentric Tallies:
-  - Added a CLEAR button to instantly wipe the local thumbnail cache.
-  - Added a hover-activated 'X' button (.mp-clear-btn) to slots to clear both the local cache and trigger CLEAR_STILL on the physical ATEM switcher.
-  - A small picture-lock toggle switch hides active pictures, reverting to numbered placeholders (.mp-slot-num-circle displays when images are locked on).
-  - Filenames are now handled via the GlobalTooltip hover engine rather than a static text bar.
-  - Tallies render at maximum brightness. When both MP1 and MP2 are assigned to the identical slot, the red MP2 tally renders concentrically (4px inner shadow) inside the green MP1 border.
-- Panel Lock Toggle (Inverted): An Apple-style switch rests in the AtemConstellationBus header. When active (green/isUnlocked = true), the panel is fully interactive. When toggled OFF (grey/isUnlocked = false), it mutes opacity to 0.45 and executes pointerEvents: 'none', locking all input interactions and keyboard hotkeys while preserving active tally illumination.
-- Bridge Console Log Exporter: Quadrant ID 6 (ConsolePanel.jsx) displays intercepted Node.js logs streamed from bridge/server.js. Includes an EXPORT button generating localized .txt files containing historical event telemetry.
-- Double-Click Rate Reset: Transition, DSK, and FTB DragRateInput sliders immediately snap back to default 25 frames (1:00) when double-clicked.
-- Keyboard Bounce Shield: A strict if (e.repeat) return; block shields the ATEM UDP network from repetitive flood queues caused by held-down keyboard hotkeys.
-- Hardware YUV Decoding: bridge/server.js translates ATEM 4:2:2 UYVY buffers natively into standard 54-byte BMP structures in under 2ms via custom decimation math, avoiding external image parsing libraries and bypassing Node Event Loop blocking.
+- Git Refspec Fix: OPS.BAT and OPS.SH push commands now explicitly target refs/heads/ and refs/tags/ to prevent refspec collisions when pushing iteration branches that share a name with a tag.
+- Comprehensive Mixer Optimistic Locks: The 450ms optimistic state guard in AtemConstellationBus.jsx covers PGM, PVW, AUX, KEY 1-4, USK ON AIR, DSK TIE, and DSK ON AIR, ensuring zero rubber-banding or state reversions during rapid switching.
+- Media Pool Redesign:
+  - Empty (unassigned) slots render with a dimmed 0.35 opacity.
+  - Slot numbers are centered cleanly when empty, and nest in the bottom-left corner when populated. The 'X' clear button and circular borders have been removed entirely.
+  - Concentric tallies utilize a physically nested absolute element sized proportionately smaller (3px inset), mathematically preventing the red and green borders from ever touching.
+  - MP1 and MP2 header labels track active tally colors, rendering muted grey when inactive.
+- Persistent Console History: ConsolePanel.jsx utilizes a global memory ring buffer, retaining up to 350 log entries across panel swaps without wiping history.
+- Real-Time Transition Rate Countdown: Triggering AUTO, DSK AUTO, or FTB smoothly counts down the frame value on the respective rate button in real-time down to 0:00, then automatically reverts to the original stored rate value.
+- Font Unification: All mixer buttons (13px, weight 400) and sidebar connected device names (13px, weight 600) are standardized to match the baseline typography. The app title turns bright green when actively connected.
 - Single-Flight UDP Queues: Background thumbnail downloads are strictly limited to one concurrent task and paused universally for 1000ms the instant any PGM/PVW/CUT/AUTO switcher command is triggered, prioritizing sub-millisecond execution for actual video transitions.

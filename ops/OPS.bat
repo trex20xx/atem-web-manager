@@ -2,7 +2,7 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.75)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.77)
 :: =============================================================================
 :: This CLI manages the end-to-end development lifecycle:
 :: 1. Self-contained portable Node.js runtime resolution and integrity verification.
@@ -32,7 +32,7 @@ cd /d "%PROJECT_ROOT%"
 :MENU
 cls
 echo -----------------------------------------------------------------
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.75)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.77)       
 echo -----------------------------------------------------------------
 echo   [1] RUN ^& EVALUATE     (Vite + Daemon, Auto-Export ^& Evaluation)
 echo   [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)
@@ -129,7 +129,7 @@ if %ERRORLEVEL% equ 0 (
 
 echo.
 echo -----------------------------------------------------------------
-echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.75)                
+echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.77)                
 echo -----------------------------------------------------------------
 echo  Node.js was not found on your system or in bin\node.
 echo  Downloading official portable Node.js LTS (v20.18.0 x64)...
@@ -251,7 +251,7 @@ set "DESC_FILE=%PROJECT_ROOT%\ops\DESCRIPTOR.txt"
 
 set "DETECTED_VER="
 for /f "tokens=2 delims='" %%v in ('powershell -NoProfile -Command "Select-String -Path 'src\version.js' -Pattern 'v[0-9]+\.[0-9]+' | ForEach-Object { $_.Matches.Value }"' ) do set "DETECTED_VER=%%v"
-if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.75"
+if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.77"
 
 if not exist "%DESC_FILE%" goto MANUAL_PROMPT
 
@@ -267,7 +267,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "} else {" ^
     "    Write-Host ('[VERSION MISMATCH] DESCRIPTOR.txt (' + $fileVer + ') does not match version.js (' + '%DETECTED_VER%' + ')');" ^
     "    exit 2;" ^
-    "}";
+    "}"
 
 if %ERRORLEVEL% equ 0 exit /b 0
 
@@ -359,8 +359,8 @@ if /I "%CURRENT_BRANCH%"=="main" (
     git tag -a "%DETECTED_VER%" -m "Release %DETECTED_VER%" 2>nul
     echo [PUSHING] Pushing main, branch, and tags to GitHub...
     git push -u origin main
-    git push origin "%DETECTED_VER%"
-    git push origin --tags 2>nul
+    git push origin refs/heads/"%DETECTED_VER%"
+    git push origin refs/tags/"%DETECTED_VER%" 2>nul
     echo.
     echo -----------------------------------------------------------------
     echo  Iteration successfully published:
@@ -377,7 +377,7 @@ git add -A
 git commit -F "%COMMIT_TMP%"
 del "%COMMIT_TMP%" 2>nul
 echo [PUSHING] Publishing '%CURRENT_BRANCH%' to GitHub...
-git push -u origin "%CURRENT_BRANCH%"
+git push -u origin refs/heads/"%CURRENT_BRANCH%"
 echo [MERGING] Folding '%CURRENT_BRANCH%' into main...
 git checkout main
 git pull origin main 2>nul
@@ -385,7 +385,7 @@ git merge "%CURRENT_BRANCH%" --no-edit
 git push origin main
 echo [TAGGING] Tagging release '%DETECTED_VER%'...
 git tag -a "%DETECTED_VER%" -m "Release %DETECTED_VER%" 2>nul
-git push origin --tags 2>nul
+git push origin refs/tags/"%DETECTED_VER%" 2>nul
 echo [RETURNING] Switching back to feature branch '%CURRENT_BRANCH%'...
 git checkout "%CURRENT_BRANCH%"
 echo.
@@ -410,7 +410,7 @@ git add -A
 git commit -F "%COMMIT_TMP%"
 del "%COMMIT_TMP%" 2>nul
 
-git push -u origin "%CURRENT_BRANCH%"
+git push -u origin refs/heads/"%CURRENT_BRANCH%"
 echo ^>^>^> Committed and pushed to branch '%CURRENT_BRANCH%'. ^<^<^<
 pause
 goto GITHUB_OPS

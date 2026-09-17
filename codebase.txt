@@ -572,7 +572,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { APP_VERSION } from './version';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v3.67)
+// ATEM WEB MANAGER - MASTER LAYOUT (v3.77)
 // =========================================================================
 
 function App() {
@@ -589,8 +589,11 @@ function App() {
   const [forceUppercase, setForceUppercase] = useLocalStorage('atem_forceUppercase', true);
   const [enhancedText, setEnhancedText] = useLocalStorage('atem_enhancedText', false);
   
+  const [useDeviceCsv, setUseDeviceCsv] = useLocalStorage('atem_useDeviceCsv', false);
+  const [deviceCsvContent, setDeviceCsvContent] = useLocalStorage('atem_deviceCsvContent', '');
+  
   const [currentVideoSource, setCurrentVideoSource] = useLocalStorage('atem_currentVideoSource', 'https://stream.mux.com/BV3YZtogl89mg9VcNBhhnHm02Y34zI1nlMuMQfAbl3dM/highest.mp4');
-  const [quadrantOrder, setQuadrantOrder] = useLocalStorage('atem_quadrantOrder', [1, 2, 3, 4]);
+  const [quadrantOrder, setQuadrantOrder] = useLocalStorage('atem_quadrantOrder', [1, 2, 3, 5]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -609,7 +612,24 @@ function App() {
   const connectedDevice = deviceState.devices.find(d => d.status === 'online');
   const isConnected = !!connectedDevice;
 
-  // Real-time aspect ratio lock syncing & Absolute Padding Interpolation
+  const getResolvedStreamSource = () => {
+    if (useDeviceCsv && isConnected && connectedDevice) {
+        const lines = deviceCsvContent.split('\n');
+        for (let line of lines) {
+            const parts = line.split(',');
+            if (parts.length >= 3) {
+                const ip = parts[0].trim();
+                if (ip === connectedDevice.ip) {
+                    return parts[2].trim();
+                }
+            }
+        }
+    }
+    return currentVideoSource;
+  };
+
+  const resolvedVideoSource = getResolvedStreamSource();
+
   const handleResize = () => {
     const isDocked = !isSidebarCollapsed;
     const paddingLeft = isDocked ? 284 : 16;
@@ -630,7 +650,6 @@ function App() {
     const quadH = Math.max(100, Math.round(height));
     const quadW = Math.max(100, Math.round(width));
     
-    // Calculates the exact Y-axis offset of the quadrant grid to synchronize the sidebar vertically
     const quadTop = paddingTop + (availableHeight - quadH) / 2;
 
     setDashboardStyle({
@@ -646,7 +665,6 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, [isSidebarCollapsed]);
 
-  // Anti-Zoom Global Enforcement
   useEffect(() => {
     const handleWheel = (e) => {
       if (e.ctrlKey || e.metaKey) {
@@ -682,10 +700,8 @@ function App() {
     }
   };
 
-  // Aggressive Capture-Phase Keyboard Shortcuts (Prevents macOS Safari preferences opening)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Ignore keystrokes inside text inputs so we don't block typing
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
 
       if ((e.metaKey || e.ctrlKey) && e.key === ',') {
@@ -732,7 +748,6 @@ function App() {
       setTheme(prev => prev === 'light' ? 'default' : 'light');
   };
 
-  // Resolve active device for top-of-page header title
   const activeDevice = connectedDevice 
     || deviceState.devices.find(d => d.id === deviceState.selectedDeviceId)
     || deviceState.devices.find(d => d.ip === '192.168.10.240')
@@ -742,19 +757,10 @@ function App() {
   const hasCustomGroup = activeDevice && activeDevice.group && activeDevice.group.trim() !== '' && activeDevice.group.toUpperCase() !== 'UNGROUPED';
   const deviceIp = activeDevice ? activeDevice.ip : '192.168.10.240';
 
-  const titleParts = [];
-  if (hasCustomName) titleParts.push(activeDevice.name.trim());
-  if (hasCustomGroup) titleParts.push(activeDevice.group.trim());
-  titleParts.push(deviceIp);
-
-  const rawHeaderTitle = titleParts.join(' Â· ');
-  const headerTitle = forceUppercase ? rawHeaderTitle.toUpperCase() : rawHeaderTitle;
-
   return (
     <div className="app-root-container">
       <GlobalTooltip />
 
-      {/* Top Hover Sensor Zone for collapsed toolbar reveal */}
       {isSidebarCollapsed && (
         <div 
           className="toolbar-hover-sensor"
@@ -762,14 +768,12 @@ function App() {
         />
       )}
 
-      {/* Left Full-Height Hover Sensor Zone for collapsed sidebar reveal */}
       {isSidebarCollapsed && (
         <div 
           className="sidebar-hover-sensor"
           style={{ top: `${dashboardStyle.top}px`, height: `${dashboardStyle.height}px` }}
           onMouseEnter={() => setIsSidebarRevealed(true)}
           onMouseLeave={(e) => {
-              // Hide if mouse leaves to the left, top, or bottom. Moving right enters the sidebar overlay.
               if (e.clientX <= 16 || e.clientY <= dashboardStyle.top || e.clientY >= dashboardStyle.top + dashboardStyle.height) {
                   setIsSidebarRevealed(false);
               }
@@ -777,7 +781,6 @@ function App() {
         />
       )}
 
-      {/* Top Application Toolbar */}
       <header 
         className={`app-top-bar ${isSidebarCollapsed ? 'collapsed-mode' : ''} ${isToolbarRevealed ? 'revealed' : ''}`}
         onMouseEnter={() => isSidebarCollapsed && setIsToolbarRevealed(true)}
@@ -801,7 +804,7 @@ function App() {
           {!isConnected ? (
             <span className="app-title not-connected">NOT CONNECTED</span>
           ) : (
-            <span className="app-title">
+            <span className="app-title connected">
               {hasCustomName && (
                 <>
                   <span className="app-title-name">
@@ -902,7 +905,7 @@ function App() {
         <main className="quadrant-wrapper" style={{ width: `${dashboardStyle.width}px`, height: `${dashboardStyle.height}px` }}>
           <QuadrantGrid 
             quadrantOrder={quadrantOrder}
-            currentVideoSource={currentVideoSource}
+            currentVideoSource={resolvedVideoSource}
             isConnected={isConnected}
             connectedDevice={connectedDevice}
             isLoading={deviceState.isLoading}
@@ -929,6 +932,8 @@ function App() {
         forceUppercase={forceUppercase} setForceUppercase={setForceUppercase}
         enhancedText={enhancedText} setEnhancedText={setEnhancedText}
         currentVideoSource={currentVideoSource} setCurrentVideoSource={setCurrentVideoSource}
+        useDeviceCsv={useDeviceCsv} setUseDeviceCsv={setUseDeviceCsv}
+        deviceCsvContent={deviceCsvContent} setDeviceCsvContent={setDeviceCsvContent}
         quadrantOrder={quadrantOrder} setQuadrantOrder={setQuadrantOrder}
         sidebarVariant={sidebarVariant} setSidebarVariant={setSidebarVariant}
       /> 
@@ -941,7 +946,7 @@ export default App;
 === FILE: src/index.css === 
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.76)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.77)
  * =========================================================================
  */
 
@@ -1124,6 +1129,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: color 0.2s ease;
 }
 
 .app-title.not-connected {
@@ -1132,9 +1138,15 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     letter-spacing: 0.8px;
 }
 
+.app-title.connected .app-title-name {
+    color: var(--green) !important;
+    font-weight: 600;
+}
+
 .app-title-name {
     color: var(--muted);
     font-weight: 500;
+    transition: color 0.2s ease;
 }
 
 .app-title-group {
@@ -1318,7 +1330,12 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 
 .device-wrapper:not(.editing):hover .device-inner { background:var(--panel2); }
 .device-wrapper.selected .device-inner { background:var(--panel2); }
-.device-inner.connected-row .device-name { color:var(--text); font-weight: 600; }
+
+.device-inner.connected-row .device-name { 
+    color: var(--text); 
+    font-weight: 600; 
+    font-size: var(--le-font-size);
+}
 
 .status{ width:7px; height:7px; min-width:7px; border-radius:50%; flex-shrink: 0; }
 .online{ background:var(--green); opacity: var(--tally-opacity); transition: opacity 0.2s; }
@@ -1943,7 +1960,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     box-sizing: border-box;
     cursor: pointer;
     flex-shrink: 0;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
 }
 .mp-slot.drag-over {
     border-color: var(--orange-hl);
@@ -1959,42 +1976,42 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     box-shadow: inset 0 0 0 1px var(--red);
 }
 
-/* Concentric Dual Tally: Inner boundary nested inside X button */
+/* Nested absolute geometry for concentric dual tallies */
 .mp-inner-tally {
     position: absolute;
-    inset: 26px 20px;
-    border-radius: var(--ui-radius);
+    inset: 3px;
+    border-radius: 2px;
     pointer-events: none;
     z-index: 5;
+    border-style: solid;
+    border-width: 1.5px;
 }
-.mp-inner-tally.mp-inner-green {
-    border: 1px solid var(--green) !important;
-    box-shadow: inset 0 0 0 1px var(--green);
+.mp-inner-green {
+    border-color: var(--green) !important;
 }
-.mp-inner-tally.mp-inner-red {
-    border: 1px solid var(--red) !important;
-    box-shadow: inset 0 0 0 1px var(--red);
+.mp-inner-red {
+    border-color: var(--red) !important;
 }
 
 /* Header Action Buttons Color Matching */
 .mp1-header-btn {
-    color: var(--green) !important;
+    color: var(--muted) !important;
     font-weight: 500 !important;
 }
 .mp1-header-btn.active {
-    background: rgba(52, 168, 83, 0.25) !important;
+    background: rgba(52, 168, 83, 0.15) !important;
     border-color: var(--green) !important;
-    color: #ffffff !important;
+    color: var(--green) !important;
 }
 
 .mp2-header-btn {
-    color: var(--red) !important;
+    color: var(--muted) !important;
     font-weight: 500 !important;
 }
 .mp2-header-btn.active {
-    background: rgba(234, 67, 53, 0.25) !important;
+    background: rgba(234, 67, 53, 0.15) !important;
     border-color: var(--red) !important;
-    color: #ffffff !important;
+    color: var(--red) !important;
 }
 
 .mp-thumb-container {
@@ -2008,44 +2025,34 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     overflow: hidden;
 }
 
-.mp-clear-btn {
+/* Slot Numbers: Centered when empty, bottom-left when full */
+.mp-slot-number {
     position: absolute;
-    top: 6px;
-    right: 6px;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: rgba(18, 18, 18, 0.75);
-    color: var(--text);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    display: none;
+    z-index: 10;
+    color: var(--muted);
+    font-weight: 600;
+    pointer-events: none;
+}
+.mp-slot-number.center {
+    inset: 0;
+    display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    z-index: 15;
-    padding: 0;
-    transition: background 0.15s ease, border-color 0.15s ease;
+    font-size: 14px;
 }
-.mp-slot:hover .mp-clear-btn {
-    display: flex;
-}
-.mp-clear-btn:hover {
-    background: var(--red);
-    border-color: transparent;
-    color: #ffffff;
+.mp-slot-number.corner {
+    bottom: 6px;
+    left: 6px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.85);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
 }
 
-.mp-empty-circle {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    border: 1px solid var(--atem-border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--muted);
-    font-size: 13px;
-    font-weight: 400;
+.mp-thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: transparent;
 }
 
 /* =========================================================================
@@ -2575,10 +2582,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
  
 === FILE: src/version.js === 
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.76)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.77)
 // =========================================================================
 
-export const APP_VERSION = 'v3.76';
+export const APP_VERSION = 'v3.77';
  
 === FILE: src/components/Multiview/Panel.jsx === 
 import React, { useState } from 'react';
@@ -2738,11 +2745,12 @@ export default QuadrantGrid;
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.76)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.77)
 // =========================================================================
 // Hardware-Locked IP: 192.168.10.240
-// Features 0ms instant optimistic switching, countdown rate frame animations
-// on transition triggers with auto-restore, and unified IN1 typography.
+// Features 0ms instant optimistic switching across PGM, PVW, Aux, Trans, and Keys,
+// countdown rate frame animations on transition triggers with auto-restore,
+// and unified IN1 typography.
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
@@ -2916,8 +2924,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     const dskCountdownTimer = useRef(null);
     const ftbCountdownTimer = useRef(null);
 
-    // Optimistic guard timestamps preventing stale packet rubber-banding
-    const optimisticLocks = useRef({ pgm: 0, pvw: 0, aux: {} });
+    // Optimistic guard timestamps preventing stale packet rubber-banding across all buttons
+    const optimisticLocks = useRef({ pgm: 0, pvw: 0, aux: {}, usk: {}, trans: 0, dskTie: 0, dskOnAir: 0 });
 
     const wsRef = useRef(null);
     const reconnectTimerRef = useRef(null);
@@ -2939,7 +2947,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
                     if (data.hardwareConnected !== undefined) setBridgeStatus(data.hardwareConnected ? 'linked' : 'standby');
                     
-                    // Accept hardware updates only if local optimistic lock expired
                     if (data.pgm !== undefined && now > optimisticLocks.current.pgm) {
                         setPgmInput(Number(data.pgm));
                     }
@@ -2951,13 +2958,19 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         setTransitionRate(Number(data.transitionRate));
                         storedTransRateRef.current = Number(data.transitionRate);
                     }
-                    if (data.transitionSelection !== undefined) setTransitionSelection(Number(data.transitionSelection));
-                    if (data.uskOnAir && Array.isArray(data.uskOnAir)) setUskOnAir(data.uskOnAir);
+                    if (data.transitionSelection !== undefined && now > optimisticLocks.current.trans) {
+                        setTransitionSelection(Number(data.transitionSelection));
+                    }
+                    if (data.uskOnAir && Array.isArray(data.uskOnAir)) {
+                        setUskOnAir(prev => data.uskOnAir.map((v, i) => now < (optimisticLocks.current.usk[i] || 0) ? prev[i] : v));
+                    }
                     if (data.dsk) {
                         setDsk(prev => ({
                             ...prev,
                             ...data.dsk,
-                            rate: dskCountdownTimer.current ? prev.rate : data.dsk.rate
+                            tie: now < optimisticLocks.current.dskTie ? prev.tie : data.dsk.tie,
+                            onAir: now < optimisticLocks.current.dskOnAir ? prev.onAir : data.dsk.onAir,
+                            rate: dskCountdownTimer.current ? prev.rate : (data.dsk.rate !== undefined ? data.dsk.rate : prev.rate)
                         }));
                         if (data.dsk.rate !== undefined && !dskCountdownTimer.current) {
                             storedDskRateRef.current = data.dsk.rate;
@@ -2967,7 +2980,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         setFtb(prev => ({
                             ...prev,
                             ...data.ftb,
-                            rate: ftbCountdownTimer.current ? prev.rate : data.ftb.rate
+                            rate: ftbCountdownTimer.current ? prev.rate : (data.ftb.rate !== undefined ? data.ftb.rate : prev.rate)
                         }));
                         if (data.ftb.rate !== undefined && !ftbCountdownTimer.current) {
                             storedFtbRateRef.current = data.ftb.rate;
@@ -3049,7 +3062,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         }
     };
 
-    // Transition countdown execution animation engine
     const triggerRateCountdown = (type) => {
         if (type === 'TRANS') {
             if (transCountdownTimer.current) clearInterval(transCountdownTimer.current);
@@ -3067,7 +3079,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                 } else {
                     setLocalTransRate(current);
                 }
-            }, 40); // 25fps frame rate interval
+            }, 40); 
         } else if (type === 'DSK') {
             if (dskCountdownTimer.current) clearInterval(dskCountdownTimer.current);
             const total = storedDskRateRef.current || 25;
@@ -3229,6 +3241,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
     const handleTransSelection = (bit) => {
         if (!isPanelActive || !isUnlocked) return;
+        optimisticLocks.current.trans = Date.now() + 450;
         const current = transitionSelection !== null ? transitionSelection : 1;
         const next = current ^ bit;
         setTransitionSelection(next || 1);
@@ -3237,6 +3250,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
     const handleUskToggle = (usk) => {
         if (!isPanelActive || !isUnlocked) return;
+        optimisticLocks.current.usk[usk] = Date.now() + 450;
         setUskOnAir(prev => {
             const next = [...prev];
             next[usk] = !next[usk];
@@ -3247,12 +3261,14 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
     const handleDskTie = () => {
         if (!isPanelActive || !isUnlocked) return;
+        optimisticLocks.current.dskTie = Date.now() + 450;
         setDsk(prev => ({ ...prev, tie: !prev.tie }));
         sendAtemCommand('TOGGLE_DSK_TIE', { tie: !dsk.tie });
     };
 
     const handleDskOnAir = () => {
         if (!isPanelActive || !isUnlocked) return;
+        optimisticLocks.current.dskOnAir = Date.now() + 450;
         setDsk(prev => ({ ...prev, onAir: !prev.onAir }));
         sendAtemCommand('TOGGLE_DSK_ONAIR', { onAir: !dsk.onAir });
     };
@@ -4255,11 +4271,11 @@ export default ConsolePanel;
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.76)
+// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.77)
 // =========================================================================
 // Features centered slot numbers, colored MP1/MP2 header labels matching tallies,
 // concentric dual-tally nesting with the most recently routed player displayed
-// as the smaller inner tally, and inset flat Material slot clearing.
+// as the smaller inner tally, and empty slots dynamically dimmed to 0.35 opacity.
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
@@ -4396,36 +4412,22 @@ const MediaPool = ({ connectedDevice }) => {
             outerTallyClass = 'mp-tally-red';
         }
 
+        const isEmpty = !isUsed;
+        const dimOpacity = isEmpty ? 0.35 : 1;
+
         return (
             <div 
                 className={'mp-slot ' + outerTallyClass}
                 onClick={() => handleSlotClick(actualSlotIndex, type)}
                 data-description={isPanelActive && (isUsed || displayName) ? (displayName || ('Slot ' + slotNumber)) : undefined}
+                style={{ opacity: isPanelActive ? dimOpacity : 0.35 }}
             >
                 {hasBoth && innerTallyClass && (
                     <div className={'mp-inner-tally ' + innerTallyClass} />
                 )}
 
-                {isPanelActive && type === 'still' && isUsed && (
-                    <button 
-                        className="mp-clear-btn" 
-                        title="Clear slot from hardware" 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            if (isPanelActive && wsRef.current) {
-                                wsRef.current.send(JSON.stringify({ action: 'CLEAR_STILL', ip: LOCKED_ATEM_IP, index: actualSlotIndex }));
-                            }
-                        }}
-                    >
-                        <svg viewBox="0 0 24 24" width="9" height="9" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                    </button>
-                )}
-
                 <div className="mp-thumb-container">
-                    <div className="mp-empty-circle" style={{ borderColor: isUsed ? 'var(--orange-hl)' : 'var(--atem-border)', color: isUsed ? 'var(--text)' : 'var(--muted)' }}>
+                    <div className={isUsed ? "mp-slot-number corner" : "mp-slot-number center"}>
                         {slotNumber}
                     </div>
                 </div>
@@ -4854,13 +4856,13 @@ export default SettingsModal;
 import React from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - BOTTOM ACTION BTN (v1.75)
+// ATEM WEB MANAGER - BOTTOM ACTION BTN (v3.77)
 // =========================================================================
 
 const BottomActionBtn = ({ deviceState, showActionButton, isVisible }) => {
     const { actionState, setActionState, selectedDeviceId, selectedGroupContext, pendingAddIp, pendingGroupName, addDevice, deleteDevice, setGroupSettings, setDevices } = deviceState;
 
-    if (!showActionButton) return null;
+    if (!showActionButton || actionState === 'select-none') return null;
 
     const getBtnProps = () => {
         switch (actionState) {
@@ -4872,7 +4874,7 @@ const BottomActionBtn = ({ deviceState, showActionButton, isVisible }) => {
             case 'delete-confirm': return { className: 'action-delete confirm', text: 'CONFIRM' };
             case 'add': return { className: 'action-add', text: 'ADD' };
             case 'add-confirm': return { className: 'action-add confirm', text: 'CONFIRM' };
-            default: return { className: 'action-select-none', text: 'SELECT ITEM', disabled: true };
+            default: return { className: 'action-select-none', text: '', disabled: true };
         }
     };
 

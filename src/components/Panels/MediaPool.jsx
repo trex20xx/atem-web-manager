@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.76)
+// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.77)
 // =========================================================================
 // Features centered slot numbers, colored MP1/MP2 header labels matching tallies,
 // concentric dual-tally nesting with the most recently routed player displayed
-// as the smaller inner tally, and inset flat Material slot clearing.
+// as the smaller inner tally, and empty slots dynamically dimmed to 0.35 opacity.
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
@@ -142,36 +142,22 @@ const MediaPool = ({ connectedDevice }) => {
             outerTallyClass = 'mp-tally-red';
         }
 
+        const isEmpty = !isUsed;
+        const dimOpacity = isEmpty ? 0.35 : 1;
+
         return (
             <div 
                 className={'mp-slot ' + outerTallyClass}
                 onClick={() => handleSlotClick(actualSlotIndex, type)}
                 data-description={isPanelActive && (isUsed || displayName) ? (displayName || ('Slot ' + slotNumber)) : undefined}
+                style={{ opacity: isPanelActive ? dimOpacity : 0.35 }}
             >
                 {hasBoth && innerTallyClass && (
                     <div className={'mp-inner-tally ' + innerTallyClass} />
                 )}
 
-                {isPanelActive && type === 'still' && isUsed && (
-                    <button 
-                        className="mp-clear-btn" 
-                        title="Clear slot from hardware" 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            if (isPanelActive && wsRef.current) {
-                                wsRef.current.send(JSON.stringify({ action: 'CLEAR_STILL', ip: LOCKED_ATEM_IP, index: actualSlotIndex }));
-                            }
-                        }}
-                    >
-                        <svg viewBox="0 0 24 24" width="9" height="9" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                    </button>
-                )}
-
                 <div className="mp-thumb-container">
-                    <div className="mp-empty-circle" style={{ borderColor: isUsed ? 'var(--orange-hl)' : 'var(--atem-border)', color: isUsed ? 'var(--text)' : 'var(--muted)' }}>
+                    <div className={isUsed ? "mp-slot-number corner" : "mp-slot-number center"}>
                         {slotNumber}
                     </div>
                 </div>

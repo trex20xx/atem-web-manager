@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # =============================================================================
-# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS/Linux) (v3.75)
+# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS/Linux) (v3.77)
 # =============================================================================
 # This CLI manages the end-to-end development lifecycle:
 # 1. Self-contained Node.js runtime resolution and integrity verification.
@@ -181,7 +181,7 @@ resolve_commit_msg() {
     
     DETECTED_VER=$(grep -oE 'v[0-9]+\.[0-9]+' src/version.js | head -n 1)
     if [ -z "$DETECTED_VER" ]; then
-        DETECTED_VER="v3.75"
+        DETECTED_VER="v3.77"
     fi
 
     if [ ! -f "$DESC_FILE" ]; then
@@ -205,7 +205,7 @@ resolve_commit_msg() {
         echo "  src/version.js:      $DETECTED_VER"
         echo "-----------------------------------------------------------------"
         echo "  [1] Enter commit description manually"
-        echo "  [2] Abort to download/replace ops\DESCRIPTOR.txt"
+        echo "  [2] Abort to download/replace ops/DESCRIPTOR.txt"
         echo "-----------------------------------------------------------------"
         read -p " Select (1-2, or Enter to abort): " MISMATCH_CHOICE
         if [ "$MISMATCH_CHOICE" == "1" ]; then
@@ -306,8 +306,8 @@ merge_main() {
         git tag -a "$DETECTED_VER" -m "Release $DETECTED_VER" 2>/dev/null
         echo "[PUSHING] Pushing main, branch, and tags to GitHub..."
         git push -u origin main
-        git push origin "$DETECTED_VER"
-        git push origin --tags 2>/dev/null
+        git push origin refs/heads/"$DETECTED_VER"
+        git push origin refs/tags/"$DETECTED_VER" 2>/dev/null
         echo ""
         echo "-----------------------------------------------------------------"
         echo " Iteration successfully published:"
@@ -324,7 +324,7 @@ merge_main() {
     git commit -F "$COMMIT_TMP"
     rm -f "$COMMIT_TMP" 2>/dev/null
     echo "[PUSHING] Publishing '$CURRENT_BRANCH' to GitHub..."
-    git push -u origin "$CURRENT_BRANCH"
+    git push -u origin refs/heads/"$CURRENT_BRANCH"
     echo "[MERGING] Folding '$CURRENT_BRANCH' into main..."
     git checkout main
     git pull origin main 2>/dev/null
@@ -332,7 +332,7 @@ merge_main() {
     git push origin main
     echo "[TAGGING] Tagging release '$DETECTED_VER'..."
     git tag -a "$DETECTED_VER" -m "Release $DETECTED_VER" 2>/dev/null
-    git push origin --tags 2>/dev/null
+    git push origin refs/tags/"$DETECTED_VER" 2>/dev/null
     echo "[RETURNING] Switching back to feature branch '$CURRENT_BRANCH'..."
     git checkout "$CURRENT_BRANCH"
     echo ""
@@ -357,7 +357,7 @@ push_branch() {
     git commit -F "$COMMIT_TMP"
     rm -f "$COMMIT_TMP" 2>/dev/null
 
-    git push -u origin "$CURRENT_BRANCH"
+    git push -u origin refs/heads/"$CURRENT_BRANCH"
     echo ">>> Committed and pushed to branch '$CURRENT_BRANCH'. <<<"
     read -p "Press Enter to continue..."
 }
@@ -463,7 +463,7 @@ EOF
 while true; do
     clear
     echo "-----------------------------------------------------------------"
-    echo "           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.75)       "
+    echo "           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.77)       "
     echo "-----------------------------------------------------------------"
     echo "  [1] RUN & EVALUATE     (Vite + Daemon, Auto-Export & Evaluation)"
     echo "  [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)"

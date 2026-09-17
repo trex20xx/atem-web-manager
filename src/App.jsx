@@ -9,7 +9,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { APP_VERSION } from './version';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v3.67)
+// ATEM WEB MANAGER - MASTER LAYOUT (v3.77)
 // =========================================================================
 
 function App() {
@@ -26,8 +26,11 @@ function App() {
   const [forceUppercase, setForceUppercase] = useLocalStorage('atem_forceUppercase', true);
   const [enhancedText, setEnhancedText] = useLocalStorage('atem_enhancedText', false);
   
+  const [useDeviceCsv, setUseDeviceCsv] = useLocalStorage('atem_useDeviceCsv', false);
+  const [deviceCsvContent, setDeviceCsvContent] = useLocalStorage('atem_deviceCsvContent', '');
+  
   const [currentVideoSource, setCurrentVideoSource] = useLocalStorage('atem_currentVideoSource', 'https://stream.mux.com/BV3YZtogl89mg9VcNBhhnHm02Y34zI1nlMuMQfAbl3dM/highest.mp4');
-  const [quadrantOrder, setQuadrantOrder] = useLocalStorage('atem_quadrantOrder', [1, 2, 3, 4]);
+  const [quadrantOrder, setQuadrantOrder] = useLocalStorage('atem_quadrantOrder', [1, 2, 3, 5]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -46,7 +49,24 @@ function App() {
   const connectedDevice = deviceState.devices.find(d => d.status === 'online');
   const isConnected = !!connectedDevice;
 
-  // Real-time aspect ratio lock syncing & Absolute Padding Interpolation
+  const getResolvedStreamSource = () => {
+    if (useDeviceCsv && isConnected && connectedDevice) {
+        const lines = deviceCsvContent.split('\n');
+        for (let line of lines) {
+            const parts = line.split(',');
+            if (parts.length >= 3) {
+                const ip = parts[0].trim();
+                if (ip === connectedDevice.ip) {
+                    return parts[2].trim();
+                }
+            }
+        }
+    }
+    return currentVideoSource;
+  };
+
+  const resolvedVideoSource = getResolvedStreamSource();
+
   const handleResize = () => {
     const isDocked = !isSidebarCollapsed;
     const paddingLeft = isDocked ? 284 : 16;
@@ -67,7 +87,6 @@ function App() {
     const quadH = Math.max(100, Math.round(height));
     const quadW = Math.max(100, Math.round(width));
     
-    // Calculates the exact Y-axis offset of the quadrant grid to synchronize the sidebar vertically
     const quadTop = paddingTop + (availableHeight - quadH) / 2;
 
     setDashboardStyle({
@@ -83,7 +102,6 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, [isSidebarCollapsed]);
 
-  // Anti-Zoom Global Enforcement
   useEffect(() => {
     const handleWheel = (e) => {
       if (e.ctrlKey || e.metaKey) {
@@ -119,10 +137,8 @@ function App() {
     }
   };
 
-  // Aggressive Capture-Phase Keyboard Shortcuts (Prevents macOS Safari preferences opening)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Ignore keystrokes inside text inputs so we don't block typing
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
 
       if ((e.metaKey || e.ctrlKey) && e.key === ',') {
@@ -169,7 +185,6 @@ function App() {
       setTheme(prev => prev === 'light' ? 'default' : 'light');
   };
 
-  // Resolve active device for top-of-page header title
   const activeDevice = connectedDevice 
     || deviceState.devices.find(d => d.id === deviceState.selectedDeviceId)
     || deviceState.devices.find(d => d.ip === '192.168.10.240')
@@ -179,19 +194,10 @@ function App() {
   const hasCustomGroup = activeDevice && activeDevice.group && activeDevice.group.trim() !== '' && activeDevice.group.toUpperCase() !== 'UNGROUPED';
   const deviceIp = activeDevice ? activeDevice.ip : '192.168.10.240';
 
-  const titleParts = [];
-  if (hasCustomName) titleParts.push(activeDevice.name.trim());
-  if (hasCustomGroup) titleParts.push(activeDevice.group.trim());
-  titleParts.push(deviceIp);
-
-  const rawHeaderTitle = titleParts.join(' · ');
-  const headerTitle = forceUppercase ? rawHeaderTitle.toUpperCase() : rawHeaderTitle;
-
   return (
     <div className="app-root-container">
       <GlobalTooltip />
 
-      {/* Top Hover Sensor Zone for collapsed toolbar reveal */}
       {isSidebarCollapsed && (
         <div 
           className="toolbar-hover-sensor"
@@ -199,14 +205,12 @@ function App() {
         />
       )}
 
-      {/* Left Full-Height Hover Sensor Zone for collapsed sidebar reveal */}
       {isSidebarCollapsed && (
         <div 
           className="sidebar-hover-sensor"
           style={{ top: `${dashboardStyle.top}px`, height: `${dashboardStyle.height}px` }}
           onMouseEnter={() => setIsSidebarRevealed(true)}
           onMouseLeave={(e) => {
-              // Hide if mouse leaves to the left, top, or bottom. Moving right enters the sidebar overlay.
               if (e.clientX <= 16 || e.clientY <= dashboardStyle.top || e.clientY >= dashboardStyle.top + dashboardStyle.height) {
                   setIsSidebarRevealed(false);
               }
@@ -214,7 +218,6 @@ function App() {
         />
       )}
 
-      {/* Top Application Toolbar */}
       <header 
         className={`app-top-bar ${isSidebarCollapsed ? 'collapsed-mode' : ''} ${isToolbarRevealed ? 'revealed' : ''}`}
         onMouseEnter={() => isSidebarCollapsed && setIsToolbarRevealed(true)}
@@ -238,7 +241,7 @@ function App() {
           {!isConnected ? (
             <span className="app-title not-connected">NOT CONNECTED</span>
           ) : (
-            <span className="app-title">
+            <span className="app-title connected">
               {hasCustomName && (
                 <>
                   <span className="app-title-name">
@@ -339,7 +342,7 @@ function App() {
         <main className="quadrant-wrapper" style={{ width: `${dashboardStyle.width}px`, height: `${dashboardStyle.height}px` }}>
           <QuadrantGrid 
             quadrantOrder={quadrantOrder}
-            currentVideoSource={currentVideoSource}
+            currentVideoSource={resolvedVideoSource}
             isConnected={isConnected}
             connectedDevice={connectedDevice}
             isLoading={deviceState.isLoading}
@@ -366,6 +369,8 @@ function App() {
         forceUppercase={forceUppercase} setForceUppercase={setForceUppercase}
         enhancedText={enhancedText} setEnhancedText={setEnhancedText}
         currentVideoSource={currentVideoSource} setCurrentVideoSource={setCurrentVideoSource}
+        useDeviceCsv={useDeviceCsv} setUseDeviceCsv={setUseDeviceCsv}
+        deviceCsvContent={deviceCsvContent} setDeviceCsvContent={setDeviceCsvContent}
         quadrantOrder={quadrantOrder} setQuadrantOrder={setQuadrantOrder}
         sidebarVariant={sidebarVariant} setSidebarVariant={setSidebarVariant}
       /> 

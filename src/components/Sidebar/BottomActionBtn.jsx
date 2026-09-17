@@ -1,13 +1,13 @@
 import React from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - BOTTOM ACTION BTN (v1.75)
+// ATEM WEB MANAGER - BOTTOM ACTION BTN (v3.77)
 // =========================================================================
 
 const BottomActionBtn = ({ deviceState, showActionButton, isVisible }) => {
     const { actionState, setActionState, selectedDeviceId, selectedGroupContext, pendingAddIp, pendingGroupName, addDevice, deleteDevice, setGroupSettings, setDevices } = deviceState;
 
-    if (!showActionButton) return null;
+    if (!showActionButton || actionState === 'select-none') return null;
 
     const getBtnProps = () => {
         switch (actionState) {
@@ -19,7 +19,7 @@ const BottomActionBtn = ({ deviceState, showActionButton, isVisible }) => {
             case 'delete-confirm': return { className: 'action-delete confirm', text: 'CONFIRM' };
             case 'add': return { className: 'action-add', text: 'ADD' };
             case 'add-confirm': return { className: 'action-add confirm', text: 'CONFIRM' };
-            default: return { className: 'action-select-none', text: 'SELECT ITEM', disabled: true };
+            default: return { className: 'action-select-none', text: '', disabled: true };
         }
     };
 

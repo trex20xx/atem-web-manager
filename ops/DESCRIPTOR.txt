@@ -1,2 +1,2 @@
-v3.76
-[FIX] Mixer panel: eradicated input switching latency and rubber-banding using a 450ms optimistic state guard, added real-time frame countdown to 0:00 on AUTO/DSK/FTB transition triggers with auto-revert to stored rate, and unified all button typography to match IN1 (13px, weight 400). Console panel: preserved log stream history in a global memory ring buffer across panel swaps.
+v3.77
+[FIX] Resolved Git push refspec collision in OPS scripts by using explicit refs/heads/ and refs/tags/ pathways. Repaired Mixer KEY 1-4, DSK TIE, and DSK ON AIR buttons by expanding optimistic WebSocket locks to all transition states. Redesigned Media Pool layout: empty slots are dimmed (0.35 opacity), numbers are centered without circles, MP1/MP2 text colors track active tally status, the clear 'X' button was removed, and concentric tallies use a distinct nested geometry to prevent border overlap. Fixed Sidebar connected device font size to match standard rows.

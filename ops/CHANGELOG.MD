@@ -1,5 +1,19 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v3.77] - Git Refspec Fix, Mixer Optimistic Locks & Media Pool Geometry
+- Git Refspec Collision Resolved: Updated OPS.BAT and OPS.SH push commands to explicitly target `refs/heads/` and `refs/tags/`, permanently fixing the "src refspec matches more than one" error when pushing iteration branches.
+- Comprehensive Mixer Optimistic Locks: Expanded the 450ms optimistic state guard in AtemConstellationBus.jsx to include KEY 1-4 selection, USK ON AIR, DSK TIE, and DSK ON AIR, ensuring zero rubber-banding or state reversions during rapid switching.
+- Media Pool Redesign:
+  - Removed the 'X' slot clearing button.
+  - Removed circular borders around slot numbers, centering them cleanly.
+  - Empty (unassigned) slots now render with a dimmed 0.35 opacity, matching the muted state of disabled mixer buttons.
+  - MP1 and MP2 header buttons now render in muted grey when inactive, turning their respective bright tally colors (Green/Red) only when selected.
+  - Redesigned concentric tallies: The inner tally is now a physically nested absolute element sized proportionately smaller, ensuring the red and green borders never touch.
+- Sidebar Font Normalization: Ensured the active/connected device name uses a font-weight of 600 while preserving the exact 13px font-size to prevent text shrinking.
+- Toolbar Connected State: The top toolbar application name turns bright green when actively connected to the ATEM.
+- Bottom Action Button: The "SELECT ITEM" placeholder button has been completely removed from the DOM when no action is selected.
+
+
 ## [v3.76] - Mixer Rate Countdown, Font Unification & Persistent Console Logs
 - Real-Time Transition Rate Countdown: Triggering AUTO, DSK AUTO, or FTB now smoothly counts down the frame value on the respective rate button in real-time down to 0:00. Once the transition finishes, the display automatically reverts to the original stored rate value.
 - Eradicated Input Switching Latency: Introduced an optimistic 450ms lock guard in AtemConstellationBus.jsx for PGM, PVW, and Aux routing. Intermediate stale WebSocket packets are prevented from overriding user selections before the physical ATEM finishes acknowledging, delivering true 0ms tactile switching.

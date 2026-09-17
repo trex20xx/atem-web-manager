@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.76)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.77)
 // =========================================================================
 // Hardware-Locked IP: 192.168.10.240
-// Features 0ms instant optimistic switching, countdown rate frame animations
-// on transition triggers with auto-restore, and unified IN1 typography.
+// Features 0ms instant optimistic switching across PGM, PVW, Aux, Trans, and Keys,
+// countdown rate frame animations on transition triggers with auto-restore,
+// and unified IN1 typography.
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
@@ -179,8 +180,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     const dskCountdownTimer = useRef(null);
     const ftbCountdownTimer = useRef(null);
 
-    // Optimistic guard timestamps preventing stale packet rubber-banding
-    const optimisticLocks = useRef({ pgm: 0, pvw: 0, aux: {} });
+    // Optimistic guard timestamps preventing stale packet rubber-banding across all buttons
+    const optimisticLocks = useRef({ pgm: 0, pvw: 0, aux: {}, usk: {}, trans: 0, dskTie: 0, dskOnAir: 0 });
 
     const wsRef = useRef(null);
     const reconnectTimerRef = useRef(null);
@@ -202,7 +203,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
                     if (data.hardwareConnected !== undefined) setBridgeStatus(data.hardwareConnected ? 'linked' : 'standby');
                     
-                    // Accept hardware updates only if local optimistic lock expired
                     if (data.pgm !== undefined && now > optimisticLocks.current.pgm) {
                         setPgmInput(Number(data.pgm));
                     }
@@ -214,13 +214,19 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         setTransitionRate(Number(data.transitionRate));
                         storedTransRateRef.current = Number(data.transitionRate);
                     }
-                    if (data.transitionSelection !== undefined) setTransitionSelection(Number(data.transitionSelection));
-                    if (data.uskOnAir && Array.isArray(data.uskOnAir)) setUskOnAir(data.uskOnAir);
+                    if (data.transitionSelection !== undefined && now > optimisticLocks.current.trans) {
+                        setTransitionSelection(Number(data.transitionSelection));
+                    }
+                    if (data.uskOnAir && Array.isArray(data.uskOnAir)) {
+                        setUskOnAir(prev => data.uskOnAir.map((v, i) => now < (optimisticLocks.current.usk[i] || 0) ? prev[i] : v));
+                    }
                     if (data.dsk) {
                         setDsk(prev => ({
                             ...prev,
                             ...data.dsk,
-                            rate: dskCountdownTimer.current ? prev.rate : data.dsk.rate
+                            tie: now < optimisticLocks.current.dskTie ? prev.tie : data.dsk.tie,
+                            onAir: now < optimisticLocks.current.dskOnAir ? prev.onAir : data.dsk.onAir,
+                            rate: dskCountdownTimer.current ? prev.rate : (data.dsk.rate !== undefined ? data.dsk.rate : prev.rate)
                         }));
                         if (data.dsk.rate !== undefined && !dskCountdownTimer.current) {
                             storedDskRateRef.current = data.dsk.rate;
@@ -230,7 +236,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         setFtb(prev => ({
                             ...prev,
                             ...data.ftb,
-                            rate: ftbCountdownTimer.current ? prev.rate : data.ftb.rate
+                            rate: ftbCountdownTimer.current ? prev.rate : (data.ftb.rate !== undefined ? data.ftb.rate : prev.rate)
                         }));
                         if (data.ftb.rate !== undefined && !ftbCountdownTimer.current) {
                             storedFtbRateRef.current = data.ftb.rate;
@@ -312,7 +318,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         }
     };
 
-    // Transition countdown execution animation engine
     const triggerRateCountdown = (type) => {
         if (type === 'TRANS') {
             if (transCountdownTimer.current) clearInterval(transCountdownTimer.current);
@@ -330,7 +335,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                 } else {
                     setLocalTransRate(current);
                 }
-            }, 40); // 25fps frame rate interval
+            }, 40); 
         } else if (type === 'DSK') {
             if (dskCountdownTimer.current) clearInterval(dskCountdownTimer.current);
             const total = storedDskRateRef.current || 25;
@@ -492,6 +497,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
     const handleTransSelection = (bit) => {
         if (!isPanelActive || !isUnlocked) return;
+        optimisticLocks.current.trans = Date.now() + 450;
         const current = transitionSelection !== null ? transitionSelection : 1;
         const next = current ^ bit;
         setTransitionSelection(next || 1);
@@ -500,6 +506,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
     const handleUskToggle = (usk) => {
         if (!isPanelActive || !isUnlocked) return;
+        optimisticLocks.current.usk[usk] = Date.now() + 450;
         setUskOnAir(prev => {
             const next = [...prev];
             next[usk] = !next[usk];
@@ -510,12 +517,14 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
     const handleDskTie = () => {
         if (!isPanelActive || !isUnlocked) return;
+        optimisticLocks.current.dskTie = Date.now() + 450;
         setDsk(prev => ({ ...prev, tie: !prev.tie }));
         sendAtemCommand('TOGGLE_DSK_TIE', { tie: !dsk.tie });
     };
 
     const handleDskOnAir = () => {
         if (!isPanelActive || !isUnlocked) return;
+        optimisticLocks.current.dskOnAir = Date.now() + 450;
         setDsk(prev => ({ ...prev, onAir: !prev.onAir }));
         sendAtemCommand('TOGGLE_DSK_ONAIR', { onAir: !dsk.onAir });
     };
