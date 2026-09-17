@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - SETTINGS MODAL (v3.71)
+// ATEM WEB MANAGER - SETTINGS MODAL (v3.81)
 // =========================================================================
 
 const QUAD_SELECT_OPTIONS = [
@@ -21,7 +21,8 @@ const SettingsModal = ({
     enhancedText, setEnhancedText,
     currentVideoSource, setCurrentVideoSource, quadrantOrder, setQuadrantOrder, 
     sidebarVariant, setSidebarVariant, useDeviceCsv, setUseDeviceCsv,
-    deviceCsvContent, setDeviceCsvContent
+    deviceCsvContent, setDeviceCsvContent,
+    consoleFont, setConsoleFont, consoleLcdEffect, setConsoleLcdEffect
 }) => {
     const modalRef = useRef(null);
     const [activeTab, setActiveTab] = useState('general');
@@ -114,23 +115,6 @@ const SettingsModal = ({
                         {activeTab === 'general' && (
                             <>
                                 <div className="setting-group">
-                                    <label>Stream / Video URL:</label>
-                                    <div className="setting-group-control">
-                                        <input type="text" value={currentVideoSource} onChange={e => setCurrentVideoSource(e.target.value)} />
-                                    </div>
-                                </div>
-                                <div className="setting-group">
-                                    <label>Title Position:</label>
-                                    <div className="setting-group-control">
-                                        <select value={titlePosition} onChange={e => setTitlePosition(e.target.value)}>
-                                            <option value="left">Left</option>
-                                            <option value="centered">Center</option>
-                                            <option value="right">Right</option>
-                                            <option value="off">Off</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="setting-group">
                                     <label>Color Theme:</label>
                                     <div className="setting-group-control">
                                         <select value={theme} onChange={e => setTheme(e.target.value)}>
@@ -141,6 +125,15 @@ const SettingsModal = ({
                                             <option value="onedark">One Dark Pro</option>
                                             <option value="solarized-dark">Solarized Dark</option>
                                             <option value="github-dark">GitHub Dark</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="setting-group">
+                                    <label>Sidebar Design:</label>
+                                    <div className="setting-group-control">
+                                        <select value={sidebarVariant} onChange={e => setSidebarVariant(e.target.value)}>
+                                            <option value="classic">Classic (Solid)</option>
+                                            <option value="floating">Floating (Glass)</option>
                                         </select>
                                     </div>
                                 </div>
@@ -157,16 +150,35 @@ const SettingsModal = ({
                                     </div>
                                 </div>
                                 <div style={{ margin: '24px 0', borderTop: '1px solid var(--atem-border)' }}></div>
-                                
+
                                 <div className="setting-group">
-                                    <label>Sidebar Design:</label>
+                                    <label>Console Display Font:</label>
                                     <div className="setting-group-control">
-                                        <select value={sidebarVariant} onChange={e => setSidebarVariant(e.target.value)}>
-                                            <option value="classic">Classic (Solid)</option>
-                                            <option value="floating">Floating (Glass)</option>
+                                        <select value={consoleFont} onChange={e => setConsoleFont(e.target.value)}>
+                                            <option value="Pandorum">Pandorum (Default)</option>
+                                            <option value="Orbitron">Orbitron</option>
+                                            <option value="Oxanium">Oxanium</option>
+                                            <option value="VT323">VT323</option>
+                                            <option value="Rajdhani">Rajdhani</option>
+                                            <option value="Audiowide">Audiowide</option>
+                                            <option value="Share Tech Mono">Share Tech Mono</option>
+                                            <option value="Black Ops One">Black Ops One</option>
                                         </select>
                                     </div>
                                 </div>
+                                <div className="setting-group">
+                                    <label>Console LCD Shader Effect:</label>
+                                    <div className="setting-group-control">
+                                        <input 
+                                            type="checkbox" 
+                                            className="toggle-switch" 
+                                            checked={consoleLcdEffect} 
+                                            onChange={e => setConsoleLcdEffect(e.target.checked)} 
+                                        />
+                                    </div>
+                                </div>
+                                <div style={{ margin: '24px 0', borderTop: '1px solid var(--atem-border)' }}></div>
+                                
                                 <div className="setting-group">
                                     <label>Enhanced Text (Bigger, Bolder, Brighter):</label>
                                     <div className="setting-group-control">
@@ -188,12 +200,6 @@ const SettingsModal = ({
                                     <label>Show Action Button:</label>
                                     <div className="setting-group-control">
                                         <input type="checkbox" className="toggle-switch" checked={showActionButton} onChange={e => setShowActionButton(e.target.checked)} />
-                                    </div>
-                                </div>
-                                <div className="setting-group">
-                                    <label>Show Version Number:</label>
-                                    <div className="setting-group-control">
-                                        <input type="checkbox" className="toggle-switch" checked={showVersion} onChange={e => setShowVersion(e.target.checked)} />
                                     </div>
                                 </div>
                                 <div className="setting-group">
@@ -228,6 +234,12 @@ const SettingsModal = ({
                                         placeholder="192.168.10.240, Studio Main, https://stream.mux.com/...&#10;192.168.1.10, Camera 2, https://..."
                                         style={{ width: '100%', height: '140px', background: 'var(--atem-content)', border: '1px solid var(--atem-border)', color: 'var(--atem-text)', borderRadius: '4px', padding: '8px', fontFamily: 'monospace', fontSize: '12px', resize: 'vertical' }}
                                     />
+                                </div>
+                                <div className="setting-group">
+                                    <label>Fallback Stream / Video URL:</label>
+                                    <div className="setting-group-control">
+                                        <input type="text" value={currentVideoSource} onChange={e => setCurrentVideoSource(e.target.value)} />
+                                    </div>
                                 </div>
                             </div>
                         )}

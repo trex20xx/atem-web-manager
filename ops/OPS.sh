@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
 # =============================================================================
-# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS/Linux) (v3.80)
+# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS/Linux) (v3.81)
 # =============================================================================
 # This CLI manages the end-to-end development lifecycle:
 # 1. Self-contained Node.js runtime resolution and integrity verification.
-# 2. Dual-package dependency installations and local Roboto font bootstrapping.
+# 2. Dual-package dependency installations and local broadcast font bootstrapping.
 # 3. Background hardware bridge daemon management with automated port cleanup.
 # 4. Consolidated GitHub Operations menu via Trunk-Based Development.
 # 5. Standard interactive text prompts with Enter submission and empty-Enter cancellation.
@@ -103,18 +103,22 @@ check_dependencies() {
     if [ ! -f "$PROJECT_ROOT/public/fonts/roboto-400.woff2" ]; then
         echo ""
         echo "-----------------------------------------------------------------"
-        echo "     DOWNLOADING EMBEDDED ROBOTO FONTS INTO PROJECT (OFFLINE USE)  "
+        echo "     DOWNLOADING EMBEDDED BROADCAST FONTS INTO PROJECT (OFFLINE)   "
         echo "-----------------------------------------------------------------"
         mkdir -p "$PROJECT_ROOT/public/fonts"
-        echo "  [*] Downloading roboto-400.woff2..."
+        echo "  [*] Downloading broadcast fonts..."
         curl -s -o "$PROJECT_ROOT/public/fonts/roboto-400.woff2" "https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.woff2"
-        echo "  [*] Downloading roboto-500.woff2..."
         curl -s -o "$PROJECT_ROOT/public/fonts/roboto-500.woff2" "https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmEU9fBBc4.woff2"
-        echo "  [*] Downloading roboto-700.woff2..."
         curl -s -o "$PROJECT_ROOT/public/fonts/roboto-700.woff2" "https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc4.woff2"
-        echo "  [*] Downloading roboto-900.woff2..."
         curl -s -o "$PROJECT_ROOT/public/fonts/roboto-900.woff2" "https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmYUtfBBc4.woff2"
-        echo "  [DONE] Embedded Roboto webfonts downloaded successfully."
+        curl -s -o "$PROJECT_ROOT/public/fonts/orbitron.woff2" "https://fonts.gstatic.com/s/orbitron/v31/yMJRMIlzdpvBhQQL_QG7dy0.woff2"
+        curl -s -o "$PROJECT_ROOT/public/fonts/oxanium.woff2" "https://fonts.gstatic.com/s/oxanium/v12/hxdaZD2xnNYWMvb2z7wW5j57.woff2"
+        curl -s -o "$PROJECT_ROOT/public/fonts/vt323.woff2" "https://fonts.gstatic.com/s/vt323/v17/pxiKyp0ihIEF2isfFJXUdVNF.woff2"
+        curl -s -o "$PROJECT_ROOT/public/fonts/rajdhani.woff2" "https://fonts.gstatic.com/s/rajdhani/v17/LDIbaom4pQcsXCBhoewKYAE.woff2"
+        curl -s -o "$PROJECT_ROOT/public/fonts/audiowide.woff2" "https://fonts.gstatic.com/s/audiowide/v18/kJExDXgbU4jZUGSuJcsMwtWq0A.woff2"
+        curl -s -o "$PROJECT_ROOT/public/fonts/share-tech-mono.woff2" "https://fonts.gstatic.com/s/sharetechmono/v15/J7aJnpd8ZZYN2qXezLD-OG4t6KTB.woff2"
+        curl -s -o "$PROJECT_ROOT/public/fonts/black-ops-one.woff2" "https://fonts.gstatic.com/s/blackopsone/v18/qWcqB6NLVVDr2x8d9XUuodU0.woff2"
+        echo "  [DONE] Broadcast fonts bootstrapped successfully."
     fi
 }
 
@@ -181,7 +185,7 @@ resolve_commit_msg() {
     
     DETECTED_VER=$(grep -oE 'v[0-9]+\.[0-9]+' src/version.js | head -n 1)
     if [ -z "$DETECTED_VER" ]; then
-        DETECTED_VER="v3.80"
+        DETECTED_VER="v3.81"
     fi
 
     if [ ! -f "$DESC_FILE" ]; then
@@ -205,7 +209,7 @@ resolve_commit_msg() {
         echo "  src/version.js:      $DETECTED_VER"
         echo "-----------------------------------------------------------------"
         echo "  [1] Enter commit description manually"
-        echo "  [2] Abort to download/replace ops\DESCRIPTOR.txt"
+        echo "  [2] Abort to download/replace ops/DESCRIPTOR.txt"
         echo "-----------------------------------------------------------------"
         read -p " Select (1-2, or Enter to abort): " MISMATCH_CHOICE
         if [ "$MISMATCH_CHOICE" == "1" ]; then
@@ -463,7 +467,7 @@ EOF
 while true; do
     clear
     echo "-----------------------------------------------------------------"
-    echo "           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.80)       "
+    echo "           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.81)       "
     echo "-----------------------------------------------------------------"
     echo "  [1] RUN & EVALUATE     (Vite + Daemon, Auto-Export & Evaluation)"
     echo "  [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)"

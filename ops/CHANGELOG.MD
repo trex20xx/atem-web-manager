@@ -1,5 +1,15 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v3.81] - Pandorum Standby Typography, LCD Shader & Enhanced Filter Controls
+- Console Typography Standby Screen: Replaced ASCII art with centered text rendering ATEM WEB MANAGER in Pandorum/Orbitron font with the version tag underneath in regular font. Live log streaming begins immediately upon device connection without text clutter.
+- Vertical Real Estate Expansion: Removed fixed 360px height constraints from the console body, allowing the log stream to expand dynamically across 100% of the available quadrant height.
+- Enhanced Header Filtering: Added an ALL source filter button to the left of USER (enabling USER, ATEM, BRIDGE, and SYSTEM simultaneously) and relocated the CURRENT / ALL DEVICES toggle adjacent to EXPORT.
+- Uniform Button Weight Parity: Standardized active and inactive console header buttons to strictly maintain font-weight 400 across all color states.
+- Subtle LCD Effect: Introduced a preferences toggle in Settings to render a subtle broadcast CRT/LCD scanline and diagonal sheen across the console panel.
+- Console Display Font Selector: Added preferences dropdown supporting 15 curated broadcast, techno, and monospace fonts, backed by automated woff2 bootstrapping in OPS scripts.
+- Scrollbar Minimum Thumb Size: Constrained the macOS slim overlay scrollbar thumb to a minimum 15% height to prevent tiny slivers during high log volume.
+
+
 ## [v3.80] - Console Design Polish, Device Filtering, ASCII Standby & Friendly Logging
 - Console Header Restyling: Changed title to CONSOLE. Completely removed the sliding tray and pill backgrounds. Filters (CURRENT/ALL, USER, ATEM, BRIDGE, SYSTEM, EXPORT) are now plain text buttons sharing exact typography and spacing with the Media Pool and Macros headers.
 - Standardized Non-Neon Color Palette: Filter text and log tags use the core application colors: Pastel Blue (#3b5f94) for USER, Tally Red (#d32f2f) for ATEM, Tally Orange (#e67e22) for BRIDGE, and Tally Green (#2e7d32) for SYSTEM. Inactive buttons rest in muted grey.

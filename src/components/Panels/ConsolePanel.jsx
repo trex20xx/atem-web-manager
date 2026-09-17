@@ -2,24 +2,21 @@ import React, { useState, useEffect, useRef } from 'react';
 import { APP_VERSION } from '../../version';
 
 // =========================================================================
-// ATEM WEB MANAGER - CONSOLE PANEL (v3.80)
+// ATEM WEB MANAGER - CONSOLE PANEL (v3.81)
 // =========================================================================
-// Features clean text-only filter buttons (no pills), standard theme colors,
-// active device isolation, duplicate log filtering, ASCII art standby screen,
-// macOS slim overlay scrollbar, and ATEM_WEB_MANAGER_%DATE%_%TIME%.txt exports.
+// Features Pandorum/Orbitron typography standby screen, full-height log layout,
+// inline ALL source activation, adjacent device filter/export controls,
+// and subtle LCD screen shader overlay support.
 
 let globalBridgeLogs = [];
 const MAX_LOG_HISTORY = 400;
 
-const asciiBanner = 
-"   ___  ________________  __   _      __________     __  _____   _  _____  ________________ \n" +
-"  / _ |/_  __/ __/ __/  |/  / | | /| / / __/ _ )    /  |/  / _ | / |/ / _ |/ ___/ __/ _  \\\n" +
-" / __ | / / / _// _// /|_/ /  | |/ |/ / _// _  |   / /|_/ / __ |/    / __ / (_ / _// , _/ \n" +
-"/_/ |_|/_/ /___/___/_/  /_/   |__/|__/___/____/  /_/  /_/_/ |_/_/|_/_/ |_\\___/___/_/|_|  \n" +
-"\n" +
-"                       V E R S I O N   " + APP_VERSION + "\n";
-
-const ConsolePanel = ({ activeDeviceIp = '192.168.10.240', isConnected = false }) => {
+const ConsolePanel = ({ 
+    activeDeviceIp = '192.168.10.240', 
+    isConnected = false, 
+    consoleFont = 'Pandorum', 
+    consoleLcdEffect = false 
+}) => {
     const [logs, setLogs] = useState(() => [...globalBridgeLogs]);
     const [showAllDevices, setShowAllDevices] = useState(false);
     const [filters, setFilters] = useState({ 
@@ -34,18 +31,6 @@ const ConsolePanel = ({ activeDeviceIp = '192.168.10.240', isConnected = false }
     const wsRef = useRef(null);
 
     useEffect(() => {
-        if (globalBridgeLogs.length === 0) {
-            globalBridgeLogs.push({
-                type: 'LOG',
-                level: 'info',
-                source: 'SYSTEM',
-                ip: 'SYSTEM',
-                message: asciiBanner,
-                timestamp: Date.now()
-            });
-            setLogs([...globalBridgeLogs]);
-        }
-
         const wsUrl = 'ws://localhost:8080';
         wsRef.current = new WebSocket(wsUrl);
         
@@ -60,7 +45,6 @@ const ConsolePanel = ({ activeDeviceIp = '192.168.10.240', isConnected = false }
                         ip: data.ip || (src === 'SYSTEM' ? 'SYSTEM' : '192.168.10.240') 
                     };
 
-                    // Sliding window duplicate suppression (250ms threshold)
                     const lastLog = globalBridgeLogs[globalBridgeLogs.length - 1];
                     const isDuplicate = lastLog && 
                         lastLog.source === enriched.source && 
@@ -102,6 +86,12 @@ const ConsolePanel = ({ activeDeviceIp = '192.168.10.240', isConnected = false }
         setFilters(prev => ({ ...prev, [f]: !prev[f] }));
     };
 
+    const handleEnableAllSources = () => {
+        setFilters({ USER: true, ATEM: true, BRIDGE: true, SYSTEM: true });
+    };
+
+    const areAllSourcesActive = filters.USER && filters.ATEM && filters.BRIDGE && filters.SYSTEM;
+
     const currentIp = activeDeviceIp || '192.168.10.240';
     
     const visibleLogs = logs.filter(log => {
@@ -138,18 +128,20 @@ const ConsolePanel = ({ activeDeviceIp = '192.168.10.240', isConnected = false }
         URL.revokeObjectURL(url);
     };
 
-    // Before connecting to hardware, display ONLY the ASCII banner
     if (!isConnected) {
         return (
             <div className="quadrant-master-panel">
-                <div className="panel-layout-frame" style={{ justifyContent: 'flex-start' }}>
+                <div className="panel-layout-frame" style={{ justifyContent: 'flex-start', height: '100%' }}>
                     <div className="macro-compact-header-row">
                         <span className="atem-section-title">CONSOLE</span>
                     </div>
-                    <div className="macro-section-box" style={{ flex: 1, minHeight: 0, padding: '8px' }}>
-                        <div className="console-body" style={{ height: '360px', overflowY: 'auto' }}>
-                            <div className="log-line">
-                                <span className="log-msg ascii-banner-text">{asciiBanner}</span>
+                    <div className={'macro-section-box console-box ' + (consoleLcdEffect ? 'console-lcd-effect' : '')} style={{ flex: 1, minHeight: 0, padding: '12px' }}>
+                        <div className="console-standby-container">
+                            <div className="console-standby-title" style={{ fontFamily: consoleFont + ', Orbitron, Oxanium, sans-serif' }}>
+                                ATEM WEB MANAGER
+                            </div>
+                            <div className="console-standby-version">
+                                {APP_VERSION}
                             </div>
                         </div>
                     </div>
@@ -160,18 +152,18 @@ const ConsolePanel = ({ activeDeviceIp = '192.168.10.240', isConnected = false }
 
     return (
         <div className="quadrant-master-panel">
-            <div className="panel-layout-frame" style={{ justifyContent: 'flex-start' }}>
+            <div className="panel-layout-frame" style={{ justifyContent: 'flex-start', height: '100%' }}>
                 <div className="macro-compact-header-row">
                     <div className="macro-title-group">
                         <span className="atem-section-title">CONSOLE</span>
                     </div>
                     <div className="macro-actions-group">
                         <button 
-                            className={'macro-action-text-btn ' + (showAllDevices ? 'active-white' : '')} 
-                            onClick={() => setShowAllDevices(prev => !prev)}
-                            title="Toggle between filtering to current active device or all devices"
+                            className={'macro-action-text-btn ' + (areAllSourcesActive ? 'active-white' : '')} 
+                            onClick={handleEnableAllSources}
+                            title="Enable all log sources"
                         >
-                            {showAllDevices ? 'ALL DEVICES' : 'CURRENT'}
+                            ALL
                         </button>
                         <button 
                             className={'macro-action-text-btn ' + (filters.USER ? 'active-user' : '')} 
@@ -197,13 +189,21 @@ const ConsolePanel = ({ activeDeviceIp = '192.168.10.240', isConnected = false }
                         >
                             SYSTEM
                         </button>
+                        <span style={{ color: 'var(--atem-border)', margin: '0 2px' }}>|</span>
+                        <button 
+                            className={'macro-action-text-btn ' + (showAllDevices ? 'active-white' : '')} 
+                            onClick={() => setShowAllDevices(prev => !prev)}
+                            title="Toggle between active connected device and all devices"
+                        >
+                            {showAllDevices ? 'ALL DEVICES' : 'CURRENT'}
+                        </button>
                         <button className="macro-action-text-btn" onClick={handleExport}>
                             EXPORT
                         </button>
                     </div>
                 </div>
-                <div className="macro-section-box" style={{ flex: 1, minHeight: 0, padding: '8px' }}>
-                    <div className="console-body" ref={bodyRef} style={{ height: '360px', overflowY: 'auto' }}>
+                <div className={'macro-section-box console-box ' + (consoleLcdEffect ? 'console-lcd-effect' : '')} style={{ flex: 1, minHeight: 0, padding: '8px' }}>
+                    <div className="console-body" ref={bodyRef}>
                         {visibleLogs.map((log, i) => {
                             const time = new Date(log.timestamp).toISOString().split('T')[1].slice(0, -1);
                             const srcClass = 'src-' + log.source.toLowerCase();

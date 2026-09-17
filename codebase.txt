@@ -615,7 +615,7 @@ setInterval(() => {
 === FILE: src/index.css === 
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.80)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.81)
  * =========================================================================
  */
 
@@ -662,6 +662,16 @@ setInterval(() => {
   font-display: swap;
   src: url('/fonts/roboto-900.woff2') format('woff2');
 }
+
+/* Console Standby Fonts (Bootstrapped by OPS) */
+@font-face { font-family: 'Pandorum'; src: url('/fonts/pandorum.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'Orbitron'; src: url('/fonts/orbitron.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'Oxanium'; src: url('/fonts/oxanium.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'VT323'; src: url('/fonts/vt323.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'Rajdhani'; src: url('/fonts/rajdhani.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'Audiowide'; src: url('/fonts/audiowide.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'Share Tech Mono'; src: url('/fonts/share-tech-mono.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'Black Ops One'; src: url('/fonts/black-ops-one.woff2') format('woff2'); font-display: swap; }
 
 :root{
     --bg:#121212;
@@ -890,7 +900,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .apple-theme-switch.active { background: #383838; border-color: #666; }
 .apple-theme-switch.active .apple-switch-thumb { transform: translateX(16px); }
 
-/* Main layout padding container */
+/* Main layout padding container ensuring zero jitter during scale */
 .dashboard {
     position: absolute;
     inset: 0;
@@ -1000,10 +1010,11 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .device-wrapper:not(.editing):hover .device-inner { background:var(--panel2); }
 .device-wrapper.selected .device-inner { background:var(--panel2); }
 
+/* Ensured absolute font-size lock and 600 weight for active sidebar device */
 .device-inner.connected-row .device-name { 
-    color: var(--text); 
-    font-weight: 600; 
-    font-size: var(--le-font-size);
+    color: var(--text) !important; 
+    font-weight: 600 !important; 
+    font-size: var(--le-font-size) !important;
 }
 
 .status{ width:7px; height:7px; min-width:7px; border-radius:50%; flex-shrink: 0; }
@@ -1241,33 +1252,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .settings-footer { border-top:1px solid var(--atem-border); padding:12px 24px; display:flex; justify-content:flex-end; background:var(--atem-bg); }
 .atem-btn { background: var(--atem-hl); border: 1px solid var(--atem-border); color: var(--atem-text); padding: 6px 20px; border-radius: 4px; font-size: 13px; cursor: pointer; transition: background 0.1s; }
 .atem-btn:hover { filter: brightness(1.2); }
-
-/* Apple macOS Slim Overlay Scrollbar */
-.console-body {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(150, 150, 150, 0) transparent;
-    transition: scrollbar-color 0.3s ease;
-}
-.console-body:hover {
-    scrollbar-color: rgba(150, 150, 150, 0.4) transparent;
-}
-.console-body::-webkit-scrollbar {
-    width: 5px;
-}
-.console-body::-webkit-scrollbar-track {
-    background: transparent;
-}
-.console-body::-webkit-scrollbar-thumb {
-    background: transparent;
-    border-radius: 10px;
-    transition: background-color 0.3s ease;
-}
-.console-body:hover::-webkit-scrollbar-thumb {
-    background: rgba(150, 150, 150, 0.35);
-}
-.console-body::-webkit-scrollbar-thumb:hover {
-    background: rgba(150, 150, 150, 0.6);
-}
 
 ::-webkit-scrollbar { width:6px; height:6px; }
 ::-webkit-scrollbar-track { background:transparent; }
@@ -1687,14 +1671,14 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     border-color: var(--red) !important;
 }
 
-/* Action text header buttons */
 .mp1-header-btn {
     color: var(--muted) !important;
     font-weight: 500 !important;
 }
 .mp1-header-btn.active {
+    background: rgba(52, 168, 83, 0.15) !important;
+    border-color: var(--green) !important;
     color: var(--green) !important;
-    font-weight: 700 !important;
 }
 
 .mp2-header-btn {
@@ -1702,8 +1686,9 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     font-weight: 500 !important;
 }
 .mp2-header-btn.active {
+    background: rgba(234, 67, 53, 0.15) !important;
+    border-color: var(--red) !important;
     color: var(--red) !important;
-    font-weight: 700 !important;
 }
 
 .mp-thumb-container {
@@ -1794,12 +1779,12 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     color: var(--text);
 }
 
-/* Color states for text buttons */
-.macro-action-text-btn.active-white { color: var(--text) !important; font-weight: 500 !important; }
-.macro-action-text-btn.active-user { color: #3b5f94 !important; font-weight: 500 !important; }
-.macro-action-text-btn.active-atem { color: #d32f2f !important; font-weight: 500 !important; }
-.macro-action-text-btn.active-bridge { color: #e67e22 !important; font-weight: 500 !important; }
-.macro-action-text-btn.active-system { color: #2e7d32 !important; font-weight: 500 !important; }
+/* Explicit parity: active and inactive headers share 400 weight */
+.macro-action-text-btn.active-white { color: var(--text) !important; font-weight: 400 !important; }
+.macro-action-text-btn.active-user { color: #3b5f94 !important; font-weight: 400 !important; }
+.macro-action-text-btn.active-atem { color: #d32f2f !important; font-weight: 400 !important; }
+.macro-action-text-btn.active-bridge { color: #e67e22 !important; font-weight: 400 !important; }
+.macro-action-text-btn.active-system { color: #2e7d32 !important; font-weight: 400 !important; }
 
 .macro-action-text-btn.active-orange { color: var(--orange-hl) !important; opacity: 1; font-weight: 400 !important; }
 .macro-action-text-btn.active-green { color: #2e7d32 !important; opacity: 1; font-weight: 400 !important; }
@@ -2120,24 +2105,50 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 /* =========================================================================
    CONSOLE PANEL (QUADRANT 6)
    ========================================================================= */
-.console-panel { 
-    background: #1A1A1A !important; 
-    display: flex; 
-    flex-direction: column; 
-    align-items: stretch; 
-    padding: 0 !important; 
+
+.console-box {
+    overflow: hidden;
 }
-.console-header { 
-    background: #111; 
-    color: var(--muted); 
-    font-size: 11px; 
-    padding: 6px 12px; 
-    font-weight: 700; 
-    border-bottom: 1px solid #333; 
-    flex-shrink: 0; 
+
+.console-lcd-effect {
+    position: relative;
 }
+.console-lcd-effect::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(45deg, rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 2px, transparent 2px, transparent 4px);
+    pointer-events: none;
+    z-index: 50;
+}
+
+.console-standby-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+}
+
+.console-standby-title {
+    font-size: 38px;
+    color: var(--text);
+    letter-spacing: 4px;
+    opacity: 0.9;
+}
+
+.console-standby-version {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 12px;
+    font-family: var(--le-font-family);
+    letter-spacing: 1px;
+}
+
 .console-body { 
-    flex: 1; 
+    height: 100%; 
     overflow-y: auto; 
     padding: 8px; 
     font-family: monospace; 
@@ -2146,6 +2157,22 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     display: flex; 
     flex-direction: column; 
     gap: 2px; 
+}
+
+/* macOS Slim Overlay Scrollbar */
+.console-body::-webkit-scrollbar {
+    width: 5px;
+}
+.console-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+.console-body::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 10px;
+    transition: background-color 0.3s ease;
+}
+.console-body:hover::-webkit-scrollbar-thumb {
+    background: rgba(150, 150, 150, 0.35);
 }
 
 /* Color Coding for Console Log Sources */
@@ -2169,13 +2196,26 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .src-bridge { color: #e67e22; }
 .src-system { color: #2e7d32; }
 
-.ascii-banner-text {
-    font-family: monospace;
-    white-space: pre-wrap;
+/* Filter Buttons - Plain Text */
+.console-filter-btn {
+    background: transparent;
+    border: none;
+    font-size: 11px;
+    font-weight: 400;
+    cursor: pointer;
+    padding: 2px 6px;
     color: var(--muted);
-    font-size: 10px;
-    line-height: 1.2;
+    transition: color 0.15s ease;
+    text-transform: uppercase;
 }
+.console-filter-btn:hover {
+    color: var(--text);
+}
+.console-filter-btn.active-all { color: var(--text) !important; font-weight: 400 !important; }
+.console-filter-btn.active-user { color: #3b5f94 !important; font-weight: 400 !important; }
+.console-filter-btn.active-atem { color: #d32f2f !important; font-weight: 400 !important; }
+.console-filter-btn.active-bridge { color: #e67e22 !important; font-weight: 400 !important; }
+.console-filter-btn.active-system { color: #2e7d32 !important; font-weight: 400 !important; }
 
 /* =========================================================================
    ENHANCED VISIBILITY ACCESSIBILITY MODE (Bigger, Bolder, Brighter)
@@ -2280,10 +2320,10 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
  
 === FILE: src/version.js === 
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.80)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.81)
 // =========================================================================
 
-export const APP_VERSION = 'v3.80';
+export const APP_VERSION = 'v3.81';
  
 === FILE: src/components/Sidebar/BottomActionBtn.jsx === 
 import React from 'react';
@@ -3212,7 +3252,7 @@ export default function QuadrantContextMenu({ x, y, currentQuad, onClose, onSele
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - SETTINGS MODAL (v3.71)
+// ATEM WEB MANAGER - SETTINGS MODAL (v3.81)
 // =========================================================================
 
 const QUAD_SELECT_OPTIONS = [
@@ -3232,7 +3272,8 @@ const SettingsModal = ({
     enhancedText, setEnhancedText,
     currentVideoSource, setCurrentVideoSource, quadrantOrder, setQuadrantOrder, 
     sidebarVariant, setSidebarVariant, useDeviceCsv, setUseDeviceCsv,
-    deviceCsvContent, setDeviceCsvContent
+    deviceCsvContent, setDeviceCsvContent,
+    consoleFont, setConsoleFont, consoleLcdEffect, setConsoleLcdEffect
 }) => {
     const modalRef = useRef(null);
     const [activeTab, setActiveTab] = useState('general');
@@ -3325,23 +3366,6 @@ const SettingsModal = ({
                         {activeTab === 'general' && (
                             <>
                                 <div className="setting-group">
-                                    <label>Stream / Video URL:</label>
-                                    <div className="setting-group-control">
-                                        <input type="text" value={currentVideoSource} onChange={e => setCurrentVideoSource(e.target.value)} />
-                                    </div>
-                                </div>
-                                <div className="setting-group">
-                                    <label>Title Position:</label>
-                                    <div className="setting-group-control">
-                                        <select value={titlePosition} onChange={e => setTitlePosition(e.target.value)}>
-                                            <option value="left">Left</option>
-                                            <option value="centered">Center</option>
-                                            <option value="right">Right</option>
-                                            <option value="off">Off</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="setting-group">
                                     <label>Color Theme:</label>
                                     <div className="setting-group-control">
                                         <select value={theme} onChange={e => setTheme(e.target.value)}>
@@ -3352,6 +3376,15 @@ const SettingsModal = ({
                                             <option value="onedark">One Dark Pro</option>
                                             <option value="solarized-dark">Solarized Dark</option>
                                             <option value="github-dark">GitHub Dark</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="setting-group">
+                                    <label>Sidebar Design:</label>
+                                    <div className="setting-group-control">
+                                        <select value={sidebarVariant} onChange={e => setSidebarVariant(e.target.value)}>
+                                            <option value="classic">Classic (Solid)</option>
+                                            <option value="floating">Floating (Glass)</option>
                                         </select>
                                     </div>
                                 </div>
@@ -3368,16 +3401,35 @@ const SettingsModal = ({
                                     </div>
                                 </div>
                                 <div style={{ margin: '24px 0', borderTop: '1px solid var(--atem-border)' }}></div>
-                                
+
                                 <div className="setting-group">
-                                    <label>Sidebar Design:</label>
+                                    <label>Console Display Font:</label>
                                     <div className="setting-group-control">
-                                        <select value={sidebarVariant} onChange={e => setSidebarVariant(e.target.value)}>
-                                            <option value="classic">Classic (Solid)</option>
-                                            <option value="floating">Floating (Glass)</option>
+                                        <select value={consoleFont} onChange={e => setConsoleFont(e.target.value)}>
+                                            <option value="Pandorum">Pandorum (Default)</option>
+                                            <option value="Orbitron">Orbitron</option>
+                                            <option value="Oxanium">Oxanium</option>
+                                            <option value="VT323">VT323</option>
+                                            <option value="Rajdhani">Rajdhani</option>
+                                            <option value="Audiowide">Audiowide</option>
+                                            <option value="Share Tech Mono">Share Tech Mono</option>
+                                            <option value="Black Ops One">Black Ops One</option>
                                         </select>
                                     </div>
                                 </div>
+                                <div className="setting-group">
+                                    <label>Console LCD Shader Effect:</label>
+                                    <div className="setting-group-control">
+                                        <input 
+                                            type="checkbox" 
+                                            className="toggle-switch" 
+                                            checked={consoleLcdEffect} 
+                                            onChange={e => setConsoleLcdEffect(e.target.checked)} 
+                                        />
+                                    </div>
+                                </div>
+                                <div style={{ margin: '24px 0', borderTop: '1px solid var(--atem-border)' }}></div>
+                                
                                 <div className="setting-group">
                                     <label>Enhanced Text (Bigger, Bolder, Brighter):</label>
                                     <div className="setting-group-control">
@@ -3399,12 +3451,6 @@ const SettingsModal = ({
                                     <label>Show Action Button:</label>
                                     <div className="setting-group-control">
                                         <input type="checkbox" className="toggle-switch" checked={showActionButton} onChange={e => setShowActionButton(e.target.checked)} />
-                                    </div>
-                                </div>
-                                <div className="setting-group">
-                                    <label>Show Version Number:</label>
-                                    <div className="setting-group-control">
-                                        <input type="checkbox" className="toggle-switch" checked={showVersion} onChange={e => setShowVersion(e.target.checked)} />
                                     </div>
                                 </div>
                                 <div className="setting-group">
@@ -3439,6 +3485,12 @@ const SettingsModal = ({
                                         placeholder="192.168.10.240, Studio Main, https://stream.mux.com/...&#10;192.168.1.10, Camera 2, https://..."
                                         style={{ width: '100%', height: '140px', background: 'var(--atem-content)', border: '1px solid var(--atem-border)', color: 'var(--atem-text)', borderRadius: '4px', padding: '8px', fontFamily: 'monospace', fontSize: '12px', resize: 'vertical' }}
                                     />
+                                </div>
+                                <div className="setting-group">
+                                    <label>Fallback Stream / Video URL:</label>
+                                    <div className="setting-group-control">
+                                        <input type="text" value={currentVideoSource} onChange={e => setCurrentVideoSource(e.target.value)} />
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -4458,24 +4510,21 @@ import React, { useState, useEffect, useRef } from 'react';
 import { APP_VERSION } from '../../version';
 
 // =========================================================================
-// ATEM WEB MANAGER - CONSOLE PANEL (v3.80)
+// ATEM WEB MANAGER - CONSOLE PANEL (v3.81)
 // =========================================================================
-// Features clean text-only filter buttons (no pills), standard theme colors,
-// active device isolation, duplicate log filtering, ASCII art standby screen,
-// macOS slim overlay scrollbar, and ATEM_WEB_MANAGER_%DATE%_%TIME%.txt exports.
+// Features Pandorum/Orbitron typography standby screen, full-height log layout,
+// inline ALL source activation, adjacent device filter/export controls,
+// and subtle LCD screen shader overlay support.
 
 let globalBridgeLogs = [];
 const MAX_LOG_HISTORY = 400;
 
-const asciiBanner = 
-"   ___  ________________  __   _      __________     __  _____   _  _____  ________________ \n" +
-"  / _ |/_  __/ __/ __/  |/  / | | /| / / __/ _ )    /  |/  / _ | / |/ / _ |/ ___/ __/ _  \\\n" +
-" / __ | / / / _// _// /|_/ /  | |/ |/ / _// _  |   / /|_/ / __ |/    / __ / (_ / _// , _/ \n" +
-"/_/ |_|/_/ /___/___/_/  /_/   |__/|__/___/____/  /_/  /_/_/ |_/_/|_/_/ |_\\___/___/_/|_|  \n" +
-"\n" +
-"                       V E R S I O N   " + APP_VERSION + "\n";
-
-const ConsolePanel = ({ activeDeviceIp = '192.168.10.240', isConnected = false }) => {
+const ConsolePanel = ({ 
+    activeDeviceIp = '192.168.10.240', 
+    isConnected = false, 
+    consoleFont = 'Pandorum', 
+    consoleLcdEffect = false 
+}) => {
     const [logs, setLogs] = useState(() => [...globalBridgeLogs]);
     const [showAllDevices, setShowAllDevices] = useState(false);
     const [filters, setFilters] = useState({ 
@@ -4490,18 +4539,6 @@ const ConsolePanel = ({ activeDeviceIp = '192.168.10.240', isConnected = false }
     const wsRef = useRef(null);
 
     useEffect(() => {
-        if (globalBridgeLogs.length === 0) {
-            globalBridgeLogs.push({
-                type: 'LOG',
-                level: 'info',
-                source: 'SYSTEM',
-                ip: 'SYSTEM',
-                message: asciiBanner,
-                timestamp: Date.now()
-            });
-            setLogs([...globalBridgeLogs]);
-        }
-
         const wsUrl = 'ws://localhost:8080';
         wsRef.current = new WebSocket(wsUrl);
         
@@ -4516,7 +4553,6 @@ const ConsolePanel = ({ activeDeviceIp = '192.168.10.240', isConnected = false }
                         ip: data.ip || (src === 'SYSTEM' ? 'SYSTEM' : '192.168.10.240') 
                     };
 
-                    // Sliding window duplicate suppression (250ms threshold)
                     const lastLog = globalBridgeLogs[globalBridgeLogs.length - 1];
                     const isDuplicate = lastLog && 
                         lastLog.source === enriched.source && 
@@ -4558,6 +4594,12 @@ const ConsolePanel = ({ activeDeviceIp = '192.168.10.240', isConnected = false }
         setFilters(prev => ({ ...prev, [f]: !prev[f] }));
     };
 
+    const handleEnableAllSources = () => {
+        setFilters({ USER: true, ATEM: true, BRIDGE: true, SYSTEM: true });
+    };
+
+    const areAllSourcesActive = filters.USER && filters.ATEM && filters.BRIDGE && filters.SYSTEM;
+
     const currentIp = activeDeviceIp || '192.168.10.240';
     
     const visibleLogs = logs.filter(log => {
@@ -4594,18 +4636,20 @@ const ConsolePanel = ({ activeDeviceIp = '192.168.10.240', isConnected = false }
         URL.revokeObjectURL(url);
     };
 
-    // Before connecting to hardware, display ONLY the ASCII banner
     if (!isConnected) {
         return (
             <div className="quadrant-master-panel">
-                <div className="panel-layout-frame" style={{ justifyContent: 'flex-start' }}>
+                <div className="panel-layout-frame" style={{ justifyContent: 'flex-start', height: '100%' }}>
                     <div className="macro-compact-header-row">
                         <span className="atem-section-title">CONSOLE</span>
                     </div>
-                    <div className="macro-section-box" style={{ flex: 1, minHeight: 0, padding: '8px' }}>
-                        <div className="console-body" style={{ height: '360px', overflowY: 'auto' }}>
-                            <div className="log-line">
-                                <span className="log-msg ascii-banner-text">{asciiBanner}</span>
+                    <div className={'macro-section-box console-box ' + (consoleLcdEffect ? 'console-lcd-effect' : '')} style={{ flex: 1, minHeight: 0, padding: '12px' }}>
+                        <div className="console-standby-container">
+                            <div className="console-standby-title" style={{ fontFamily: consoleFont + ', Orbitron, Oxanium, sans-serif' }}>
+                                ATEM WEB MANAGER
+                            </div>
+                            <div className="console-standby-version">
+                                {APP_VERSION}
                             </div>
                         </div>
                     </div>
@@ -4616,18 +4660,18 @@ const ConsolePanel = ({ activeDeviceIp = '192.168.10.240', isConnected = false }
 
     return (
         <div className="quadrant-master-panel">
-            <div className="panel-layout-frame" style={{ justifyContent: 'flex-start' }}>
+            <div className="panel-layout-frame" style={{ justifyContent: 'flex-start', height: '100%' }}>
                 <div className="macro-compact-header-row">
                     <div className="macro-title-group">
                         <span className="atem-section-title">CONSOLE</span>
                     </div>
                     <div className="macro-actions-group">
                         <button 
-                            className={'macro-action-text-btn ' + (showAllDevices ? 'active-white' : '')} 
-                            onClick={() => setShowAllDevices(prev => !prev)}
-                            title="Toggle between filtering to current active device or all devices"
+                            className={'macro-action-text-btn ' + (areAllSourcesActive ? 'active-white' : '')} 
+                            onClick={handleEnableAllSources}
+                            title="Enable all log sources"
                         >
-                            {showAllDevices ? 'ALL DEVICES' : 'CURRENT'}
+                            ALL
                         </button>
                         <button 
                             className={'macro-action-text-btn ' + (filters.USER ? 'active-user' : '')} 
@@ -4653,13 +4697,21 @@ const ConsolePanel = ({ activeDeviceIp = '192.168.10.240', isConnected = false }
                         >
                             SYSTEM
                         </button>
+                        <span style={{ color: 'var(--atem-border)', margin: '0 2px' }}>|</span>
+                        <button 
+                            className={'macro-action-text-btn ' + (showAllDevices ? 'active-white' : '')} 
+                            onClick={() => setShowAllDevices(prev => !prev)}
+                            title="Toggle between active connected device and all devices"
+                        >
+                            {showAllDevices ? 'ALL DEVICES' : 'CURRENT'}
+                        </button>
                         <button className="macro-action-text-btn" onClick={handleExport}>
                             EXPORT
                         </button>
                     </div>
                 </div>
-                <div className="macro-section-box" style={{ flex: 1, minHeight: 0, padding: '8px' }}>
-                    <div className="console-body" ref={bodyRef} style={{ height: '360px', overflowY: 'auto' }}>
+                <div className={'macro-section-box console-box ' + (consoleLcdEffect ? 'console-lcd-effect' : '')} style={{ flex: 1, minHeight: 0, padding: '8px' }}>
+                    <div className="console-body" ref={bodyRef}>
                         {visibleLogs.map((log, i) => {
                             const time = new Date(log.timestamp).toISOString().split('T')[1].slice(0, -1);
                             const srcClass = 'src-' + log.source.toLowerCase();
