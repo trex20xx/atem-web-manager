@@ -1,5 +1,15 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v3.79] - Console Redesign, Per-Device Logging, ASCII Art & Universal Telemetry
+- Console UI Overhaul: Removed the "FILTER" button, sliding tray, and pill background overlays. Filter toggles (ALL DEVICES, USER, ATEM, BRIDGE, SYSTEM) are now permanently inline text buttons styled with the standard application palette (Pastel Blue for USER, standard Red/Orange/Green for ATEM/BRIDGE/SYSTEM).
+- Title Simplification: Renamed the panel from "BRIDGE CONSOLE" to simply "CONSOLE" for minimalism.
+- Per-Device Log Isolation: The Console now respects the globally active device selected in the Sidebar. By default, it filters out noise from other IPs unless the "ALL DEVICES" toggle is engaged. SYSTEM logs bypass IP filtering and are always visible.
+- ASCII Art Startup: The console initializes with a crisp ATEM WEB MANAGER ASCII text logo and version readout upon mounting.
+- Duplicate Log Fix: Resolved the duplicate command issue in the console caused by a race condition where the UI pushed local SYSTEM logs while simultaneously receiving the identical payload echo from the Bridge websocket.
+- Date/Time Export Format: Console exports now automatically generate files named `ATEM_WEB_MANAGER_YYYY-MM-DD_HH-MM-SS.txt`.
+- Universal System Telemetry: Wired `dispatchSysLog` into `App.jsx` and `AtemConstellationBus.jsx`, aggressively logging every settings adjustment (Corner Radius, Tally Brightness, Theme toggling, Layout modes) and panel locks/resets.
+
+
 ## [v3.77] - Git Refspec Fix, Mixer Optimistic Locks & Media Pool Geometry
 - Git Refspec Collision Resolved: Updated OPS.BAT and OPS.SH push commands to explicitly target `refs/heads/` and `refs/tags/`, permanently fixing the "src refspec matches more than one" error when pushing iteration branches.
 - Comprehensive Mixer Optimistic Locks: Expanded the 450ms optimistic state guard in AtemConstellationBus.jsx to include KEY 1-4 selection, USK ON AIR, DSK TIE, and DSK ON AIR, ensuring zero rubber-banding or state reversions during rapid switching.

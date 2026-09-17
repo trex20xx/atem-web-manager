@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.78)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.79)
  * =========================================================================
  */
 
@@ -275,7 +275,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .apple-theme-switch.active { background: #383838; border-color: #666; }
 .apple-theme-switch.active .apple-switch-thumb { transform: translateX(16px); }
 
-/* Main layout padding container ensuring zero jitter during scale */
+/* Main layout padding container */
 .dashboard {
     position: absolute;
     inset: 0;
@@ -354,7 +354,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 
 .action-btn { width: 100%; height: var(--device-row-height); background: transparent; border: none; cursor: pointer; border-radius: var(--pill-radius); font-family: var(--le-font-family); font-size: var(--le-font-size); font-weight: 500; transition: background-color .15s ease; color: var(--muted); }
 .action-btn:hover:not(.action-select-none) { background: rgba(150,150,150,0.1); }
-.action-select-none { color: var(--muted); cursor: not-allowed; }
+.action-select-none { display: none !important; }
 .action-add, .action-group-mode { color: var(--green); }
 .action-delete { color: var(--red); }
 
@@ -1076,6 +1076,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     overflow: hidden;
 }
 
+/* Clean, non-circular slot numbers */
 .mp-slot-number {
     position: absolute;
     z-index: 10;
@@ -1190,6 +1191,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     gap: 6px;
 }
 
+/* 74px x 36px Standardized Grid Button Dimensions */
 .atem-btn-standard { 
     width: 74px; 
     height: 36px !important; 
@@ -1222,6 +1224,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     cursor: default !important;
 }
 
+/* Tally Active States */
 .atem-btn-standard.tally-red { background: #d32f2f !important; border-color: var(--atem-border) !important; color: #fff !important; box-shadow: none !important; outline: none !important; }
 .atem-btn-standard.tally-green { background: #2e7d32 !important; border-color: var(--atem-border) !important; color: #fff !important; box-shadow: none !important; outline: none !important; }
 .atem-btn-standard.tally-orange { background: #e67e22 !important; border-color: var(--atem-border) !important; color: #fff !important; box-shadow: none !important; outline: none !important; }
@@ -1365,7 +1368,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 /* =========================================================================
    ATEM MACROS PANEL (QUADRANT 4)
-   ========================================================================= */
+   ======================================================================== */
 
 .macro-section-box {
     background: rgba(0, 0, 0, 0.15);
@@ -1502,7 +1505,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     display: flex; 
     gap: 8px; 
     word-break: break-word; 
-    color: #9da5b4; 
+    color: #8c8c8c; 
 }
 .log-time { 
     color: #5c6370; 
@@ -1513,44 +1516,31 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     font-weight: 700;
     flex-shrink: 0;
 }
-.src-user { color: #00bcd4; }
-.src-atem { color: #e91e63; }
-.src-bridge { color: #ff9800; }
-.src-system { color: #00e676; }
+.src-user { color: #3b5f94; }
+.src-atem { color: #d32f2f; }
+.src-bridge { color: #e67e22; }
+.src-system { color: #2e7d32; }
 
-/* Sliding Console Filter Tray */
-.console-filter-tray {
-    display: flex;
-    gap: 6px;
-    overflow: hidden;
-    max-width: 0;
-    opacity: 0;
-    transition: max-width 0.3s ease, opacity 0.3s ease;
-    pointer-events: none;
-}
-.console-filter-tray.open {
-    max-width: 300px;
-    opacity: 1;
-    pointer-events: auto;
-}
-.filter-tag {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: var(--muted);
-    border-radius: 12px;
-    font-size: 9px;
-    font-weight: 700;
-    padding: 2px 8px;
+/* Filter Buttons - Text Only, No Pills */
+.console-filter-btn {
+    background: transparent;
+    border: none;
+    font-size: 11px;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    padding: 2px 6px;
+    color: var(--muted);
+    transition: color 0.15s ease;
+    text-transform: uppercase;
 }
-.filter-tag:hover {
-    background: rgba(255,255,255,0.1);
+.console-filter-btn:hover {
+    color: var(--text);
 }
-.filter-tag.active.tag-user { background: rgba(0, 188, 212, 0.15); border-color: #00bcd4; color: #00bcd4; }
-.filter-tag.active.tag-atem { background: rgba(233, 30, 99, 0.15); border-color: #e91e63; color: #e91e63; }
-.filter-tag.active.tag-bridge { background: rgba(255, 152, 0, 0.15); border-color: #ff9800; color: #ff9800; }
-.filter-tag.active.tag-system { background: rgba(0, 230, 118, 0.15); border-color: #00e676; color: #00e676; }
+.console-filter-btn.active-all { color: var(--text) !important; font-weight: 700; }
+.console-filter-btn.active-user { color: #3b5f94 !important; font-weight: 700; }
+.console-filter-btn.active-atem { color: #d32f2f !important; font-weight: 700; }
+.console-filter-btn.active-bridge { color: #e67e22 !important; font-weight: 700; }
+.console-filter-btn.active-system { color: #2e7d32 !important; font-weight: 700; }
 
 /* =========================================================================
    ENHANCED VISIBILITY ACCESSIBILITY MODE (Bigger, Bolder, Brighter)

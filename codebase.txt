@@ -176,11 +176,11 @@ server.bind(ATEM_PORT, EMULATOR_IP, () => {
  
 === FILE: bridge/server.js === 
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.78)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.79)
 // =========================================================================
-// Bidirectional switcher bus, macro execution, aux router, DSK, FTB, and Media Pool.
-// Features discrete multi-source logging telemetry (USER, ATEM, BRIDGE, SYSTEM),
-// noise-filtered hardware packet interceptions, and 0ms latency switcher execution.
+// High-performance, zero-latency switcher bus bridge.
+// Dispatches discrete, human-readable multi-source logging telemetry 
+// (USER, ATEM, BRIDGE, SYSTEM) tagged with device IP for localized filtering.
 
 const { Atem } = require('atem-connection');
 const WebSocket = require('ws');
@@ -217,10 +217,17 @@ const wss = new WebSocket.Server({ port: BRIDGE_PORT }, () => {
     broadcastLog('info', 'BRIDGE', ['WebSocket server running on ws://localhost:' + BRIDGE_PORT]);
 });
 
-function broadcastLog(level, source, args) {
+function broadcastLog(level, source, args, deviceIp = ATEM_IP) {
     try {
         const msg = Array.from(args).map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-        const payload = JSON.stringify({ type: 'LOG', level, source, message: msg, timestamp: Date.now() });
+        const payload = JSON.stringify({
+            type: 'LOG',
+            level,
+            source,
+            ip: source === 'SYSTEM' ? 'SYSTEM' : deviceIp,
+            message: msg,
+            timestamp: Date.now()
+        });
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) client.send(payload);
         });
@@ -235,23 +242,17 @@ console.log = function() { originalLog.apply(console, arguments); broadcastLog('
 console.warn = function() { originalWarn.apply(console, arguments); broadcastLog('warn', 'BRIDGE', arguments); };
 console.error = function() { originalError.apply(console, arguments); broadcastLog('error', 'BRIDGE', arguments); };
 
-console.log('[ATEM Bridge v3.78] Starting bridge service...');
-console.log('[ATEM Bridge v3.78] Target ATEM Switcher IP: ' + ATEM_IP);
+console.log('[ATEM Bridge v3.79] Starting bridge service...');
+console.log('[ATEM Bridge v3.79] Target ATEM Switcher IP: ' + ATEM_IP);
 
 function setupAtemListeners() {
-    atem.on('receivedCommand', (command) => {
-        if (handleHardwareCommand(command)) {
-            broadcastLog('info', 'ATEM', [`Hardware Triggered: ${command.constructor.name}`]);
-            broadcastState();
-        }
-    });
-
     atem.on('receivedCommands', (commands) => {
         if (Array.isArray(commands)) {
             let changed = false;
             for (const cmd of commands) {
                 if (handleHardwareCommand(cmd)) {
-                    broadcastLog('info', 'ATEM', [`Hardware Triggered: ${cmd.constructor.name}`]);
+                    const name = cmd.constructor ? cmd.constructor.name : (cmd.rawName || 'Command');
+                    broadcastLog('info', 'ATEM', ['Hardware State Updated: ' + name]);
                     changed = true;
                 }
             }
@@ -269,20 +270,20 @@ function setupAtemListeners() {
             clearTimeout(reconnectTimer);
             reconnectTimer = null;
         }
-        console.log('[ATEM Bridge] >>> SUCCESS: Connected to physical ATEM at ' + ATEM_IP + ' <<<');
+        broadcastLog('info', 'BRIDGE', ['Connected to physical ATEM at ' + ATEM_IP]);
         broadcastState(null, true);
     });
 
     atem.on('disconnected', () => {
         isAtemConnected = false;
-        console.log('[ATEM Bridge] >>> DISCONNECTED: Lost UDP link to physical ATEM at ' + ATEM_IP + ' <<<');
+        broadcastLog('warn', 'BRIDGE', ['Lost UDP link to physical ATEM at ' + ATEM_IP]);
         broadcastState(null, true);
         
         if (!reconnectTimer) {
             reconnectTimer = setTimeout(() => {
                 reconnectTimer = null;
                 if (!isAtemConnected) {
-                    console.log('[ATEM Bridge] Attempting reconnection to ATEM at ' + ATEM_IP + '...');
+                    broadcastLog('info', 'BRIDGE', ['Attempting reconnection to ATEM at ' + ATEM_IP + '...']);
                     atem.connect(ATEM_IP).catch(() => {});
                 }
             }, 3000);
@@ -290,7 +291,7 @@ function setupAtemListeners() {
     });
 
     atem.on('error', (err) => {
-        console.error('[ATEM Bridge Error]:', err.message || err);
+        broadcastLog('error', 'BRIDGE', ['ATEM Bridge Error: ' + (err.message || err)]);
     });
 }
 
@@ -299,7 +300,7 @@ setupAtemListeners();
 function connectToAtem(ip) {
     if (ip && ip !== ATEM_IP) {
         ATEM_IP = ip;
-        console.log('[ATEM Bridge] Re-targeting ATEM IP to: ' + ATEM_IP);
+        broadcastLog('info', 'BRIDGE', ['Re-targeting ATEM IP to: ' + ATEM_IP]);
         try {
             atem.disconnect();
         } catch(e) {}
@@ -307,7 +308,7 @@ function connectToAtem(ip) {
         setupAtemListeners();
     }
     atem.connect(ATEM_IP).catch((err) => {
-        console.log('[ATEM Bridge] Connection attempt to ' + ATEM_IP + ' deferred:', err.message || err);
+        broadcastLog('warn', 'BRIDGE', ['Connection attempt to ' + ATEM_IP + ' deferred: ' + (err.message || err)]);
     });
 }
 
@@ -326,7 +327,7 @@ function broadcastState(targetWs = null, immediate = false) {
         broadcastTimeout = setTimeout(() => {
             sendStatePayload();
             broadcastTimeout = null;
-        }, 20); 
+        }, 20);
     }
 }
 
@@ -435,6 +436,7 @@ function handleHardwareCommand(cmd) {
 }
 
 wss.on('connection', (ws) => {
+    broadcastLog('info', 'BRIDGE', ['Client connected to WebSocket daemon']);
     broadcastState(ws, true);
 
     ws.on('message', (message) => {
@@ -442,47 +444,48 @@ wss.on('connection', (ws) => {
             const data = JSON.parse(message);
             if (data.ip && data.ip !== ATEM_IP) connectToAtem(data.ip);
 
-            // Handle explicitly routed System/UI logs
             if (data.action === 'SYSTEM_LOG') {
-                broadcastLog('info', 'SYSTEM', [data.message]);
+                broadcastLog('info', 'SYSTEM', [data.message], 'SYSTEM');
                 return;
-            }
-
-            // Log interactive User actions
-            if (data.action && data.action !== 'GET_STATE' && data.action !== 'CONNECT') {
-                broadcastLog('info', 'USER', [`Executed ${data.action} ${JSON.stringify(data)}`]);
             }
 
             if (data.action === 'CONNECT' || data.action === 'GET_STATE') {
                 broadcastState(ws, true);
             } else if (data.action === 'SET_PGM' && data.input !== undefined) {
                 currentPgm = parseInt(data.input, 10);
+                broadcastLog('info', 'USER', ['Set Program Input to ' + data.input]);
                 atem.changeProgramInput(parseInt(data.input, 10), 0).catch(e => {});
                 broadcastState(null, true);
             } else if (data.action === 'SET_PVW' && data.input !== undefined) {
                 currentPvw = parseInt(data.input, 10);
+                broadcastLog('info', 'USER', ['Set Preview Input to ' + data.input]);
                 atem.changePreviewInput(parseInt(data.input, 10), 0).catch(e => {});
                 broadcastState(null, true);
             } else if (data.action === 'SET_AUX' && data.aux !== undefined && data.source !== undefined) {
                 const auxIdx = parseInt(data.aux, 10);
                 const srcId = parseInt(data.source, 10);
                 currentAux[auxIdx] = srcId;
+                broadcastLog('info', 'USER', ['Set Aux ' + (auxIdx + 1) + ' to Source ' + srcId]);
                 if (typeof atem.setAuxSource === 'function') {
                     atem.setAuxSource(srcId, auxIdx).catch(e => {});
                 }
                 broadcastState(null, true);
             } else if (data.action === 'CUT') {
+                broadcastLog('info', 'USER', ['Executed CUT transition']);
                 atem.cut(0).catch(e => {});
             } else if (data.action === 'AUTO') {
+                broadcastLog('info', 'USER', ['Executed AUTO transition']);
                 atem.autoTransition(0).catch(e => {});
             } else if (data.action === 'SET_TRANSITION_RATE' && data.rate !== undefined) {
                 currentTransitionRate = parseInt(data.rate, 10) || 30;
+                broadcastLog('info', 'USER', ['Set Transition Rate to ' + currentTransitionRate + ' frames']);
                 atem.setMixTransitionSettings({ rate: currentTransitionRate }, 0).catch(e => {});
                 broadcastState(null, true);
             } else if (data.action === 'TOGGLE_USK_ONAIR' && data.usk !== undefined) {
                 const uskIdx = parseInt(data.usk, 10);
                 const targetState = !currentUskOnAir[uskIdx];
                 currentUskOnAir[uskIdx] = targetState;
+                broadcastLog('info', 'USER', ['Toggled Upstream Keyer ' + (uskIdx + 1) + ' On Air: ' + targetState]);
                 if (typeof atem.setUpstreamKeyerOnAir === 'function') {
                     atem.setUpstreamKeyerOnAir(targetState, 0, uskIdx).catch(e => {});
                 }
@@ -491,6 +494,7 @@ wss.on('connection', (ws) => {
                 const bit = parseInt(data.bit, 10);
                 const newSelection = currentTransitionSelection ^ bit;
                 currentTransitionSelection = newSelection || 1;
+                broadcastLog('info', 'USER', ['Toggled Next Transition Selection bit: ' + bit]);
                 if (typeof atem.setTransitionProperties === 'function') {
                     atem.setTransitionProperties({ selection: currentTransitionSelection, nextSelection: currentTransitionSelection }, 0).catch(e => {
                         const selArray = [];
@@ -505,37 +509,44 @@ wss.on('connection', (ws) => {
                 broadcastState(null, true);
             } else if (data.action === 'TOGGLE_DSK_TIE') {
                 dsk.tie = Boolean(data.tie);
+                broadcastLog('info', 'USER', ['Toggled DSK Tie: ' + dsk.tie]);
                 if (typeof atem.setDownstreamKeyerTie === 'function') {
                     atem.setDownstreamKeyerTie(Boolean(data.tie), 0).catch(e => {});
                 }
                 broadcastState(null, true);
             } else if (data.action === 'TOGGLE_DSK_ONAIR') {
                 dsk.onAir = Boolean(data.onAir);
+                broadcastLog('info', 'USER', ['Toggled DSK On Air: ' + dsk.onAir]);
                 if (typeof atem.setDownstreamKeyerOnAir === 'function') {
                     atem.setDownstreamKeyerOnAir(Boolean(data.onAir), 0).catch(e => {});
                 }
                 broadcastState(null, true);
             } else if (data.action === 'EXECUTE_DSK_AUTO') {
+                broadcastLog('info', 'USER', ['Executed DSK AUTO transition']);
                 if (typeof atem.autoDownstreamKey === 'function') {
                     atem.autoDownstreamKey(0).catch(e => {});
                 }
             } else if (data.action === 'SET_DSK_RATE' && data.rate !== undefined) {
                 dsk.rate = parseInt(data.rate, 10) || 30;
+                broadcastLog('info', 'USER', ['Set DSK Rate to ' + dsk.rate + ' frames']);
                 if (typeof atem.setDownstreamKeyerRate === 'function') {
                     atem.setDownstreamKeyerRate(dsk.rate, 0).catch(e => {});
                 }
                 broadcastState(null, true);
             } else if (data.action === 'EXECUTE_FTB') {
+                broadcastLog('info', 'USER', ['Executed Fade to Black (FTB)']);
                 if (typeof atem.fadeToBlack === 'function') {
                     atem.fadeToBlack(0).catch(e => {});
                 }
             } else if (data.action === 'SET_FTB_RATE' && data.rate !== undefined) {
                 ftb.rate = parseInt(data.rate, 10) || 30;
+                broadcastLog('info', 'USER', ['Set FTB Rate to ' + ftb.rate + ' frames']);
                 if (typeof atem.setFadeToBlackRate === 'function') {
                     atem.setFadeToBlackRate(ftb.rate, 0).catch(e => {});
                 }
                 broadcastState(null, true);
             } else if (data.action === 'CLEAR_STILL' && data.index !== undefined) {
+                broadcastLog('info', 'USER', ['Cleared Media Pool Still ' + (parseInt(data.index, 10) + 1)]);
                 if (typeof atem.clearMediaPoolStill === 'function') {
                     atem.clearMediaPoolStill(data.index).catch(e => console.error('[ATEM Bridge] clearMediaPoolStill error:', e.message || e));
                 }
@@ -545,6 +556,7 @@ wss.on('connection', (ws) => {
                 if (data.sourceType !== undefined) props.sourceType = data.sourceType;
                 if (data.stillIndex !== undefined) props.stillIndex = data.stillIndex;
                 if (data.clipIndex !== undefined) props.clipIndex = data.clipIndex;
+                broadcastLog('info', 'USER', ['Routed Media Player ' + (playerIdx + 1) + ' source: ' + JSON.stringify(props)]);
                 
                 if (typeof atem.setMediaPlayerSource === 'function') {
                     atem.setMediaPlayerSource(props, playerIdx)
@@ -552,16 +564,23 @@ wss.on('connection', (ws) => {
                         .catch(e => console.error('[ATEM Bridge] setMediaPlayerSource error:', e.message || e));
                 }
             } else if (data.action === 'MACRO_LOOP' && data.loop !== undefined) {
+                broadcastLog('info', 'USER', ['Toggled Macro Loop: ' + Boolean(data.loop)]);
                 try {
                     if (typeof atem.setMacroLoop === 'function') atem.setMacroLoop(data.loop);
                     else if (typeof atem.macroSetLoop === 'function') atem.macroSetLoop(data.loop);
                 } catch(e) {}
             } else if (data.action === 'MACRO_RUN' && data.index !== undefined) {
+                broadcastLog('info', 'USER', ['Ran Macro index ' + data.index]);
                 if (typeof atem.macroRun === 'function') atem.macroRun(parseInt(data.index, 10)).catch(()=>{});
             } else if (data.action === 'MACRO_STOP') {
+                broadcastLog('info', 'USER', ['Stopped Macro execution']);
                 if (typeof atem.macroStop === 'function') atem.macroStop().catch(()=>{});
             }
         } catch (err) {}
+    });
+
+    ws.on('close', () => {
+        broadcastLog('info', 'BRIDGE', ['Client disconnected from WebSocket daemon']);
     });
 });
 
@@ -579,7 +598,7 @@ setInterval(() => {
 === FILE: src/index.css === 
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.78)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.79)
  * =========================================================================
  */
 
@@ -854,7 +873,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .apple-theme-switch.active { background: #383838; border-color: #666; }
 .apple-theme-switch.active .apple-switch-thumb { transform: translateX(16px); }
 
-/* Main layout padding container ensuring zero jitter during scale */
+/* Main layout padding container */
 .dashboard {
     position: absolute;
     inset: 0;
@@ -933,7 +952,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 
 .action-btn { width: 100%; height: var(--device-row-height); background: transparent; border: none; cursor: pointer; border-radius: var(--pill-radius); font-family: var(--le-font-family); font-size: var(--le-font-size); font-weight: 500; transition: background-color .15s ease; color: var(--muted); }
 .action-btn:hover:not(.action-select-none) { background: rgba(150,150,150,0.1); }
-.action-select-none { color: var(--muted); cursor: not-allowed; }
+.action-select-none { display: none !important; }
 .action-add, .action-group-mode { color: var(--green); }
 .action-delete { color: var(--red); }
 
@@ -1655,6 +1674,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     overflow: hidden;
 }
 
+/* Clean, non-circular slot numbers */
 .mp-slot-number {
     position: absolute;
     z-index: 10;
@@ -1769,6 +1789,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     gap: 6px;
 }
 
+/* 74px x 36px Standardized Grid Button Dimensions */
 .atem-btn-standard { 
     width: 74px; 
     height: 36px !important; 
@@ -1801,6 +1822,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     cursor: default !important;
 }
 
+/* Tally Active States */
 .atem-btn-standard.tally-red { background: #d32f2f !important; border-color: var(--atem-border) !important; color: #fff !important; box-shadow: none !important; outline: none !important; }
 .atem-btn-standard.tally-green { background: #2e7d32 !important; border-color: var(--atem-border) !important; color: #fff !important; box-shadow: none !important; outline: none !important; }
 .atem-btn-standard.tally-orange { background: #e67e22 !important; border-color: var(--atem-border) !important; color: #fff !important; box-shadow: none !important; outline: none !important; }
@@ -1944,7 +1966,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 /* =========================================================================
    ATEM MACROS PANEL (QUADRANT 4)
-   ========================================================================= */
+   ======================================================================== */
 
 .macro-section-box {
     background: rgba(0, 0, 0, 0.15);
@@ -2081,7 +2103,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     display: flex; 
     gap: 8px; 
     word-break: break-word; 
-    color: #9da5b4; 
+    color: #8c8c8c; 
 }
 .log-time { 
     color: #5c6370; 
@@ -2092,44 +2114,31 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     font-weight: 700;
     flex-shrink: 0;
 }
-.src-user { color: #00bcd4; }
-.src-atem { color: #e91e63; }
-.src-bridge { color: #ff9800; }
-.src-system { color: #00e676; }
+.src-user { color: #3b5f94; }
+.src-atem { color: #d32f2f; }
+.src-bridge { color: #e67e22; }
+.src-system { color: #2e7d32; }
 
-/* Sliding Console Filter Tray */
-.console-filter-tray {
-    display: flex;
-    gap: 6px;
-    overflow: hidden;
-    max-width: 0;
-    opacity: 0;
-    transition: max-width 0.3s ease, opacity 0.3s ease;
-    pointer-events: none;
-}
-.console-filter-tray.open {
-    max-width: 300px;
-    opacity: 1;
-    pointer-events: auto;
-}
-.filter-tag {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: var(--muted);
-    border-radius: 12px;
-    font-size: 9px;
-    font-weight: 700;
-    padding: 2px 8px;
+/* Filter Buttons - Text Only, No Pills */
+.console-filter-btn {
+    background: transparent;
+    border: none;
+    font-size: 11px;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    padding: 2px 6px;
+    color: var(--muted);
+    transition: color 0.15s ease;
+    text-transform: uppercase;
 }
-.filter-tag:hover {
-    background: rgba(255,255,255,0.1);
+.console-filter-btn:hover {
+    color: var(--text);
 }
-.filter-tag.active.tag-user { background: rgba(0, 188, 212, 0.15); border-color: #00bcd4; color: #00bcd4; }
-.filter-tag.active.tag-atem { background: rgba(233, 30, 99, 0.15); border-color: #e91e63; color: #e91e63; }
-.filter-tag.active.tag-bridge { background: rgba(255, 152, 0, 0.15); border-color: #ff9800; color: #ff9800; }
-.filter-tag.active.tag-system { background: rgba(0, 230, 118, 0.15); border-color: #00e676; color: #00e676; }
+.console-filter-btn.active-all { color: var(--text) !important; font-weight: 700; }
+.console-filter-btn.active-user { color: #3b5f94 !important; font-weight: 700; }
+.console-filter-btn.active-atem { color: #d32f2f !important; font-weight: 700; }
+.console-filter-btn.active-bridge { color: #e67e22 !important; font-weight: 700; }
+.console-filter-btn.active-system { color: #2e7d32 !important; font-weight: 700; }
 
 /* =========================================================================
    ENHANCED VISIBILITY ACCESSIBILITY MODE (Bigger, Bolder, Brighter)
@@ -2234,10 +2243,10 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
  
 === FILE: src/version.js === 
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.78)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.79)
 // =========================================================================
 
-export const APP_VERSION = 'v3.78';
+export const APP_VERSION = 'v3.79';
  
 === FILE: src/components/Sidebar/BottomActionBtn.jsx === 
 import React from 'react';
@@ -5966,13 +5975,13 @@ import React from 'react';
 import Panel from './Panel';
 
 // =========================================================================
-// ATEM WEB MANAGER - QUADRANT GRID (v3.12)
+// ATEM WEB MANAGER - QUADRANT GRID (v3.79)
 // =========================================================================
-// Enforces panel exclusivity: if a selected panel already exists in another 
-// quadrant, that other quadrant is set to 0 (None) instead of swapping.
+// Enforces panel exclusivity across multiview quadrants and forwards
+// activeDeviceIp to child panels for localized telemetry filtration.
 
 const QuadrantGrid = ({ 
-    quadrantOrder, currentVideoSource, isConnected, connectedDevice, isLoading, enableQuadrantDrag,
+    quadrantOrder, currentVideoSource, isConnected, connectedDevice, activeDeviceIp, isLoading, enableQuadrantDrag,
     handleQuadrantDragStart, handleQuadrantDragOver, handleQuadrantDragLeave, handleQuadrantDrop, setQuadrantOrder
 }) => {
     const handleSwapCallback = (sourceIndex, targetIndex) => {
@@ -5986,11 +5995,10 @@ const QuadrantGrid = ({
     const handleReorderQuadrant = (slotIndex, quadId) => {
         const newOrder = [...quadrantOrder];
         
-        // If assigning a specific active panel (1, 2, 3, 5), ensure exclusivity across quadrants
         if (quadId !== 0) {
             for (let i = 0; i < newOrder.length; i++) {
                 if (i !== slotIndex && newOrder[i] === quadId) {
-                    newOrder[i] = 0; // Unload from previous quadrant
+                    newOrder[i] = 0;
                 }
             }
         }
@@ -6003,12 +6011,13 @@ const QuadrantGrid = ({
         <>
             {[0, 1, 2, 3].map((posIndex) => (
                 <Panel 
-                    key={`quadrant-pos-${posIndex}`}
+                    key={'quadrant-pos-' + posIndex}
                     panelId={quadrantOrder[posIndex]}
                     positionIndex={posIndex}
                     currentVideoSource={currentVideoSource}
                     isConnected={isConnected}
                     connectedDevice={connectedDevice}
+                    activeDeviceIp={activeDeviceIp}
                     isLoading={isLoading}
                     enableQuadrantDrag={enableQuadrantDrag}
                     handleDragStart={handleQuadrantDragStart}
@@ -6036,12 +6045,12 @@ import Skeleton from '../UI/Skeleton';
 import QuadrantContextMenu from '../UI/QuadrantContextMenu';
 
 // =========================================================================
-// ATEM WEB MANAGER - PANEL COMPONENT (v3.71)
+// ATEM WEB MANAGER - PANEL COMPONENT (v3.79)
 // =========================================================================
 // 1: Stream | 2: Media Pool | 3: Mixer | 5: Macros Compact | 6: Console | 0: None
 
 const Panel = ({ 
-    panelId, positionIndex, currentVideoSource, isConnected, connectedDevice, isLoading,
+    panelId, positionIndex, currentVideoSource, isConnected, connectedDevice, activeDeviceIp, isLoading,
     enableQuadrantDrag, handleDragStart, handleDragOver, handleDragLeave, handleDrop, onReorderQuadrant 
 }) => {
     const [contextMenu, setContextMenu] = useState(null);
@@ -6069,7 +6078,7 @@ const Panel = ({
             case 2: return <MediaPool connectedDevice={connectedDevice} />;
             case 3: return <AtemConstellationBus connectedDevice={connectedDevice} />;
             case 5: return <AtemMacrosCompact connectedDevice={connectedDevice} />;
-            case 6: return <ConsolePanel />;
+            case 6: return <ConsolePanel activeDeviceIp={activeDeviceIp} />;
             default: return null;
         }
     };
@@ -6077,7 +6086,7 @@ const Panel = ({
     return (
         <>
             <div 
-                className={`panel ${panelId === 1 ? 'video-panel' : ''}`}
+                className={'panel ' + (panelId === 1 ? 'video-panel' : '')}
                 draggable={enableQuadrantDrag && !isLoading}
                 onDragStart={(e) => handleDragStart(e, positionIndex)}
                 onDragOver={handleDragOver}
@@ -6346,7 +6355,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 );
  
 === FILE: src/App.jsx === 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Sidebar from './components/Sidebar/Sidebar';
 import QuadrantGrid from './components/Multiview/QuadrantGrid';
 import SettingsModal from './components/Settings/SettingsModal';
@@ -6357,7 +6366,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { APP_VERSION } from './version';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v3.78)
+// ATEM WEB MANAGER - MASTER LAYOUT (v3.79)
 // =========================================================================
 
 function App() {
@@ -6379,7 +6388,7 @@ function App() {
   
   const [currentVideoSource, setCurrentVideoSource] = useLocalStorage('atem_currentVideoSource', 'https://stream.mux.com/BV3YZtogl89mg9VcNBhhnHm02Y34zI1nlMuMQfAbl3dM/highest.mp4');
   
-  // Default routing mapping to STREAM, MEDIA POOL, MIXER, and MACROS
+  // Default routing mapping to STREAM (1), MEDIA POOL (2), MIXER (3), and MACROS (5)
   const [quadrantOrder, setQuadrantOrder] = useLocalStorage('atem_quadrantOrder', [1, 2, 3, 5]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -6403,9 +6412,46 @@ function App() {
       window.dispatchEvent(new CustomEvent('atem:system-log', { detail: msg }));
   };
 
+  const isFirstMount = useRef(true);
   useEffect(() => {
-      dispatchSysLog('Application mounted. UI initialized.');
+      if (isFirstMount.current) {
+          isFirstMount.current = false;
+          dispatchSysLog('Application mounted. UI initialized.');
+      }
   }, []);
+
+  // System telemetry watchers for user preferences
+  const prevRadius = useRef(panelRadius);
+  useEffect(() => {
+      if (prevRadius.current !== panelRadius) {
+          dispatchSysLog('Panel Corner Radius adjusted to ' + panelRadius + 'px');
+          prevRadius.current = panelRadius;
+      }
+  }, [panelRadius]);
+
+  const prevTally = useRef(tallyOpacity);
+  useEffect(() => {
+      if (prevTally.current !== tallyOpacity) {
+          dispatchSysLog('Tally LED Brightness adjusted to ' + tallyOpacity + '%');
+          prevTally.current = tallyOpacity;
+      }
+  }, [tallyOpacity]);
+
+  const prevSidebarVariant = useRef(sidebarVariant);
+  useEffect(() => {
+      if (prevSidebarVariant.current !== sidebarVariant) {
+          dispatchSysLog('Sidebar Design switched to ' + sidebarVariant.toUpperCase());
+          prevSidebarVariant.current = sidebarVariant;
+      }
+  }, [sidebarVariant]);
+
+  const prevEnhanced = useRef(enhancedText);
+  useEffect(() => {
+      if (prevEnhanced.current !== enhancedText) {
+          dispatchSysLog('Enhanced Accessibility Text: ' + (enhancedText ? 'ENABLED' : 'DISABLED'));
+          prevEnhanced.current = enhancedText;
+      }
+  }, [enhancedText]);
 
   const getResolvedStreamSource = () => {
     if (useDeviceCsv && isConnected && connectedDevice) {
@@ -6518,7 +6564,11 @@ function App() {
         e.preventDefault();
         e.stopPropagation();
         if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-        setIsSidebarCollapsed(prev => !prev);
+        setIsSidebarCollapsed(prev => {
+            const next = !prev;
+            dispatchSysLog('Sidebar ' + (next ? 'collapsed' : 'expanded'));
+            return next;
+        });
         setIsToolbarRevealed(false);
         setIsSidebarRevealed(false);
       }
@@ -6533,7 +6583,7 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
-    document.documentElement.style.setProperty('--panel-radius', `${panelRadius}px`);
+    document.documentElement.style.setProperty('--panel-radius', panelRadius + 'px');
     document.documentElement.style.setProperty('--tally-opacity', tallyOpacity / 100);
   }, [panelRadius, tallyOpacity]);
 
@@ -6548,7 +6598,7 @@ function App() {
   const toggleLightMode = () => {
       const next = theme === 'light' ? 'default' : 'light';
       setTheme(next);
-      dispatchSysLog(`Theme switched to ${next.toUpperCase()}`);
+      dispatchSysLog('Theme switched to ' + next.toUpperCase());
   };
 
   const activeDevice = connectedDevice 
@@ -6574,7 +6624,7 @@ function App() {
       {isSidebarCollapsed && (
         <div 
           className="sidebar-hover-sensor"
-          style={{ top: `${dashboardStyle.top}px`, height: `${dashboardStyle.height}px` }}
+          style={{ top: dashboardStyle.top + 'px', height: dashboardStyle.height + 'px' }}
           onMouseEnter={() => setIsSidebarRevealed(true)}
           onMouseLeave={(e) => {
               if (e.clientX <= 16 || e.clientY <= dashboardStyle.top || e.clientY >= dashboardStyle.top + dashboardStyle.height) {
@@ -6585,7 +6635,7 @@ function App() {
       )}
 
       <header 
-        className={`app-top-bar ${isSidebarCollapsed ? 'collapsed-mode' : ''} ${isToolbarRevealed ? 'revealed' : ''}`}
+        className={'app-top-bar ' + (isSidebarCollapsed ? 'collapsed-mode ' : '') + (isToolbarRevealed ? 'revealed' : '')}
         onMouseEnter={() => isSidebarCollapsed && setIsToolbarRevealed(true)}
         onMouseLeave={() => isSidebarCollapsed && setIsToolbarRevealed(false)}
       >
@@ -6593,11 +6643,15 @@ function App() {
           <button 
             className="top-bar-btn"
             onClick={() => {
-              setIsSidebarCollapsed(prev => !prev);
+              setIsSidebarCollapsed(prev => {
+                const next = !prev;
+                dispatchSysLog('Sidebar ' + (next ? 'collapsed' : 'expanded'));
+                return next;
+              });
               setIsToolbarRevealed(false);
               setIsSidebarRevealed(false);
             }}
-            data-description={isSidebarCollapsed ? "Expand navigation menu (`)" : "Collapse navigation menu (`)"}
+            data-description={isSidebarCollapsed ? 'Expand navigation menu (~)' : 'Collapse navigation menu (~)'}
           >
             <svg viewBox="0 0 24 24">
               <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
@@ -6631,17 +6685,17 @@ function App() {
 
         <div className="top-bar-right">
           <span 
-            className={`top-bar-version ${showVersion ? 'visible' : 'faded'}`}
+            className={'top-bar-version ' + (showVersion ? 'visible' : 'faded')}
             onClick={() => setShowVersion(prev => !prev)}
-            data-description={showVersion ? "Click to hide version" : "Click to reveal version"}
+            data-description={showVersion ? 'Click to hide version' : 'Click to reveal version'}
           >
             {APP_VERSION}
           </span>
 
           <div 
-            className={`apple-theme-switch ${theme === 'light' ? 'active' : ''}`}
+            className={'apple-theme-switch ' + (theme === 'light' ? 'active' : '')}
             onClick={toggleLightMode}
-            data-description={theme === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
+            data-description={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
           >
             <div className="apple-switch-thumb">
               {theme === 'light' ? (
@@ -6667,7 +6721,7 @@ function App() {
           <button 
             className="top-bar-btn"
             onClick={toggleFullscreen}
-            data-description={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            data-description={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           >
             {isFullscreen ? (
               <svg viewBox="0 0 24 24">
@@ -6695,7 +6749,7 @@ function App() {
         </div>
       </header>
 
-      <div className={`dashboard ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+      <div className={'dashboard ' + (isSidebarCollapsed ? 'sidebar-collapsed' : '')}>
         <Sidebar 
           top={dashboardStyle.top}
           height={dashboardStyle.height}
@@ -6708,12 +6762,13 @@ function App() {
           isRevealed={isSidebarRevealed}
           setIsRevealed={setIsSidebarRevealed}
         />
-        <main className="quadrant-wrapper" style={{ width: `${dashboardStyle.width}px`, height: `${dashboardStyle.height}px` }}>
+        <main className="quadrant-wrapper" style={{ width: dashboardStyle.width + 'px', height: dashboardStyle.height + 'px' }}>
           <QuadrantGrid 
             quadrantOrder={quadrantOrder}
             currentVideoSource={resolvedVideoSource}
             isConnected={isConnected}
             connectedDevice={connectedDevice}
+            activeDeviceIp={deviceIp}
             isLoading={deviceState.isLoading}
             enableQuadrantDrag={enableQuadrantDrag}
             handleQuadrantDragStart={handleQuadrantDragStart}

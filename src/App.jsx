@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Sidebar from './components/Sidebar/Sidebar';
 import QuadrantGrid from './components/Multiview/QuadrantGrid';
 import SettingsModal from './components/Settings/SettingsModal';
@@ -9,7 +9,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { APP_VERSION } from './version';
 
 // =========================================================================
-// ATEM WEB MANAGER - MASTER LAYOUT (v3.78)
+// ATEM WEB MANAGER - MASTER LAYOUT (v3.79)
 // =========================================================================
 
 function App() {
@@ -31,7 +31,7 @@ function App() {
   
   const [currentVideoSource, setCurrentVideoSource] = useLocalStorage('atem_currentVideoSource', 'https://stream.mux.com/BV3YZtogl89mg9VcNBhhnHm02Y34zI1nlMuMQfAbl3dM/highest.mp4');
   
-  // Default routing mapping to STREAM, MEDIA POOL, MIXER, and MACROS
+  // Default routing mapping to STREAM (1), MEDIA POOL (2), MIXER (3), and MACROS (5)
   const [quadrantOrder, setQuadrantOrder] = useLocalStorage('atem_quadrantOrder', [1, 2, 3, 5]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -55,9 +55,46 @@ function App() {
       window.dispatchEvent(new CustomEvent('atem:system-log', { detail: msg }));
   };
 
+  const isFirstMount = useRef(true);
   useEffect(() => {
-      dispatchSysLog('Application mounted. UI initialized.');
+      if (isFirstMount.current) {
+          isFirstMount.current = false;
+          dispatchSysLog('Application mounted. UI initialized.');
+      }
   }, []);
+
+  // System telemetry watchers for user preferences
+  const prevRadius = useRef(panelRadius);
+  useEffect(() => {
+      if (prevRadius.current !== panelRadius) {
+          dispatchSysLog('Panel Corner Radius adjusted to ' + panelRadius + 'px');
+          prevRadius.current = panelRadius;
+      }
+  }, [panelRadius]);
+
+  const prevTally = useRef(tallyOpacity);
+  useEffect(() => {
+      if (prevTally.current !== tallyOpacity) {
+          dispatchSysLog('Tally LED Brightness adjusted to ' + tallyOpacity + '%');
+          prevTally.current = tallyOpacity;
+      }
+  }, [tallyOpacity]);
+
+  const prevSidebarVariant = useRef(sidebarVariant);
+  useEffect(() => {
+      if (prevSidebarVariant.current !== sidebarVariant) {
+          dispatchSysLog('Sidebar Design switched to ' + sidebarVariant.toUpperCase());
+          prevSidebarVariant.current = sidebarVariant;
+      }
+  }, [sidebarVariant]);
+
+  const prevEnhanced = useRef(enhancedText);
+  useEffect(() => {
+      if (prevEnhanced.current !== enhancedText) {
+          dispatchSysLog('Enhanced Accessibility Text: ' + (enhancedText ? 'ENABLED' : 'DISABLED'));
+          prevEnhanced.current = enhancedText;
+      }
+  }, [enhancedText]);
 
   const getResolvedStreamSource = () => {
     if (useDeviceCsv && isConnected && connectedDevice) {
@@ -170,7 +207,11 @@ function App() {
         e.preventDefault();
         e.stopPropagation();
         if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-        setIsSidebarCollapsed(prev => !prev);
+        setIsSidebarCollapsed(prev => {
+            const next = !prev;
+            dispatchSysLog('Sidebar ' + (next ? 'collapsed' : 'expanded'));
+            return next;
+        });
         setIsToolbarRevealed(false);
         setIsSidebarRevealed(false);
       }
@@ -185,7 +226,7 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
-    document.documentElement.style.setProperty('--panel-radius', `${panelRadius}px`);
+    document.documentElement.style.setProperty('--panel-radius', panelRadius + 'px');
     document.documentElement.style.setProperty('--tally-opacity', tallyOpacity / 100);
   }, [panelRadius, tallyOpacity]);
 
@@ -200,7 +241,7 @@ function App() {
   const toggleLightMode = () => {
       const next = theme === 'light' ? 'default' : 'light';
       setTheme(next);
-      dispatchSysLog(`Theme switched to ${next.toUpperCase()}`);
+      dispatchSysLog('Theme switched to ' + next.toUpperCase());
   };
 
   const activeDevice = connectedDevice 
@@ -226,7 +267,7 @@ function App() {
       {isSidebarCollapsed && (
         <div 
           className="sidebar-hover-sensor"
-          style={{ top: `${dashboardStyle.top}px`, height: `${dashboardStyle.height}px` }}
+          style={{ top: dashboardStyle.top + 'px', height: dashboardStyle.height + 'px' }}
           onMouseEnter={() => setIsSidebarRevealed(true)}
           onMouseLeave={(e) => {
               if (e.clientX <= 16 || e.clientY <= dashboardStyle.top || e.clientY >= dashboardStyle.top + dashboardStyle.height) {
@@ -237,7 +278,7 @@ function App() {
       )}
 
       <header 
-        className={`app-top-bar ${isSidebarCollapsed ? 'collapsed-mode' : ''} ${isToolbarRevealed ? 'revealed' : ''}`}
+        className={'app-top-bar ' + (isSidebarCollapsed ? 'collapsed-mode ' : '') + (isToolbarRevealed ? 'revealed' : '')}
         onMouseEnter={() => isSidebarCollapsed && setIsToolbarRevealed(true)}
         onMouseLeave={() => isSidebarCollapsed && setIsToolbarRevealed(false)}
       >
@@ -245,11 +286,15 @@ function App() {
           <button 
             className="top-bar-btn"
             onClick={() => {
-              setIsSidebarCollapsed(prev => !prev);
+              setIsSidebarCollapsed(prev => {
+                const next = !prev;
+                dispatchSysLog('Sidebar ' + (next ? 'collapsed' : 'expanded'));
+                return next;
+              });
               setIsToolbarRevealed(false);
               setIsSidebarRevealed(false);
             }}
-            data-description={isSidebarCollapsed ? "Expand navigation menu (`)" : "Collapse navigation menu (`)"}
+            data-description={isSidebarCollapsed ? 'Expand navigation menu (~)' : 'Collapse navigation menu (~)'}
           >
             <svg viewBox="0 0 24 24">
               <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
@@ -283,17 +328,17 @@ function App() {
 
         <div className="top-bar-right">
           <span 
-            className={`top-bar-version ${showVersion ? 'visible' : 'faded'}`}
+            className={'top-bar-version ' + (showVersion ? 'visible' : 'faded')}
             onClick={() => setShowVersion(prev => !prev)}
-            data-description={showVersion ? "Click to hide version" : "Click to reveal version"}
+            data-description={showVersion ? 'Click to hide version' : 'Click to reveal version'}
           >
             {APP_VERSION}
           </span>
 
           <div 
-            className={`apple-theme-switch ${theme === 'light' ? 'active' : ''}`}
+            className={'apple-theme-switch ' + (theme === 'light' ? 'active' : '')}
             onClick={toggleLightMode}
-            data-description={theme === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
+            data-description={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
           >
             <div className="apple-switch-thumb">
               {theme === 'light' ? (
@@ -319,7 +364,7 @@ function App() {
           <button 
             className="top-bar-btn"
             onClick={toggleFullscreen}
-            data-description={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            data-description={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           >
             {isFullscreen ? (
               <svg viewBox="0 0 24 24">
@@ -347,7 +392,7 @@ function App() {
         </div>
       </header>
 
-      <div className={`dashboard ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+      <div className={'dashboard ' + (isSidebarCollapsed ? 'sidebar-collapsed' : '')}>
         <Sidebar 
           top={dashboardStyle.top}
           height={dashboardStyle.height}
@@ -360,12 +405,13 @@ function App() {
           isRevealed={isSidebarRevealed}
           setIsRevealed={setIsSidebarRevealed}
         />
-        <main className="quadrant-wrapper" style={{ width: `${dashboardStyle.width}px`, height: `${dashboardStyle.height}px` }}>
+        <main className="quadrant-wrapper" style={{ width: dashboardStyle.width + 'px', height: dashboardStyle.height + 'px' }}>
           <QuadrantGrid 
             quadrantOrder={quadrantOrder}
             currentVideoSource={resolvedVideoSource}
             isConnected={isConnected}
             connectedDevice={connectedDevice}
+            activeDeviceIp={deviceIp}
             isLoading={deviceState.isLoading}
             enableQuadrantDrag={enableQuadrantDrag}
             handleQuadrantDragStart={handleQuadrantDragStart}

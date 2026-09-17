@@ -1,9 +1,9 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.78)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.79)
 // =========================================================================
-// Bidirectional switcher bus, macro execution, aux router, DSK, FTB, and Media Pool.
-// Features discrete multi-source logging telemetry (USER, ATEM, BRIDGE, SYSTEM),
-// noise-filtered hardware packet interceptions, and 0ms latency switcher execution.
+// High-performance, zero-latency switcher bus bridge.
+// Dispatches discrete, human-readable multi-source logging telemetry 
+// (USER, ATEM, BRIDGE, SYSTEM) tagged with device IP for localized filtering.
 
 const { Atem } = require('atem-connection');
 const WebSocket = require('ws');
@@ -40,10 +40,17 @@ const wss = new WebSocket.Server({ port: BRIDGE_PORT }, () => {
     broadcastLog('info', 'BRIDGE', ['WebSocket server running on ws://localhost:' + BRIDGE_PORT]);
 });
 
-function broadcastLog(level, source, args) {
+function broadcastLog(level, source, args, deviceIp = ATEM_IP) {
     try {
         const msg = Array.from(args).map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-        const payload = JSON.stringify({ type: 'LOG', level, source, message: msg, timestamp: Date.now() });
+        const payload = JSON.stringify({
+            type: 'LOG',
+            level,
+            source,
+            ip: source === 'SYSTEM' ? 'SYSTEM' : deviceIp,
+            message: msg,
+            timestamp: Date.now()
+        });
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) client.send(payload);
         });
@@ -58,23 +65,17 @@ console.log = function() { originalLog.apply(console, arguments); broadcastLog('
 console.warn = function() { originalWarn.apply(console, arguments); broadcastLog('warn', 'BRIDGE', arguments); };
 console.error = function() { originalError.apply(console, arguments); broadcastLog('error', 'BRIDGE', arguments); };
 
-console.log('[ATEM Bridge v3.78] Starting bridge service...');
-console.log('[ATEM Bridge v3.78] Target ATEM Switcher IP: ' + ATEM_IP);
+console.log('[ATEM Bridge v3.79] Starting bridge service...');
+console.log('[ATEM Bridge v3.79] Target ATEM Switcher IP: ' + ATEM_IP);
 
 function setupAtemListeners() {
-    atem.on('receivedCommand', (command) => {
-        if (handleHardwareCommand(command)) {
-            broadcastLog('info', 'ATEM', [`Hardware Triggered: ${command.constructor.name}`]);
-            broadcastState();
-        }
-    });
-
     atem.on('receivedCommands', (commands) => {
         if (Array.isArray(commands)) {
             let changed = false;
             for (const cmd of commands) {
                 if (handleHardwareCommand(cmd)) {
-                    broadcastLog('info', 'ATEM', [`Hardware Triggered: ${cmd.constructor.name}`]);
+                    const name = cmd.constructor ? cmd.constructor.name : (cmd.rawName || 'Command');
+                    broadcastLog('info', 'ATEM', ['Hardware State Updated: ' + name]);
                     changed = true;
                 }
             }
@@ -92,20 +93,20 @@ function setupAtemListeners() {
             clearTimeout(reconnectTimer);
             reconnectTimer = null;
         }
-        console.log('[ATEM Bridge] >>> SUCCESS: Connected to physical ATEM at ' + ATEM_IP + ' <<<');
+        broadcastLog('info', 'BRIDGE', ['Connected to physical ATEM at ' + ATEM_IP]);
         broadcastState(null, true);
     });
 
     atem.on('disconnected', () => {
         isAtemConnected = false;
-        console.log('[ATEM Bridge] >>> DISCONNECTED: Lost UDP link to physical ATEM at ' + ATEM_IP + ' <<<');
+        broadcastLog('warn', 'BRIDGE', ['Lost UDP link to physical ATEM at ' + ATEM_IP]);
         broadcastState(null, true);
         
         if (!reconnectTimer) {
             reconnectTimer = setTimeout(() => {
                 reconnectTimer = null;
                 if (!isAtemConnected) {
-                    console.log('[ATEM Bridge] Attempting reconnection to ATEM at ' + ATEM_IP + '...');
+                    broadcastLog('info', 'BRIDGE', ['Attempting reconnection to ATEM at ' + ATEM_IP + '...']);
                     atem.connect(ATEM_IP).catch(() => {});
                 }
             }, 3000);
@@ -113,7 +114,7 @@ function setupAtemListeners() {
     });
 
     atem.on('error', (err) => {
-        console.error('[ATEM Bridge Error]:', err.message || err);
+        broadcastLog('error', 'BRIDGE', ['ATEM Bridge Error: ' + (err.message || err)]);
     });
 }
 
@@ -122,7 +123,7 @@ setupAtemListeners();
 function connectToAtem(ip) {
     if (ip && ip !== ATEM_IP) {
         ATEM_IP = ip;
-        console.log('[ATEM Bridge] Re-targeting ATEM IP to: ' + ATEM_IP);
+        broadcastLog('info', 'BRIDGE', ['Re-targeting ATEM IP to: ' + ATEM_IP]);
         try {
             atem.disconnect();
         } catch(e) {}
@@ -130,7 +131,7 @@ function connectToAtem(ip) {
         setupAtemListeners();
     }
     atem.connect(ATEM_IP).catch((err) => {
-        console.log('[ATEM Bridge] Connection attempt to ' + ATEM_IP + ' deferred:', err.message || err);
+        broadcastLog('warn', 'BRIDGE', ['Connection attempt to ' + ATEM_IP + ' deferred: ' + (err.message || err)]);
     });
 }
 
@@ -149,7 +150,7 @@ function broadcastState(targetWs = null, immediate = false) {
         broadcastTimeout = setTimeout(() => {
             sendStatePayload();
             broadcastTimeout = null;
-        }, 20); 
+        }, 20);
     }
 }
 
@@ -258,6 +259,7 @@ function handleHardwareCommand(cmd) {
 }
 
 wss.on('connection', (ws) => {
+    broadcastLog('info', 'BRIDGE', ['Client connected to WebSocket daemon']);
     broadcastState(ws, true);
 
     ws.on('message', (message) => {
@@ -265,47 +267,48 @@ wss.on('connection', (ws) => {
             const data = JSON.parse(message);
             if (data.ip && data.ip !== ATEM_IP) connectToAtem(data.ip);
 
-            // Handle explicitly routed System/UI logs
             if (data.action === 'SYSTEM_LOG') {
-                broadcastLog('info', 'SYSTEM', [data.message]);
+                broadcastLog('info', 'SYSTEM', [data.message], 'SYSTEM');
                 return;
-            }
-
-            // Log interactive User actions
-            if (data.action && data.action !== 'GET_STATE' && data.action !== 'CONNECT') {
-                broadcastLog('info', 'USER', [`Executed ${data.action} ${JSON.stringify(data)}`]);
             }
 
             if (data.action === 'CONNECT' || data.action === 'GET_STATE') {
                 broadcastState(ws, true);
             } else if (data.action === 'SET_PGM' && data.input !== undefined) {
                 currentPgm = parseInt(data.input, 10);
+                broadcastLog('info', 'USER', ['Set Program Input to ' + data.input]);
                 atem.changeProgramInput(parseInt(data.input, 10), 0).catch(e => {});
                 broadcastState(null, true);
             } else if (data.action === 'SET_PVW' && data.input !== undefined) {
                 currentPvw = parseInt(data.input, 10);
+                broadcastLog('info', 'USER', ['Set Preview Input to ' + data.input]);
                 atem.changePreviewInput(parseInt(data.input, 10), 0).catch(e => {});
                 broadcastState(null, true);
             } else if (data.action === 'SET_AUX' && data.aux !== undefined && data.source !== undefined) {
                 const auxIdx = parseInt(data.aux, 10);
                 const srcId = parseInt(data.source, 10);
                 currentAux[auxIdx] = srcId;
+                broadcastLog('info', 'USER', ['Set Aux ' + (auxIdx + 1) + ' to Source ' + srcId]);
                 if (typeof atem.setAuxSource === 'function') {
                     atem.setAuxSource(srcId, auxIdx).catch(e => {});
                 }
                 broadcastState(null, true);
             } else if (data.action === 'CUT') {
+                broadcastLog('info', 'USER', ['Executed CUT transition']);
                 atem.cut(0).catch(e => {});
             } else if (data.action === 'AUTO') {
+                broadcastLog('info', 'USER', ['Executed AUTO transition']);
                 atem.autoTransition(0).catch(e => {});
             } else if (data.action === 'SET_TRANSITION_RATE' && data.rate !== undefined) {
                 currentTransitionRate = parseInt(data.rate, 10) || 30;
+                broadcastLog('info', 'USER', ['Set Transition Rate to ' + currentTransitionRate + ' frames']);
                 atem.setMixTransitionSettings({ rate: currentTransitionRate }, 0).catch(e => {});
                 broadcastState(null, true);
             } else if (data.action === 'TOGGLE_USK_ONAIR' && data.usk !== undefined) {
                 const uskIdx = parseInt(data.usk, 10);
                 const targetState = !currentUskOnAir[uskIdx];
                 currentUskOnAir[uskIdx] = targetState;
+                broadcastLog('info', 'USER', ['Toggled Upstream Keyer ' + (uskIdx + 1) + ' On Air: ' + targetState]);
                 if (typeof atem.setUpstreamKeyerOnAir === 'function') {
                     atem.setUpstreamKeyerOnAir(targetState, 0, uskIdx).catch(e => {});
                 }
@@ -314,6 +317,7 @@ wss.on('connection', (ws) => {
                 const bit = parseInt(data.bit, 10);
                 const newSelection = currentTransitionSelection ^ bit;
                 currentTransitionSelection = newSelection || 1;
+                broadcastLog('info', 'USER', ['Toggled Next Transition Selection bit: ' + bit]);
                 if (typeof atem.setTransitionProperties === 'function') {
                     atem.setTransitionProperties({ selection: currentTransitionSelection, nextSelection: currentTransitionSelection }, 0).catch(e => {
                         const selArray = [];
@@ -328,37 +332,44 @@ wss.on('connection', (ws) => {
                 broadcastState(null, true);
             } else if (data.action === 'TOGGLE_DSK_TIE') {
                 dsk.tie = Boolean(data.tie);
+                broadcastLog('info', 'USER', ['Toggled DSK Tie: ' + dsk.tie]);
                 if (typeof atem.setDownstreamKeyerTie === 'function') {
                     atem.setDownstreamKeyerTie(Boolean(data.tie), 0).catch(e => {});
                 }
                 broadcastState(null, true);
             } else if (data.action === 'TOGGLE_DSK_ONAIR') {
                 dsk.onAir = Boolean(data.onAir);
+                broadcastLog('info', 'USER', ['Toggled DSK On Air: ' + dsk.onAir]);
                 if (typeof atem.setDownstreamKeyerOnAir === 'function') {
                     atem.setDownstreamKeyerOnAir(Boolean(data.onAir), 0).catch(e => {});
                 }
                 broadcastState(null, true);
             } else if (data.action === 'EXECUTE_DSK_AUTO') {
+                broadcastLog('info', 'USER', ['Executed DSK AUTO transition']);
                 if (typeof atem.autoDownstreamKey === 'function') {
                     atem.autoDownstreamKey(0).catch(e => {});
                 }
             } else if (data.action === 'SET_DSK_RATE' && data.rate !== undefined) {
                 dsk.rate = parseInt(data.rate, 10) || 30;
+                broadcastLog('info', 'USER', ['Set DSK Rate to ' + dsk.rate + ' frames']);
                 if (typeof atem.setDownstreamKeyerRate === 'function') {
                     atem.setDownstreamKeyerRate(dsk.rate, 0).catch(e => {});
                 }
                 broadcastState(null, true);
             } else if (data.action === 'EXECUTE_FTB') {
+                broadcastLog('info', 'USER', ['Executed Fade to Black (FTB)']);
                 if (typeof atem.fadeToBlack === 'function') {
                     atem.fadeToBlack(0).catch(e => {});
                 }
             } else if (data.action === 'SET_FTB_RATE' && data.rate !== undefined) {
                 ftb.rate = parseInt(data.rate, 10) || 30;
+                broadcastLog('info', 'USER', ['Set FTB Rate to ' + ftb.rate + ' frames']);
                 if (typeof atem.setFadeToBlackRate === 'function') {
                     atem.setFadeToBlackRate(ftb.rate, 0).catch(e => {});
                 }
                 broadcastState(null, true);
             } else if (data.action === 'CLEAR_STILL' && data.index !== undefined) {
+                broadcastLog('info', 'USER', ['Cleared Media Pool Still ' + (parseInt(data.index, 10) + 1)]);
                 if (typeof atem.clearMediaPoolStill === 'function') {
                     atem.clearMediaPoolStill(data.index).catch(e => console.error('[ATEM Bridge] clearMediaPoolStill error:', e.message || e));
                 }
@@ -368,6 +379,7 @@ wss.on('connection', (ws) => {
                 if (data.sourceType !== undefined) props.sourceType = data.sourceType;
                 if (data.stillIndex !== undefined) props.stillIndex = data.stillIndex;
                 if (data.clipIndex !== undefined) props.clipIndex = data.clipIndex;
+                broadcastLog('info', 'USER', ['Routed Media Player ' + (playerIdx + 1) + ' source: ' + JSON.stringify(props)]);
                 
                 if (typeof atem.setMediaPlayerSource === 'function') {
                     atem.setMediaPlayerSource(props, playerIdx)
@@ -375,16 +387,23 @@ wss.on('connection', (ws) => {
                         .catch(e => console.error('[ATEM Bridge] setMediaPlayerSource error:', e.message || e));
                 }
             } else if (data.action === 'MACRO_LOOP' && data.loop !== undefined) {
+                broadcastLog('info', 'USER', ['Toggled Macro Loop: ' + Boolean(data.loop)]);
                 try {
                     if (typeof atem.setMacroLoop === 'function') atem.setMacroLoop(data.loop);
                     else if (typeof atem.macroSetLoop === 'function') atem.macroSetLoop(data.loop);
                 } catch(e) {}
             } else if (data.action === 'MACRO_RUN' && data.index !== undefined) {
+                broadcastLog('info', 'USER', ['Ran Macro index ' + data.index]);
                 if (typeof atem.macroRun === 'function') atem.macroRun(parseInt(data.index, 10)).catch(()=>{});
             } else if (data.action === 'MACRO_STOP') {
+                broadcastLog('info', 'USER', ['Stopped Macro execution']);
                 if (typeof atem.macroStop === 'function') atem.macroStop().catch(()=>{});
             }
         } catch (err) {}
+    });
+
+    ws.on('close', () => {
+        broadcastLog('info', 'BRIDGE', ['Client disconnected from WebSocket daemon']);
     });
 });
 
