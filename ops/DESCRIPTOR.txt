@@ -1,2 +1,2 @@
-v3.69
-Configured OPS.BAT and OPS.SH to cleanly clear the terminal screen upon exit and removed deprecated WIPE LOCAL CACHES option from Windows script for complete cross-platform menu parity.
+v3.72
+[REPAIR] Fixed keyboard repeat bouncing in AtemConstellationBus by ignoring automated OS key-repeat loops. Swapped the operational state of the Mixer Lock Switch so that the OFF state locks input controls while maintaining active tally displays. Standardized ConsolePanel styling to match the quadrant-frame layout grid and integrated a log export function. Added inline PowerShell progress preference flags to suppress cyan terminal overlays in the master batch suite.

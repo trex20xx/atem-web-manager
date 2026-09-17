@@ -3,14 +3,15 @@ import Player from '../VideoPlayer/Player';
 import AtemConstellationBus from '../Panels/AtemConstellationBus';
 import AtemMacrosCompact from '../Panels/AtemMacrosCompact';
 import MediaPool from '../Panels/MediaPool';
+import ConsolePanel from '../Panels/ConsolePanel';
 import ErrorBoundary from '../UI/ErrorBoundary';
 import Skeleton from '../UI/Skeleton';
 import QuadrantContextMenu from '../UI/QuadrantContextMenu';
 
 // =========================================================================
-// ATEM WEB MANAGER - PANEL COMPONENT (v3.57)
+// ATEM WEB MANAGER - PANEL COMPONENT (v3.71)
 // =========================================================================
-// 1: Stream | 2: Media Pool | 3: Mixer | 5: Macros Compact | 0: None
+// 1: Stream | 2: Media Pool | 3: Mixer | 5: Macros Compact | 6: Console | 0: None
 
 const Panel = ({ 
     panelId, positionIndex, currentVideoSource, isConnected, connectedDevice, isLoading,
@@ -41,6 +42,7 @@ const Panel = ({
             case 2: return <MediaPool connectedDevice={connectedDevice} />;
             case 3: return <AtemConstellationBus connectedDevice={connectedDevice} />;
             case 5: return <AtemMacrosCompact connectedDevice={connectedDevice} />;
+            case 6: return <ConsolePanel />;
             default: return null;
         }
     };

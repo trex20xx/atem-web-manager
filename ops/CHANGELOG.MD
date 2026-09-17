@@ -1,10 +1,18 @@
 # ATEM WEB MANAGER - Complete Version History
 
+## [v3.72] - Mixer Lock Switch Inversion, Console Layout Parity & Keyboard Bounce Shielding
+- Fixed duplicate command triggers on keyboard input: added e.repeat checks to the physical key listener, ignoring auto-repeating keystrokes from held-down buttons.
+- Inverted Mixer Lock Switch: when the green Apple-style switch is toggled OFF, the panel locks out input interactions and keyboard hotkeys while keeping current tally states, active selections, and rate values fully illuminated.
+- Redesigned Bridge Console Panel: converted the layout to use standard .quadrant-master-panel margins, flex dimensions, and neutral .macro-section-box container borders.
+- Integrated Bridge Log Export: added an EXPORT action button to the console header, allowing operators to download text logs containing historical WebSocket and ATEM command telemetry.
+- Injected Double-Click Rate Reset: configured Transition, DSK, and FTB rate boxes to immediately reset back to standard baseline (1:00 / 25 frames) when double-clicked.
+- Suppressed PowerShell Progress Bar: added $ProgressPreference = 'SilentlyContinue' flags inside the download execution pipelines of the master deployment CLI suite to guarantee clean inline terminal outputs.
+
 ## [v3.33] - Complete Historical Archive Restoration
 - Restored and reconstructed the complete `CHANGELOG.MD` history spanning v1.72 to v3.33 per explicit user request, permanently consolidating all modular updates back into the master timeline.
 - Synchronized application version to v3.33.
 
-## [v3.32] - AI Handover Generation
+## [v3.32] - AI Handover Package Generation
 - Generated comprehensive AI handover package including the full operational `CHANGELOG.MD`, `SYSTEM_INSTRUCTIONS.MD`, and `HANDOVER.MD` files to establish a clean context window.
 
 ## [v3.31] - Media Pool Page 2 Vertical Consistency & Bounding Box Constraints
@@ -539,62 +547,62 @@
 
 ## [v2.41.0] - Vite Auto-Browser Launch & Post-Run Evaluation / Revert Pipeline
 - Configured `open: true` in root `vite.config.js` to automatically launch the application in the system's default browser upon startup.
-- Upgraded option `[1]` in `ops/OPS.SH` and `ops/OPS.BAT` into an interactive **Run & Evaluate** pipeline: exiting Vite (`Ctrl+C`) intercepts execution and displays immediate choices to **Merge to Main**, **Push to Branch**, or **Revert & Discard All Changes** (`git reset --hard && git clean -fd`).
+- Upgraded option `[1]` in `ops/OPS.SH` and `ops/OPS.BAT` into an interactive **Run & Evaluate** pipeline: exiting Vite (`Ctrl+C`) intercepts execution and displays immediate choices to **Merge to Main**, **Push to Branch**, or **Revert ^& Discard All Changes** (`git reset --hard && git clean -fd`).
 
 ## [v2.40.0] - Automated Iteration Lifecycle Pipeline in Master CLI
 - Added automated `[5] START ITERATION` workflow to `ops/OPS.SH` and `ops/OPS.BAT`, creating clean isolated feature branches directly from updated remote `main`.
-- Added automated `[6] FINISH & MERGE` pipeline, folding verified feature branches into `main`, syncing with GitHub, and pruning merged branches across local and remote repositories in a single action.
+- Added automated `[6] FINISH ^& MERGE` pipeline, folding verified feature branches into `main`, syncing with GitHub, and pruning merged branches across local and remote repositories in a single action.
 
-## [v2.39.0] - Windows Portable Node Session PATH Injection & Install Integrity Validation
+## [v2.39.0] - Windows Portable Node Session PATH Injection ^& Install Integrity Validation
 - Fixed npm child process failure (`node install.js`) by injecting `CUSTOM_NODE_PATH` directly into the active session `%PATH%` in `ops/OPS.BAT`.
 - Upgraded dependency checking to inspect core packages (`node_modules\vite\` and `bridge\node_modules\ws\`) rather than mere folder existence, preventing skipped recovery on corrupted/partial installs.
 - Added pre-install port termination on 8080, 3000, and 5173 to clear stale file handles causing `EPERM` directory cleanup locks.
 
-## [v2.38.0] - Windows Environment Parity & One-Liner Launcher
-- Established verified one-liner Git invocation for Windows environments bypassing private repository curl limitations.
+## [v2.38.0] - Windows Environment Parity ^& One-Liner Launcher
+- Used verified one-liner Git invocation for Windows environments bypassing private repository curl limitations.
 
-## [v2.37.0] - Markdown Code Fence Formatting & Package Lockfile Clarification
+## [v2.37.0] - Markdown Code Fence Formatting ^& Package Lockfile Clarification
 - Fortified code block fence formatting across AI delivery artifacts to eliminate nested block parser errors.
 - Clarified lockfile lifecycle: validated `package-lock.json` retention in repository while intentionally excluding lockfile hashes from AI codebase exports.
 
-## [v2.36.0] - AI Codebase Packaging Engine & Workspace Hygiene
+## [v2.36.0] - AI Codebase Packaging Engine ^& Workspace Hygiene
 - Added option `[8] EXPORT` to both `ops/OPS.SH` and `ops/OPS.BAT` to automatically serialize root configuration files, bridge server scripts, and React source trees into `codebase.txt`.
 - Fortified `.gitignore` to exclude generated AI dumps (`codebase.txt`), temporary Windows environment paths (`.atem_node_path`), and macOS `.DS_Store` artifacts.
 
-## [v2.35.0] - macOS Deployment Verification & File Extension Parity
+## [v2.35.0] - macOS Deployment Verification ^& File Extension Parity
 - Resolved macOS Finder extension hiding behavior (`index.html.txt`) and validated root HTML entry point loading.
 - Confirmed full system operational state across macOS Safari and native UNIX daemon environments.
 
-## [v2.34.0] - Root Entry Structure Restoration (index.html & vite.config.js)
+## [v2.34.0] - Root Entry Structure Restoration (index.html ^& vite.config.js)
 - Restored root `index.html` structure with `<div id="root">` DOM anchor and `/src/main.jsx` module script tag, resolving empty HTML shell delivery.
 - Re-established root `vite.config.js` with React plugin definition and port 3000 host exposure.
 
-## [v2.33.0] - Private Repository Bootstrap & Git Credential Parity
+## [v2.33.0] - Private Repository Bootstrap ^& Git Credential Parity
 - Corrected GitHub repository endpoint mapping across all deployment CLI utilities to `trex20xx/atem-web-manager.git`.
 - Resolved 404 access restrictions by routing zero-backup bootstrapping through authenticated Git protocol rather than unauthenticated raw curl endpoints.
 
-## [v2.32.0] - Automated Bridge Termination on Exit & Zero-Backup One-Liner Bootstrap
+## [v2.32.0] - Automated Bridge Termination on Exit ^& Zero-Backup One-Liner Bootstrap
 - Integrated bash signal traps (`trap cleanup_bridge EXIT INT TERM`) into `ops/OPS.SH` and post-exit listeners into `ops/OPS.BAT` to automatically terminate the background bridge daemon (port 8080) when the Vite UI server stops.
 - Upgraded `OPS.SH` with self-bootstrapping capabilities: users can now download and execute `OPS.SH` via a single curl command with zero pre-existing files on disk.
 
-## [v2.31.0] - Operations Unification, Git Executable Bit Fix & Documentation Consolidation
+## [v2.31.0] - Operations Unification, Git Executable Bit Fix ^& Documentation Consolidation
 - Replaced scattered automation scripts with a unified, interactive operations suite: `ops/OPS.SH` (macOS) and `ops/OPS.BAT` (Windows) handling Init, Stop, Push, Pull, Branch, Merge, and Wipe.
 - Added explicit Git POSIX executable bit configuration (`git update-index --chmod=+x ops/OPS.SH`) to permanently eliminate macOS `chmod +x` permission errors.
 - Consolidated redundant documentation files (`README.MD`, `FILE_TREE.MD`, `HANDOVER.MD`) into a single master document: `ops/HANDOVER.MD`.
 
 ## [v2.30.0] - macOS Subshell Directory Drift Fix
-- Resolved a critical Bash subshell quirk in `INIT.SH` where `cd bridge && ... &` trapped the directory change in a background process, causing the subsequent `cd ..` to eject the user from the project root.
+- Resolved a critical Bash subshell quirk in `INIT.SH` where `cd bridge ^&^& ... ^&` trapped the directory change in a background process, causing the subsequent `cd ..` to eject the user from the project root.
 - Enforced absolute `$PROJECT_ROOT` pathing for all directory traversals in macOS deployment scripts to guarantee execution context stability.
 
-## [v2.29.0] - macOS Initialization Verification & Bridge Daemon Start
+## [v2.29.0] - macOS Initialization Verification ^& Bridge Daemon Start
 - Verified flawless pull state on macOS hardware.
-- Synchronized `ops/INIT.SH` to ensure background bridge daemon (`nohup node server.js &`) launches properly post-migration.
+- Synchronized `ops/INIT.SH` to ensure background bridge daemon (`nohup node server.js ^&`) launches properly post-migration.
 
 ## [v2.28.0] - macOS Migration Preparation
 - Logged environment transition from Windows to macOS.
 - Verified readiness of native UNIX shell scripts (`INIT.SH`, `STOP.SH`, `WIPE.SH`, `PUSH.SH`) for standard bash/zsh execution.
 
-## [v2.27.0] - Explicit Portable Node Pathing & VBScript Daemon Launcher
+## [v2.27.0] - Explicit Portable Node Pathing ^& VBScript Daemon Launcher
 - Replaced PowerShell background execution in `INIT.BAT` with a dynamically generated VBScript (`atem_bridge_launcher.vbs`) to guarantee 100% hidden execution and flawless handling of spaces in file paths.
 - Enforced strict explicit paths for `node.exe` and `npm.cmd` when a custom portable Node.js directory is provided.
 
@@ -609,12 +617,12 @@
 ## [v2.24.0] - Robust Node Execution Validation in Auto-Clone Initialization
 - Replaced volatile `where node` verification in `INIT.BAT` with bulletproof `call node -v` execution checking to bypass delayed expansion artifacts.
 
-## [v2.23.0] - Secure Workspace Wiper, Main Branch Auto-Clone & Bridge Daemon Pathing Fix
+## [v2.23.0] - Secure Workspace Wiper, Main Branch Auto-Clone ^& Bridge Daemon Pathing Fix
 - Implemented asynchronous ghost-script architecture in `WIPE.BAT` to securely bypass Windows file-locking and delete the root directory gracefully.
 - Enforced strict security token check (`ATEM_MANAGER_SECURE_WIPE_KEY_2026` inside `.atem_workspace_token`) across both `WIPE` scripts to prevent accidental hard drive erasure.
 - Upgraded `INIT.BAT` and `INIT.SH` to prompt for target directory, hardcode repository URLs, and explicitly clone the `main` branch.
 
-## [v2.22.0] - Bulletproof Operational Scripts & Auto-Cloning Setup
+## [v2.22.0] - Bulletproof Operational Scripts ^& Auto-Cloning Setup
 - Re-architected `WIPE.BAT` and `WIPE.SH` to perform "Deep Cleans" (wiping `node_modules`, caches, and `dist`) rather than nuking the entire folder, preserving `.git` repo safety.
 - Upgraded `INIT.BAT` and `INIT.SH` with smart repository location. If the scripts are run outside the project, they will automatically prompt for the GitHub URL, clone the repo, and proceed with setup.
 - Added macOS/Linux equivalent `STOP.SH` utility for cross-platform background daemon termination.
@@ -623,7 +631,7 @@
 - Created `ops/STOP.BAT` to automatically locate and terminate any hidden Node.js bridge daemon processes running on port 8080.
 - Resolved documentation ambiguities regarding the `-WindowStyle Hidden` execution lifecycle.
 
-## [v2.20.0] - Macro Panel Typography & Hardware Loop Sync
+## [v2.20.0] - Macro Panel Typography ^& Hardware Loop Sync
 - Unified macro panel background, typography, and font weights precisely with the Sidebar device list constraints.
 - Removed "Create" mode section and bottom macro status bar for a clean run-only interface.
 - Uppercased "MACROS" and "RECALL AND RUN" tags.
@@ -632,33 +640,33 @@
 - Hooked `MACRO_LOOP` WebSocket command directly into physical ATEM (`atem.macroSetLoop`).
 - Re-aligned pagination controls with grouped navigation arrows and wider dot spacing.
 
-## [v2.19.0] - ATEM Macros in Quadrant 2 & Centered Collapsed Layout
+## [v2.19.0] - ATEM Macros in Quadrant 2 ^& Centered Collapsed Layout
 - Implemented full ATEM Macros Panel (`src/components/Panels/AtemMacros.jsx`) in Quadrant 2 supporting 100 macros across 5 pages of 20 buttons.
 - Added flat pagination controls with 5 interactive carousel indicator dots.
-- Added Recall & Run toggle with selective execution guard (macros only execute on selection when Recall & Run is active).
+- Added Recall ^& Run toggle with selective execution guard (macros only execute on selection when Recall ^& Run is active).
 - Added transport controls (Loop, Play/Run, and Stop) linked to `bridge/server.js`.
 - Configured `.dashboard.sidebar-collapsed` to center zoomed quadrants horizontally within the 16px marginal boundary.
 
-## [v2.18.0] - Right-Pinned Quadrant Zoom, Smooth Sidebar Sliding & High-Contrast Icons
+## [v2.18.0] - Right-Pinned Quadrant Zoom, Smooth Sidebar Sliding ^& High-Contrast Icons
 - Fixed quadrant layout anchor: pinned rightmost edge during collapse so the grid expands cleanly to the left, aligning with the 16px hamburger menu boundary.
 - Added negative gap compensation (`margin-right: -8px`) to `.sidebar.collapsed` to eliminate the remaining offset.
 - Added synchronized `height` and `transform: translateX(-100%)` transitions to `.sidebar`, preventing vertical jump artifacts when toggling.
 
-## [v2.17.0] - Silent Background Bridge Daemon & Global Git Staging Rule
+## [v2.17.0] - Silent Background Bridge Daemon ^& Global Git Staging Rule
 - Re-architected `ops/INIT.BAT` to launch `bridge/server.js` completely hidden in the background via PowerShell `-WindowStyle Hidden`, eliminating the second terminal window.
 - Added automatic cleanup of lingering port 8080 processes in `ops/INIT.BAT` prior to launching.
 - Confirmed mathematical preservation of strict 16:9 aspect ratio geometry across all multiview panels.
 
-## [v2.16.0] - Compact Apple Switch Icons, Fade-Toggle Version Tag & Alignment Precision
+## [v2.16.0] - Compact Apple Switch Icons, Fade-Toggle Version Tag ^& Alignment Precision
 - Embedded responsive SVG Sun and Moon icons directly inside the sliding Apple-style theme toggle switch.
 - Scaled Apple switch geometry to 36px × 20px to match the proportions of the adjacent settings gear.
 - Added smooth opacity fade transition (0.3s) to the version tag, allowing click-to-hide and click-to-reveal.
 - Anchored multiview quadrant grid left alignment to match the sidebar's uncollapsed left boundary when the sidebar collapses.
 
-## [v2.15.0] - Automated Source Packaging Utility & State Review Baseline
+## [v2.15.0] - Automated Source Packaging Utility ^& State Review Baseline
 - Provided robust cross-terminal codebase serialization scripts for seamless AI session ingestion.
 
-## [v2.14.0] - Full Historical Archive Restoration & Multi-Hook Bridge Sync
+## [v2.14.0] - Full Historical Archive Restoration ^& Multi-Hook Bridge Sync
 - Restored complete historical changelog dating back to monolithic baseline (v1.72.0 through v2.14.0).
 - Standardized `ops/` directory as the authoritative repository documentation home.
 - Verified physical ATEM Constellation HD two-way tally sync baseline via `receivedCommands` and `bridge/server.js`.
@@ -668,25 +676,25 @@
 - Eliminated reliance on `stateChanged` path filters which were failing on Constellation HD hardware events.
 - Maintained authoritative `currentPgm` and `currentPvw` cache in `bridge/server.js` with instant WebSocket broadcast.
 
-## [v2.12.0] - Documentation Consolidation to /ops & Tally State Telemetry
+## [v2.12.0] - Documentation Consolidation to /ops ^& Tally State Telemetry
 - Consolidated all project documentation exclusively into the `/ops/` directory.
 - Verified bidirectional tally communication telemetry between physical switcher and UI.
 
-## [v2.11.0] - Resolved Tally Desynchronization Loop & State Broadcast Throttling
+## [v2.11.0] - Resolved Tally Desynchronization Loop ^& State Broadcast Throttling
 - Eliminated state fallback corruption in `bridge/server.js` that was resetting PGM/PVW tallies to default values on intermediate packets.
 - Implemented state deduplication in bridge broadcast loop to prevent WebSocket message flooding.
 
-## [v2.10.0] - Two-Way ATEM Hardware Tally Synchronization & Auto-Reconnect Engine
+## [v2.10.0] - Two-Way ATEM Hardware Tally Synchronization ^& Auto-Reconnect Engine
 - Implemented true bidirectional tally synchronization between Web UI and ATEM 1 M/E Constellation HD (`192.168.10.240`).
 - Added immediate state handshake on WebSocket `CONNECT` / `GET_STATE` messages to sync tallies on initial page load.
 - Added background auto-reconnection loop in `bridge/server.js` for physical ATEM switcher UDP link.
 
-## [v2.09.0] - Full Historical Archive & Robust Bidirectional Tally Sync
+## [v2.09.0] - Full Historical Archive ^& Robust Bidirectional Tally Sync
 - Upgraded `bridge/server.js` and `AtemConstellationBus.jsx` with robust `Object.values()` state extraction for live two-way ATEM hardware tally feedback.
 - Enhanced Apple-style theme switch with embedded Sun and Moon SVG icons inside the sliding thumb.
 - Synchronized sidebar collapse animation for simultaneous horizontal slide and width shrinkage.
 
-## [v2.08.0] - Unified Top Bar, Apple Theme Switch, Bidirectional ATEM Feedback & Edit UX
+## [v2.08.0] - Unified Top Bar, Apple Theme Switch, Bidirectional ATEM Feedback ^& Edit UX
 - Created dedicated Top Navigation Bar housing Hamburger toggle, Title, Version tag, Theme switch, and Settings gear.
 - Eliminated all quadrant overlap issues during 16:9 aspect ratio resizing and sidebar collapse.
 - Implemented monochrome Apple-style sliding switch for Dark/Light theme toggling.
@@ -694,7 +702,7 @@
 - Implemented floating quick-select group dropdown in device edit forms.
 - Implemented bidirectional ATEM hardware state broadcasting in `bridge/server.js` for live hardware-to-UI tally syncing.
 
-## [v2.07.0] - UI Geometry Polish, Control Positioning & Context Routing
+## [v2.07.0] - UI Geometry Polish, Control Positioning ^& Context Routing
 - Restored settings gear icon to the bottom-right corner (`bottom: 16px; right: 16px`).
 - Mathematically centered edit buttons (`.edit-btn`, `.group-edit-btn`) with exact 4px equidistant top, bottom, and right padding inside `30px` pill rows.
 - Standardized all edit panel inputs (`Name`, `IP`, `Group`, `Color`, `Description`) with pill-rounded geometry (`24px`).
@@ -702,79 +710,79 @@
 - Implemented right-click quadrant context menu routing specific Quadrant numbers (1–4) into target slots.
 - Added Tally LED brightness global settings slider.
 
-## [v2.06.0] - Synchronization & Full Rollup Release
+## [v2.06.0] - Synchronization ^& Full Rollup Release
 - Consolidated all additions from v1.85 to v2.05 into a single clean push to synchronize GitHub across environments.
 
-## [v2.05.0] - Cross-Platform Parity, All-Caps Ops Standardization & Complete Handover
+## [v2.05.0] - Cross-Platform Parity, All-Caps Ops Standardization ^& Complete Handover
 - Implemented background bridge server auto-launch inside macOS `INIT.SH` matching Windows `INIT.BAT`.
 - Standardized all documentation and automation scripts inside `ops/` to ALL-CAPS naming.
 - Fortified `HANDOVER.MD` into a complete, standalone architectural memory specification for future AI sessions.
 
-## [v2.04.0] - Operations Directory Refactoring & Workspace Cleanup
+## [v2.04.0] - Operations Directory Refactoring ^& Workspace Cleanup
 - Created dedicated `ops/` directory housing all documentation, handover states, and OS automation scripts.
 
-## [v2.03.0] - Complete History Archive & Automated Bridge Startup
+## [v2.03.0] - Complete History Archive ^& Automated Bridge Startup
 - Restored comprehensive historical changelog dating back to monolithic baseline (v1.72).
 - Upgraded `INIT.bat` to concurrently spawn the embedded ATEM bridge server (`bridge/server.js`) on port 8080 alongside Vite.
 
-## [v2.02.0] - Cross-Platform Windows Batch Suite & Setup Sync
+## [v2.02.0] - Cross-Platform Windows Batch Suite ^& Setup Sync
 - Added Windows-native batch scripts (`INIT.bat`, `PUSH.bat`, `WIPE.bat`) matching macOS bash utilities.
 - Embedded automatic path detection for portable Node.js on enterprise Windows environments.
 
-## [v2.01.0] - Settings UI Restoration, Full-Collapse Sidebar, & Row Geometry Lock
+## [v2.01.0] - Settings UI Restoration, Full-Collapse Sidebar, ^& Row Geometry Lock
 - Converted all edit-form fields (Name, IP, Group, Color, Description) to pill-rounded styling (`24px`).
 - Set "Classic (Solid)" as the default sidebar variant.
 - Re-architected sidebar collapse to slide 100% off-screen with a floating top-left restore button.
 - Permanently locked Sidebar Devices, Groups, and Edit Panel designs under the locked element protocol.
 
-## [v2.00.0] - Geometric Polish, Context Menus & Control Bar
+## [v2.00.0] - Geometric Polish, Context Menus ^& Control Bar
 - Fixed right-click context menu to map exact Quadrant numbers (1-4) into target slots.
 - Added Tally LED brightness slider to Settings.
 - Improved sidebar collapse animation with smooth container width transitions.
 
-## [v1.99.0] - Switcher Layout Restoration & Context Routing
+## [v1.99.0] - Switcher Layout Restoration ^& Context Routing
 - Restored ATEM switcher panel CSS layout.
 - Fixed right-click context menu items to map exact Quadrant numbers instead of slot indices.
 
-## [v1.98.0] - Sidebar Collapse, Right-Click Context Menus & UI Polish
+## [v1.98.0] - Sidebar Collapse, Right-Click Context Menus ^& UI Polish
 - Added right-click context menu on panels for 1-4 position swapping.
 - Locked background quadrant numbers against text highlighting/selection (`user-select: none`).
 
-## [v1.95.0] - Workspace Erase Utilities & Empty Directory Clone Fixes
+## [v1.95.0] - Workspace Erase Utilities ^& Empty Directory Clone Fixes
 - Added `WIPE.sh` to safely delete project folders using a verification token (`.atem_workspace_token`).
 
-## [v1.90.0] - Automated One-Liner Bootstrapping & Double-Click Launchers
+## [v1.90.0] - Automated One-Liner Bootstrapping ^& Double-Click Launchers
 - Upgraded `INIT.sh` (macOS) and `INIT.bat` (Windows) to automatically execute `npm run dev` upon successful setup.
 
 ## [v1.84.0] - Multiview Quadrant Skeletons
 - Updated `Panel.jsx` to display a shimmering skeleton layout inside all quadrants during the initial `isLoading` window, matching the sidebar skeleton style.
 
-## [v1.83.0] - Crash-Proof Error Boundaries & Safe ATEM Bridge Handling
+## [v1.83.0] - Crash-Proof Error Boundaries ^& Safe ATEM Bridge Handling
 - Created `ErrorBoundary.jsx` to trap component rendering exceptions.
 
-## [v1.82.0] - Crash-Proof Error Boundaries & Safe ATEM Bridge Handling
+## [v1.82.0] - Crash-Proof Error Boundaries ^& Safe ATEM Bridge Handling
 - Created `ErrorBoundary.jsx` to trap component rendering exceptions and network connection faults, preventing blank white screen crashes.
 - Upgraded `AtemConstellationBus.jsx` to gracefully handle offline WebSocket states (`ws://localhost:8080`), falling back to a clean local UI mode.
 
 ## [v1.81.0] - Real ATEM Hardware Control Bridge Layer
 - Upgraded `AtemConstellationBus.jsx` to dispatch real-world network commands to physical ATEM switchers at `192.168.10.240`.
 
-## [v1.80.0] - ATEM 1 M/E Constellation HD Switcher Bus & Dynamic Panels
+## [v1.80.0] - ATEM 1 M/E Constellation HD Switcher Bus ^& Dynamic Panels
 - Added `AtemConstellationBus.jsx` in `src/components/Panels/` featuring 10 inputs per row for Program (Red Tally) and Preview (Green Tally).
 - Implemented CUT and AUTO transition buttons with live tally switching.
 
-## [v1.79.0] - Polish, Light Theme & Consistency
+## [v1.79.0] - Polish, Light Theme ^& Consistency
 - Matched Search input pixel-for-pixel with Device pills (30px height, identical padding/font).
 - Added full Light Theme mapped to CSS variables with a dynamic Sun/Moon toggle.
 
-## [v1.78.0] - UI Alignment & Persistence
+## [v1.78.0] - UI Alignment ^& Persistence
 - Replaced all monolithic JS state with `useLocalStorage` React Hook.
 - Perfected CSS flex alignment for Device/Group edit buttons.
 
-## [v1.77.0] - Persistence & Skeleton UI Fixes
+## [v1.77.0] - Persistence ^& Skeleton UI Fixes
 - Added `useLocalStorage` hook to save all user settings, themes, device lists, and groups permanently in the browser.
 
-## [v1.76.0] - Skeleton UI & Component Variants
+## [v1.76.0] - Skeleton UI ^& Component Variants
 - Added `<Skeleton />` UI component for modern loading states.
 - Implemented a simulated 1.2s loading state in `useDevices.js` to demonstrate the Skeleton UI on initial mount.
 
@@ -785,11 +793,11 @@
 ## [v1.74.0] - Monolithic Pre-Transition Baseline
 - Final monolithic baseline before transitioning to React component architecture.
 
-## [v1.73.0] - YouTube Replica UI & Transparency Unification
+## [v1.73.0] - YouTube Replica UI ^& Transparency Unification
 - YouTube replica control bar with custom SVG masks for Play/Pause, Volume, Fullscreen, and centered Big Play button (68x48px).
 - Unified 30% transparency (`rgba(30, 30, 30, 0.3)`) across panels and controls.
 
-## [v1.72.0] - Settings & Sidebar UX Refinements
+## [v1.72.0] - Settings ^& Sidebar UX Refinements
 - Increased max corner radius range to 24px in preferences.
 - Disabled global action button timeout (only CONFIRM state times out after 3 seconds).
 

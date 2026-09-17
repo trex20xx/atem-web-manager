@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - SETTINGS MODAL (v3.51)
+// ATEM WEB MANAGER - SETTINGS MODAL (v3.71)
 // =========================================================================
 
 const QUAD_SELECT_OPTIONS = [
@@ -9,6 +9,7 @@ const QUAD_SELECT_OPTIONS = [
     { id: 2, name: '2. MEDIA POOL' },
     { id: 3, name: '3. MIXER' },
     { id: 5, name: '4. MACROS' },
+    { id: 6, name: '5. CONSOLE' },
     { id: 0, name: 'NONE' }
 ];
 

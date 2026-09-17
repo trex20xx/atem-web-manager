@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - QUADRANT CONTEXT MENU (v3.11)
+// ATEM WEB MANAGER - QUADRANT CONTEXT MENU (v3.71)
 // =========================================================================
 
 const QUAD_OPTIONS = [
@@ -9,6 +9,7 @@ const QUAD_OPTIONS = [
     { id: 2, name: '2. MEDIA POOL' },
     { id: 3, name: '3. MIXER' },
     { id: 5, name: '4. MACROS' },
+    { id: 6, name: '5. CONSOLE' },
     { id: 0, name: 'NONE' }
 ];
 

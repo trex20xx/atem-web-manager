@@ -2,7 +2,7 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.72)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.69)
 :: =============================================================================
 :: This CLI manages the end-to-end development lifecycle:
 :: 1. Self-contained portable Node.js runtime resolution and integrity verification.
@@ -32,7 +32,7 @@ cd /d "%PROJECT_ROOT%"
 :MENU
 cls
 echo -----------------------------------------------------------------
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.72)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.69)       
 echo -----------------------------------------------------------------
 echo   [1] RUN ^& EVALUATE     (Vite + Daemon, Auto-Export ^& Evaluation)
 echo   [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)
@@ -129,7 +129,7 @@ if %ERRORLEVEL% equ 0 (
 
 echo.
 echo -----------------------------------------------------------------
-echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.72)                
+echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.69)                
 echo -----------------------------------------------------------------
 echo  Node.js was not found on your system or in bin\node.
 echo  Downloading official portable Node.js LTS (v20.18.0 x64)...
@@ -145,7 +145,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$dest = '%LOCAL_NODE_DIR%';" ^
     "Write-Host '[1/3] Downloading Node.js runtime archive...';" ^
     "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;" ^
-    "$ProgressPreference = 'SilentlyContinue';" ^
     "Invoke-WebRequest -Uri $url -OutFile $zip;" ^
     "Write-Host '[2/3] Extracting complete binaries and npm modules...';" ^
     "if (Test-Path -LiteralPath $ext) { Remove-Item -LiteralPath $ext -Recurse -Force -ErrorAction SilentlyContinue };" ^
@@ -212,7 +211,6 @@ if not exist "%PROJECT_ROOT%\public\fonts\roboto-400.woff2" (
         "    @{ name='roboto-900.woff2'; url='https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmYUtfBBc4.woff2' }" ^
         ");" ^
         "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;" ^
-        "$ProgressPreference = 'SilentlyContinue';" ^
         "foreach ($f in $fonts) {" ^
         "    $target = Join-Path $dest $f.name;" ^
         "    Write-Host ('  [*] Downloading ' + $f.name + '...');" ^
@@ -252,7 +250,7 @@ set "DESC_FILE=%PROJECT_ROOT%\ops\DESCRIPTOR.txt"
 
 set "DETECTED_VER="
 for /f "usebackq tokens=2 delims='" %%v in (`powershell -NoProfile -Command "Select-String -Path 'src\version.js' -Pattern 'v[0-9]+\.[0-9]+' | ForEach-Object { $_.Matches.Value }"`) do set "DETECTED_VER=%%v"
-if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.72"
+if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.69"
 
 if not exist "%DESC_FILE%" goto MANUAL_PROMPT
 

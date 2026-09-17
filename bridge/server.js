@@ -1,9 +1,10 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.50)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.72)
 // =========================================================================
 // Bidirectional switcher bus, macro execution, aux router, DSK, FTB, and Media Pool.
 // Features native atem.downloadStill('rgba') decoding, 1000ms mixer preemption,
-// and single-flight data transfers to completely eliminate switcher latency.
+// single-flight data transfers to completely eliminate switcher latency, and
+// explicit intercepted console telemetry broadcast to the UI Console panel.
 
 const { Atem } = require('atem-connection');
 const WebSocket = require('ws');
@@ -14,8 +15,8 @@ const BRIDGE_PORT = 8080;
 const VITE_PORT = 3000;
 const startTime = Date.now();
 
-console.log(`[ATEM Bridge v3.50] Starting bridge service...`);
-console.log(`[ATEM Bridge v3.50] Target ATEM Switcher IP: ${ATEM_IP}`);
+console.log(`[ATEM Bridge v3.72] Starting bridge service...`);
+console.log(`[ATEM Bridge v3.72] Target ATEM Switcher IP: ${ATEM_IP}`);
 
 let atem = new Atem();
 let isAtemConnected = false;
@@ -382,6 +383,25 @@ function handleHardwareCommand(cmd) {
 
 const wss = new WebSocket.Server({ port: BRIDGE_PORT }, () => console.log(`[ATEM Bridge] WebSocket server running on ws://localhost:${BRIDGE_PORT}`));
 
+// Console Output Interceptor for UI Broadcasting
+const originalLog = console.log;
+const originalWarn = console.warn;
+const originalError = console.error;
+
+function broadcastLog(level, args) {
+    try {
+        const msg = Array.from(args).map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+        const payload = JSON.stringify({ type: 'LOG', level, message: msg, timestamp: Date.now() });
+        wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) client.send(payload);
+        });
+    } catch (e) {}
+}
+
+console.log = function() { originalLog.apply(console, arguments); broadcastLog('info', arguments); };
+console.warn = function() { originalWarn.apply(console, arguments); broadcastLog('warn', arguments); };
+console.error = function() { originalError.apply(console, arguments); broadcastLog('error', arguments); };
+
 wss.on('connection', (ws) => {
     broadcastState(ws, true);
 
@@ -389,6 +409,11 @@ wss.on('connection', (ws) => {
         try {
             const data = JSON.parse(message);
             if (data.ip && data.ip !== ATEM_IP) connectToAtem(data.ip);
+
+            // Log UI interactions to the ConsolePanel
+            if (data.action && data.action !== 'GET_STATE' && data.action !== 'CONNECT') {
+                console.log(`[ATEM Bridge -> Hardware Dispatch] Action: ${data.action} | Params: ${JSON.stringify(data)}`);
+            }
 
             // Absolute Mixer Priority: Any switcher interaction halts transfers for 1000ms
             const SWITCHER_ACTIONS = [
