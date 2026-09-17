@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - SETTINGS MODAL (v3.81)
+// ATEM WEB MANAGER - SETTINGS MODAL (v3.82)
 // =========================================================================
 
 const QUAD_SELECT_OPTIONS = [
@@ -114,6 +114,12 @@ const SettingsModal = ({
                     <div className="davinci-content-pane active">
                         {activeTab === 'general' && (
                             <>
+                                <div className="setting-group">
+                                    <label>Stream / Video URL:</label>
+                                    <div className="setting-group-control">
+                                        <input type="text" value={currentVideoSource} onChange={e => setCurrentVideoSource(e.target.value)} />
+                                    </div>
+                                </div>
                                 <div className="setting-group">
                                     <label>Color Theme:</label>
                                     <div className="setting-group-control">
@@ -234,12 +240,6 @@ const SettingsModal = ({
                                         placeholder="192.168.10.240, Studio Main, https://stream.mux.com/...&#10;192.168.1.10, Camera 2, https://..."
                                         style={{ width: '100%', height: '140px', background: 'var(--atem-content)', border: '1px solid var(--atem-border)', color: 'var(--atem-text)', borderRadius: '4px', padding: '8px', fontFamily: 'monospace', fontSize: '12px', resize: 'vertical' }}
                                     />
-                                </div>
-                                <div className="setting-group">
-                                    <label>Fallback Stream / Video URL:</label>
-                                    <div className="setting-group-control">
-                                        <input type="text" value={currentVideoSource} onChange={e => setCurrentVideoSource(e.target.value)} />
-                                    </div>
                                 </div>
                             </div>
                         )}

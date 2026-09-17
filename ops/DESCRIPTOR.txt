@@ -1,2 +1,2 @@
-v3.81
-[FEAT] Overhauled Console Panel: rendered ATEM WEB MANAGER standby screen in Pandorum/Orbitron font with version underneath, removing ASCII art from the live log stream. Added master ALL source filter button to the left of USER, and relocated CURRENT/ALL DEVICES adjacent to EXPORT. Expanded log viewport to utilize 100% of vertical quadrant space. Added subtle LCD diagonal sheen mode toggle in Settings and integrated selectable console font preference with automated font downloading in OPS scripts.
+v3.83
+[OPS] Incremented master application version to v3.83. Synchronized version metadata across src/version.js and ops/HANDOVER.MD. Added modular changelog entry for v3.83.
