@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # =============================================================================
-# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS/Linux) (v3.74)
+# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS/Linux) (v3.75)
 # =============================================================================
 # This CLI manages the end-to-end development lifecycle:
 # 1. Self-contained Node.js runtime resolution and integrity verification.
@@ -181,7 +181,7 @@ resolve_commit_msg() {
     
     DETECTED_VER=$(grep -oE 'v[0-9]+\.[0-9]+' src/version.js | head -n 1)
     if [ -z "$DETECTED_VER" ]; then
-        DETECTED_VER="v3.74"
+        DETECTED_VER="v3.75"
     fi
 
     if [ ! -f "$DESC_FILE" ]; then
@@ -330,7 +330,7 @@ merge_main() {
     git pull origin main 2>/dev/null
     git merge "$CURRENT_BRANCH" --no-edit
     git push origin main
-    echo "[TAGGING] Tagging release '$DETECTED_VER...'..."
+    echo "[TAGGING] Tagging release '$DETECTED_VER'..."
     git tag -a "$DETECTED_VER" -m "Release $DETECTED_VER" 2>/dev/null
     git push origin --tags 2>/dev/null
     echo "[RETURNING] Switching back to feature branch '$CURRENT_BRANCH'..."
@@ -463,7 +463,7 @@ EOF
 while true; do
     clear
     echo "-----------------------------------------------------------------"
-    echo "           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.74)       "
+    echo "           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.75)       "
     echo "-----------------------------------------------------------------"
     echo "  [1] RUN & EVALUATE     (Vite + Daemon, Auto-Export & Evaluation)"
     echo "  [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)"

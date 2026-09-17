@@ -176,12 +176,11 @@ server.bind(ATEM_PORT, EMULATOR_IP, () => {
  
 === FILE: bridge/server.js === 
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.74)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.75)
 // =========================================================================
-// Bidirectional switcher bus, macro execution, aux router, DSK, FTB, and Media Pool.
-// Features native atem.downloadStill('rgba') decoding, 1000ms mixer preemption,
-// single-flight data transfers to completely eliminate switcher latency, and
-// explicit intercepted console telemetry broadcast to the UI Console panel.
+// High-performance, zero-latency switcher bus bridge.
+// Stripped of heavy background image transfers to dedicate 100% of UDP 9910
+// bandwidth and the Node.js event loop to real-time mixer commands and tally telemetry.
 
 const { Atem } = require('atem-connection');
 const WebSocket = require('ws');
@@ -192,8 +191,8 @@ const BRIDGE_PORT = 8080;
 const VITE_PORT = 3000;
 const startTime = Date.now();
 
-console.log('[ATEM Bridge v3.74] Starting bridge service...');
-console.log('[ATEM Bridge v3.74] Target ATEM Switcher IP: ' + ATEM_IP);
+console.log('[ATEM Bridge v3.75] Starting bridge service (Zero-Latency Core)...');
+console.log('[ATEM Bridge v3.75] Target ATEM Switcher IP: ' + ATEM_IP);
 
 let atem = new Atem();
 let isAtemConnected = false;
@@ -217,166 +216,7 @@ let mediaPlayers = [
     { sourceType: 1, stillIndex: 1, clipIndex: 0 }
 ];
 
-// Single-flight Sequential Data Transfer Queue
-let isTransferring = false;
-let trafficPauseUntil = 0;
-const transferQueue = [];
-
-function processTransferQueue() {
-    if (isTransferring || transferQueue.length === 0) return;
-    
-    // Halt background transfers if switcher command was received in last 1000ms
-    if (!isAtemConnected || Date.now() < trafficPauseUntil) {
-        setTimeout(processTransferQueue, 150);
-        return;
-    }
-    
-    isTransferring = true;
-    const task = transferQueue.shift();
-    
-    task()
-        .catch(err => {
-            console.warn('[ATEM Bridge Transfer Warning]:', err.message || err);
-        })
-        .finally(() => {
-            isTransferring = false;
-            setTimeout(processTransferQueue, 150); 
-        });
-}
-
-function queueDownloadStill(index) {
-    if (transferQueue.some(t => t.type === 'download' && t.index === index)) return;
-
-    const task = () => new Promise((resolve) => {
-        if (!isAtemConnected) {
-            return resolve();
-        }
-        console.log('[ATEM Bridge] Downloading Still ' + (index + 1) + ' from ATEM...');
-
-        const dlPromise = (typeof atem.downloadStill === 'function')
-            ? atem.downloadStill(index, 'rgba')
-            : (atem.dataTransferManager ? atem.dataTransferManager.downloadStill(index) : Promise.reject('No transfer manager'));
-
-        dlPromise
-            .then(buffer => {
-                if (!buffer || buffer.length === 0) {
-                    throw new Error('Empty buffer received');
-                }
-                const bmpDataUri = downscaleToThumbnailBmp(buffer);
-                if (bmpDataUri) {
-                    const payload = JSON.stringify({ type: 'STILL_DATA', index, data: bmpDataUri });
-                    wss.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN) client.send(payload);
-                    });
-                    console.log('[ATEM Bridge] Successfully processed Still ' + (index + 1));
-                }
-                resolve();
-            })
-            .catch(err => {
-                console.warn('[ATEM Bridge] Download failed for Still ' + (index + 1) + ':', err.message || err);
-                resolve();
-            });
-    });
-
-    task.type = 'download';
-    task.index = index;
-    transferQueue.push(task);
-    processTransferQueue();
-}
-
-function queueUploadStill(index, buffer, name) {
-    const task = () => new Promise((resolve) => {
-        if (!isAtemConnected || typeof atem.uploadStill !== 'function') {
-            return resolve();
-        }
-        console.log('[ATEM Bridge] Uploading to Still ' + (index + 1) + '...');
-        trafficPauseUntil = Date.now() + 2000;
-
-        atem.uploadStill(index, buffer, name || ('Still ' + (index + 1)), '')
-            .then(() => {
-                console.log('[ATEM Bridge] Successfully uploaded to Still ' + (index + 1));
-                broadcastState(null, true);
-                setTimeout(() => queueDownloadStill(index), 800);
-                resolve();
-            })
-            .catch(err => {
-                console.warn('[ATEM Bridge] Upload failed for Still ' + (index + 1) + ':', err.message || err);
-                resolve();
-            });
-    });
-    task.type = 'upload';
-    task.index = index;
-    transferQueue.unshift(task);
-    processTransferQueue();
-}
-
-function encodeBmp(rgbaBuffer, width, height) {
-    const fileSize = 54 + rgbaBuffer.length;
-    const bmp = Buffer.alloc(fileSize);
-    bmp.write('BM', 0);
-    bmp.writeUInt32LE(fileSize, 2);
-    bmp.writeUInt32LE(54, 10);
-    bmp.writeUInt32LE(40, 14);
-    bmp.writeUInt32LE(width, 18);
-    bmp.writeInt32LE(-height, 22);
-    bmp.writeUInt16LE(1, 26);
-    bmp.writeUInt16LE(32, 28);
-    rgbaBuffer.copy(bmp, 54);
-    return 'data:image/bmp;base64,' + bmp.toString('base64');
-}
-
-function downscaleToThumbnailBmp(buffer) {
-    if (!buffer || buffer.length < 5000) return null;
-
-    let srcW = 1920, srcH = 1080;
-    if (buffer.length === 1280 * 720 * 4 || buffer.length === 1280 * 720 * 2) {
-        srcW = 1280; srcH = 720;
-    }
-    const dstW = 320, dstH = 180;
-    const scaleX = srcW / dstW;
-    const scaleY = srcH / dstH;
-    const thumb = Buffer.alloc(dstW * dstH * 4);
-
-    const isRgba = buffer.length >= srcW * srcH * 4;
-
-    for (let y = 0; y < dstH; y++) {
-        const srcY = Math.floor(y * scaleY);
-        for (let x = 0; x < dstW; x++) {
-            const srcX = Math.floor(x * scaleX);
-            const dstIdx = (y * dstW + x) * 4;
-
-            if (isRgba) {
-                const srcIdx = (srcY * srcW + srcX) * 4;
-                thumb[dstIdx] = buffer[srcIdx + 2];     // B
-                thumb[dstIdx + 1] = buffer[srcIdx + 1]; // G
-                thumb[dstIdx + 2] = buffer[srcIdx];     // R
-                thumb[dstIdx + 3] = 255;                // A
-            } else {
-                const macropixel = Math.floor(srcX / 2);
-                const srcIdx = (srcY * (srcW / 2) + macropixel) * 4;
-                if (srcIdx + 3 < buffer.length) {
-                    const u = buffer[srcIdx];
-                    const yVal = (srcX % 2 === 0) ? buffer[srcIdx + 1] : buffer[srcIdx + 3];
-                    const v = buffer[srcIdx + 2];
-                    const c = yVal - 16;
-                    const d = u - 128;
-                    const e = v - 128;
-                    thumb[dstIdx] = Math.max(0, Math.min(255, (298 * c + 516 * d + 128) >> 8)); // B
-                    thumb[dstIdx + 1] = Math.max(0, Math.min(255, (298 * c - 100 * d - 208 * e + 128) >> 8)); // G
-                    thumb[dstIdx + 2] = Math.max(0, Math.min(255, (298 * c + 409 * e + 128) >> 8)); // R
-                    thumb[dstIdx + 3] = 255;
-                }
-            }
-        }
-    }
-    return encodeBmp(thumb, dstW, dstH);
-}
-
 function setupAtemListeners() {
-    atem.on('receivedCommand', (command) => {
-        if (handleHardwareCommand(command)) broadcastState();
-    });
-
     atem.on('receivedCommands', (commands) => {
         if (Array.isArray(commands)) {
             let changed = false;
@@ -454,7 +294,7 @@ function broadcastState(targetWs = null, immediate = false) {
         broadcastTimeout = setTimeout(() => {
             sendStatePayload();
             broadcastTimeout = null;
-        }, 20); // Throttle to 50fps max to prevent React UI freezing
+        }, 20); // 50fps max to protect React render pipeline
     }
 }
 
@@ -522,21 +362,13 @@ function sendStatePayload(targetWs = null) {
 
         if (atem && atem.state && atem.state.media) {
             if (atem.state.media.stillPool) {
-                mediaPool.stills = atem.state.media.stillPool.map((s, idx) => {
-                    let hashStr = '';
-                    if (s && s.hash) {
-                        hashStr = typeof s.hash === 'string' ? s.hash : (Buffer.isBuffer(s.hash) ? s.hash.toString('hex') : String(s.hash));
-                    }
-                    const fileName = s ? (s.fileName || s.name || '') : '';
-                    return {
-                        isUsed: Boolean(s && s.isUsed),
-                        name: fileName,
-                        hash: hashStr || (fileName + '_' + Boolean(s && s.isUsed))
-                    };
-                });
+                mediaPool.stills = atem.state.media.stillPool.map((s) => ({
+                    isUsed: Boolean(s && s.isUsed),
+                    name: s ? (s.fileName || s.name || '') : ''
+                }));
             }
             if (atem.state.media.clipPool) {
-                mediaPool.clips = atem.state.media.clipPool.map(c => ({
+                mediaPool.clips = atem.state.media.clipPool.map((c) => ({
                     isUsed: Boolean(c && c.isUsed),
                     name: c ? (c.name || '') : ''
                 }));
@@ -555,9 +387,12 @@ function sendStatePayload(targetWs = null) {
         });
 
         if (targetWs && targetWs.readyState === WebSocket.OPEN) {
-            targetWs.send(payload); return;
+            targetWs.send(payload);
+            return;
         }
-        wss.clients.forEach(client => { if (client.readyState === WebSocket.OPEN) client.send(payload); });
+        wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) client.send(payload);
+        });
     } catch (err) {}
 }
 
@@ -600,17 +435,6 @@ wss.on('connection', (ws) => {
 
             if (data.action && data.action !== 'GET_STATE' && data.action !== 'CONNECT') {
                 console.log('[ATEM Bridge -> Hardware Dispatch] Action: ' + data.action + ' | Params: ' + JSON.stringify(data));
-            }
-
-            const SWITCHER_ACTIONS = [
-                'SET_PGM', 'SET_PVW', 'CUT', 'AUTO', 'SET_AUX',
-                'SET_TRANSITION_RATE', 'TOGGLE_USK_ONAIR', 'TOGGLE_TRANS_SELECTION',
-                'TOGGLE_DSK_TIE', 'TOGGLE_DSK_ONAIR', 'SET_DSK_RATE', 'EXECUTE_DSK_AUTO',
-                'EXECUTE_FTB', 'SET_FTB_RATE', 'MACRO_RUN', 'MACRO_STOP', 'MACRO_LOOP'
-            ];
-
-            if (SWITCHER_ACTIONS.includes(data.action)) {
-                trafficPauseUntil = Date.now() + 1000;
             }
 
             if (data.action === 'CONNECT' || data.action === 'GET_STATE') {
@@ -695,11 +519,6 @@ wss.on('connection', (ws) => {
                     atem.setFadeToBlackRate(ftb.rate, 0).catch(e => {});
                 }
                 broadcastState(null, true);
-            } else if (data.action === 'UPLOAD_STILL' && data.rgbaBase64) {
-                const buffer = Buffer.from(data.rgbaBase64, 'base64');
-                queueUploadStill(data.index, buffer, data.name);
-            } else if (data.action === 'GET_STILL' && data.index !== undefined) {
-                queueDownloadStill(data.index);
             } else if (data.action === 'CLEAR_STILL' && data.index !== undefined) {
                 if (typeof atem.clearMediaPoolStill === 'function') {
                     atem.clearMediaPoolStill(data.index).catch(e => console.error('[ATEM Bridge] clearMediaPoolStill error:', e.message || e));
@@ -2760,10 +2579,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
  
 === FILE: src/version.js === 
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.74)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.75)
 // =========================================================================
 
-export const APP_VERSION = 'v3.74';
+export const APP_VERSION = 'v3.75';
  
 === FILE: src/components/Multiview/Panel.jsx === 
 import React, { useState } from 'react';
@@ -4291,16 +4110,16 @@ const ConsolePanel = () => {
 export default ConsolePanel;
  
 === FILE: src/components/Panels/MediaPool.jsx === 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useLocalStorage } from '../../hooks/useLocalStorage';
+import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.74)
+// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.75)
 // =========================================================================
 // Hardware-Locked IP: 192.168.10.240
-// Features persistent localStorage thumbnail caching (0ms reload on app launch),
-// concentric dual-tally rendering (Red outer, Green inner), flat Material slot clearing,
-// dynamic local cache clearing, and master Picture Engine toggle switch on the far right.
+// Lightweight, zero-latency Media Pool metadata & routing interface.
+// Background UDP picture downloads have been removed to preserve 100% of ATEM
+// network bandwidth for the switcher bus. Displays live slot names, population,
+// flat Material slot-clearing, and concentric MP1/MP2 routing tallies.
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
@@ -4317,76 +4136,10 @@ const MediaPool = ({ connectedDevice }) => {
     ]);
     
     const [selectedMp, setSelectedMp] = useState(null);
-    const [localPreviews, setLocalPreviews] = useState({});
-    const [dragActive, setDragActive] = useState(null);
-    const [uploadingSlot, setUploadingSlot] = useState(null);
-    const [isSyncing, setIsSyncing] = useState(false);
-    
-    // Master Picture Engine switch (default disabled to eliminate ATEM UDP traffic)
-    const [isEngineEnabled, setIsEngineEnabled] = useLocalStorage('atem_mp_engine', false);
-
-    // Persistent browser-side thumbnail cache
-    const [cachedThumbnails, setCachedThumbnails] = useLocalStorage('atem_media_pool_thumbs', {});
 
     const wsRef = useRef(null);
     const reconnectTimerRef = useRef(null);
     const lastWheelTimeRef = useRef(0);
-
-    const atemStillsRef = useRef([]);
-    const inFlightIdxRef = useRef(null);
-    const pendingQueueRef = useRef([]);
-    const watchdogTimerRef = useRef(null);
-
-    const processDownloadQueue = useCallback(() => {
-        if (!isPanelActive || !isEngineEnabled) {
-            setIsSyncing(false);
-            return;
-        }
-        if (inFlightIdxRef.current !== null || pendingQueueRef.current.length === 0) {
-            if (pendingQueueRef.current.length === 0) {
-                setIsSyncing(false);
-            }
-            return;
-        }
-        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-            return;
-        }
-
-        setIsSyncing(true);
-        const nextIdx = pendingQueueRef.current.shift();
-        inFlightIdxRef.current = nextIdx;
-
-        wsRef.current.send(JSON.stringify({ 
-            action: 'GET_STILL', 
-            ip: LOCKED_ATEM_IP, 
-            index: nextIdx 
-        }));
-
-        if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
-        watchdogTimerRef.current = setTimeout(() => {
-            if (inFlightIdxRef.current === nextIdx) {
-                inFlightIdxRef.current = null;
-                processDownloadQueue();
-            }
-        }, 8000);
-    }, [isPanelActive, isEngineEnabled]);
-
-    const triggerSlotFetch = useCallback((idx) => {
-        if (!isPanelActive || !isEngineEnabled) return;
-        if (!pendingQueueRef.current.includes(idx) && inFlightIdxRef.current !== idx) {
-            pendingQueueRef.current.push(idx);
-            processDownloadQueue();
-        }
-    }, [isPanelActive, isEngineEnabled, processDownloadQueue]);
-
-    const handleSyncAllStills = () => {
-        if (!isPanelActive || !isEngineEnabled) return;
-        atemStillsRef.current.forEach((still, idx) => {
-            if (still.isUsed) {
-                triggerSlotFetch(idx);
-            }
-        });
-    };
 
     useEffect(() => {
         const initWebSocket = () => {
@@ -4403,52 +4156,17 @@ const MediaPool = ({ connectedDevice }) => {
                         const data = JSON.parse(event.data);
 
                         if (data.mediaPool) {
-                            if (data.mediaPool.stills) {
-                                setAtemStills(data.mediaPool.stills);
-                                atemStillsRef.current = data.mediaPool.stills;
-
-                                data.mediaPool.stills.forEach((still, idx) => {
-                                    if (!still.isUsed && cachedThumbnails[idx]) {
-                                        setCachedThumbnails(prev => {
-                                            const next = { ...prev };
-                                            delete next[idx];
-                                            return next;
-                                        });
-                                    }
-                                });
-                            }
+                            if (data.mediaPool.stills) setAtemStills(data.mediaPool.stills);
                             if (data.mediaPool.clips) setAtemClips(data.mediaPool.clips);
                         }
 
                         if (data.mediaPlayers && Array.isArray(data.mediaPlayers)) {
                             setMediaPlayers(data.mediaPlayers);
                         }
-
-                        if (data.type === 'STILL_DATA' && data.data && data.index !== undefined) {
-                            if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
-                            const idx = data.index;
-                            const atemStill = atemStillsRef.current[idx];
-                            
-                            const newRecord = {
-                                src: data.data,
-                                hash: atemStill ? atemStill.hash : '',
-                                name: atemStill ? atemStill.name : ''
-                            };
-
-                            setCachedThumbnails(prev => ({ ...prev, [idx]: newRecord }));
-
-                            if (inFlightIdxRef.current === idx) {
-                                inFlightIdxRef.current = null;
-                            }
-
-                            setTimeout(processDownloadQueue, 250);
-                        }
                     } catch (err) {}
                 };
 
                 wsRef.current.onclose = () => {
-                    if (inFlightIdxRef.current !== null) inFlightIdxRef.current = null;
-                    setIsSyncing(false);
                     if (!reconnectTimerRef.current) {
                         reconnectTimerRef.current = setTimeout(() => {
                             reconnectTimerRef.current = null;
@@ -4468,13 +4186,12 @@ const MediaPool = ({ connectedDevice }) => {
 
         initWebSocket();
         return () => {
-            if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
             if (wsRef.current) {
                 try { wsRef.current.close(); } catch (e) {}
             }
         };
-    }, [processDownloadQueue, cachedThumbnails, setCachedThumbnails]);
+    }, []);
 
     const handlePanelWheel = (e) => {
         if (!isPanelActive) return;
@@ -4492,88 +4209,8 @@ const MediaPool = ({ connectedDevice }) => {
         }
     };
 
-    const handleDragOver = (e, dropId) => {
-        if (!isPanelActive) return;
-        e.preventDefault();
-        setDragActive(dropId);
-    };
-
-    const handleDragLeave = () => {
-        setDragActive(null);
-    };
-
-    const handleDrop = (e, index, type) => {
-        if (!isPanelActive) return;
-        e.preventDefault();
-        setDragActive(null);
-
-        if (type !== 'still') return;
-
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            const file = e.dataTransfer.files[0];
-            const reader = new FileReader();
-            
-            reader.onload = (ev) => {
-                const dataUrl = ev.target.result;
-                
-                setLocalPreviews(prev => ({
-                    ...prev,
-                    [type + '-' + index]: { src: dataUrl, name: file.name }
-                }));
-
-                const img = new Image();
-                img.onload = () => {
-                    setUploadingSlot(index);
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 1920;
-                    canvas.height = 1080;
-                    const ctx = canvas.getContext('2d');
-                    
-                    ctx.fillStyle = '#000000';
-                    ctx.fillRect(0, 0, 1920, 1080);
-                    
-                    const scale = Math.min(1920 / img.width, 1080 / img.height);
-                    const w = img.width * scale;
-                    const h = img.height * scale;
-                    const x = (1920 - w) / 2;
-                    const y = (1080 - h) / 2;
-                    ctx.drawImage(img, x, y, w, h);
-                    
-                    const rgba = ctx.getImageData(0, 0, 1920, 1080).data;
-                    
-                    const chunk = 8192;
-                    let binary = '';
-                    for (let i = 0; i < rgba.length; i += chunk) {
-                        binary += String.fromCharCode.apply(null, rgba.subarray(i, i + chunk));
-                    }
-                    const b64 = window.btoa(binary);
-
-                    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                        wsRef.current.send(JSON.stringify({ 
-                            action: 'UPLOAD_STILL', 
-                            ip: LOCKED_ATEM_IP, 
-                            index: index, 
-                            name: file.name.substring(0, 16), 
-                            rgbaBase64: b64 
-                        }));
-                    }
-                    
-                    setTimeout(() => setUploadingSlot(null), 2500);
-                };
-                img.src = dataUrl;
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
     const handleSlotClick = (slotIndex, type) => {
-        if (!isPanelActive) return;
-
-        if (isEngineEnabled && type === 'still' && atemStills[slotIndex]?.isUsed && !cachedThumbnails[slotIndex]) {
-            triggerSlotFetch(slotIndex);
-        }
-
-        if (!selectedMp) return;
+        if (!isPanelActive || !selectedMp) return;
 
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify({
@@ -4590,22 +4227,14 @@ const MediaPool = ({ connectedDevice }) => {
     const MediaSlot = ({ index, type, startIndex = 0 }) => {
         const slotNumber = startIndex + index + 1;
         const actualSlotIndex = startIndex + index;
-        const dropId = type + '-' + actualSlotIndex;
-        const isDragOver = isPanelActive && dragActive === dropId;
-        const isUploading = isPanelActive && uploadingSlot === actualSlotIndex && type === 'still';
 
         const atemData = isPanelActive ? (type === 'still' ? atemStills[actualSlotIndex] : atemClips[actualSlotIndex]) : null;
-        const localPreview = isPanelActive ? localPreviews[dropId] : null;
-        const cachedRecord = (isPanelActive && type === 'still') ? cachedThumbnails[actualSlotIndex] : null;
-
         const isUsed = atemData ? atemData.isUsed : false;
-        const displayName = localPreview ? localPreview.name : (atemData ? atemData.name : '');
-        const displaySrc = isEngineEnabled ? (localPreview ? localPreview.src : (cachedRecord ? cachedRecord.src : null)) : null;
+        const displayName = atemData ? atemData.name : '';
 
         const isMp1 = isPanelActive && mediaPlayers[0] && (type === 'still' ? (mediaPlayers[0].sourceType === 1 && mediaPlayers[0].stillIndex === actualSlotIndex) : (mediaPlayers[0].sourceType === 2 && mediaPlayers[0].clipIndex === actualSlotIndex));
         const isMp2 = isPanelActive && mediaPlayers[1] && (type === 'still' ? (mediaPlayers[1].sourceType === 1 && mediaPlayers[1].stillIndex === actualSlotIndex) : (mediaPlayers[1].sourceType === 2 && mediaPlayers[1].clipIndex === actualSlotIndex));
 
-        // Reverted Concentric Tally: Red outer border, Green inner 4px shadow
         let tallyClass = '';
         if (isMp1 && isMp2) {
             tallyClass = 'mp-tally-both';
@@ -4617,12 +4246,8 @@ const MediaPool = ({ connectedDevice }) => {
 
         return (
             <div 
-                className={'mp-slot ' + (isDragOver ? 'drag-over ' : '') + tallyClass}
-                onDragOver={(e) => handleDragOver(e, dropId)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, actualSlotIndex, type)}
+                className={'mp-slot ' + tallyClass}
                 onClick={() => handleSlotClick(actualSlotIndex, type)}
-                style={{ opacity: isUploading ? 0.5 : 1 }}
                 data-description={isPanelActive && (isUsed || displayName) ? (displayName || ('Slot ' + slotNumber)) : undefined}
             >
                 {isMp1 && <div className="mp-badge" style={{ left: '4px' }}>MP1</div>}
@@ -4636,11 +4261,6 @@ const MediaPool = ({ connectedDevice }) => {
                             e.stopPropagation();
                             if (isPanelActive && wsRef.current) {
                                 wsRef.current.send(JSON.stringify({ action: 'CLEAR_STILL', ip: LOCKED_ATEM_IP, index: actualSlotIndex }));
-                                setCachedThumbnails(prev => { 
-                                    const next = { ...prev }; 
-                                    delete next[actualSlotIndex]; 
-                                    return next; 
-                                });
                             }
                         }}
                     >
@@ -4651,18 +4271,10 @@ const MediaPool = ({ connectedDevice }) => {
                     </button>
                 )}
 
-                {displaySrc && (
-                    <div className="mp-slot-num-circle">{slotNumber}</div>
-                )}
-
                 <div className="mp-thumb-container">
-                    {displaySrc ? (
-                        <img src={displaySrc} alt={'Slot ' + slotNumber} className="mp-thumbnail" />
-                    ) : (
-                        <div className="mp-empty-circle">
-                            {isUploading ? 'UP...' : slotNumber}
-                        </div>
-                    )}
+                    <div className="mp-empty-circle" style={{ borderColor: isUsed ? 'var(--orange-hl)' : 'var(--atem-border)', color: isUsed ? 'var(--text)' : 'var(--muted)' }}>
+                        {slotNumber}
+                    </div>
                 </div>
             </div>
         );
@@ -4698,21 +4310,6 @@ const MediaPool = ({ connectedDevice }) => {
 
                         <div className="macro-actions-group">
                             <button 
-                                className="macro-action-text-btn"
-                                onClick={() => setCachedThumbnails({})}
-                                title="Clear local thumbnails cache"
-                            >
-                                CLEAR
-                            </button>
-                            <button 
-                                className={'macro-action-text-btn ' + (isPanelActive && isSyncing ? 'active-red' : '')}
-                                onClick={handleSyncAllStills}
-                                title="Fetch thumbnails from ATEM"
-                                disabled={!isEngineEnabled}
-                            >
-                                SYNC
-                            </button>
-                            <button 
                                 className={'macro-action-text-btn ' + (isPanelActive && selectedMp === 1 ? 'active-green' : '')}
                                 onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
                             >
@@ -4724,9 +4321,6 @@ const MediaPool = ({ connectedDevice }) => {
                             >
                                 MP2
                             </button>
-                            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginLeft: '8px' }} title={isEngineEnabled ? "Disable Picture Engine" : "Enable Picture Engine"}>
-                                <input type="checkbox" className="toggle-switch-small" checked={isEngineEnabled} onChange={() => setIsEngineEnabled(!isEngineEnabled)} />
-                            </label>
                         </div>
                     </div>
 
@@ -4769,21 +4363,6 @@ const MediaPool = ({ connectedDevice }) => {
 
                             <div className="macro-actions-group">
                                 <button 
-                                    className="macro-action-text-btn"
-                                    onClick={() => setCachedThumbnails({})}
-                                    title="Clear local thumbnails cache"
-                                >
-                                    CLEAR
-                                </button>
-                                <button 
-                                    className={'macro-action-text-btn ' + (isPanelActive && isSyncing ? 'active-red' : '')}
-                                    onClick={handleSyncAllStills}
-                                    title="Fetch thumbnails from ATEM"
-                                    disabled={!isEngineEnabled}
-                                >
-                                    SYNC
-                                </button>
-                                <button 
                                     className={'macro-action-text-btn ' + (isPanelActive && selectedMp === 1 ? 'active-green' : '')}
                                     onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
                                 >
@@ -4795,9 +4374,6 @@ const MediaPool = ({ connectedDevice }) => {
                                 >
                                     MP2
                                 </button>
-                                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginLeft: '8px' }} title={isEngineEnabled ? "Disable Picture Engine" : "Enable Picture Engine"}>
-                                    <input type="checkbox" className="toggle-switch-small" checked={isEngineEnabled} onChange={() => setIsEngineEnabled(!isEngineEnabled)} />
-                                </label>
                             </div>
                         </div>
 
@@ -4810,7 +4386,7 @@ const MediaPool = ({ connectedDevice }) => {
                         </div>
                     </div>
 
-                    {/* SECTION 2: CLIPS 1-4 (ROW 4 OF 4x4 GRID, ROWS 2 & 3 REMAIN EMPTY) */}
+                    {/* SECTION 2: CLIPS 1-4 (ROW 4 OF 4x4 GRID) */}
                     <div>
                         <div className="atem-section-header-row">
                             <span className="atem-section-title">CLIPS</span>

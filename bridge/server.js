@@ -1,10 +1,9 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.74)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.75)
 // =========================================================================
-// Bidirectional switcher bus, macro execution, aux router, DSK, FTB, and Media Pool.
-// Features native atem.downloadStill('rgba') decoding, 1000ms mixer preemption,
-// single-flight data transfers to completely eliminate switcher latency, and
-// explicit intercepted console telemetry broadcast to the UI Console panel.
+// High-performance, zero-latency switcher bus bridge.
+// Stripped of heavy background image transfers to dedicate 100% of UDP 9910
+// bandwidth and the Node.js event loop to real-time mixer commands and tally telemetry.
 
 const { Atem } = require('atem-connection');
 const WebSocket = require('ws');
@@ -15,8 +14,8 @@ const BRIDGE_PORT = 8080;
 const VITE_PORT = 3000;
 const startTime = Date.now();
 
-console.log('[ATEM Bridge v3.74] Starting bridge service...');
-console.log('[ATEM Bridge v3.74] Target ATEM Switcher IP: ' + ATEM_IP);
+console.log('[ATEM Bridge v3.75] Starting bridge service (Zero-Latency Core)...');
+console.log('[ATEM Bridge v3.75] Target ATEM Switcher IP: ' + ATEM_IP);
 
 let atem = new Atem();
 let isAtemConnected = false;
@@ -40,166 +39,7 @@ let mediaPlayers = [
     { sourceType: 1, stillIndex: 1, clipIndex: 0 }
 ];
 
-// Single-flight Sequential Data Transfer Queue
-let isTransferring = false;
-let trafficPauseUntil = 0;
-const transferQueue = [];
-
-function processTransferQueue() {
-    if (isTransferring || transferQueue.length === 0) return;
-    
-    // Halt background transfers if switcher command was received in last 1000ms
-    if (!isAtemConnected || Date.now() < trafficPauseUntil) {
-        setTimeout(processTransferQueue, 150);
-        return;
-    }
-    
-    isTransferring = true;
-    const task = transferQueue.shift();
-    
-    task()
-        .catch(err => {
-            console.warn('[ATEM Bridge Transfer Warning]:', err.message || err);
-        })
-        .finally(() => {
-            isTransferring = false;
-            setTimeout(processTransferQueue, 150); 
-        });
-}
-
-function queueDownloadStill(index) {
-    if (transferQueue.some(t => t.type === 'download' && t.index === index)) return;
-
-    const task = () => new Promise((resolve) => {
-        if (!isAtemConnected) {
-            return resolve();
-        }
-        console.log('[ATEM Bridge] Downloading Still ' + (index + 1) + ' from ATEM...');
-
-        const dlPromise = (typeof atem.downloadStill === 'function')
-            ? atem.downloadStill(index, 'rgba')
-            : (atem.dataTransferManager ? atem.dataTransferManager.downloadStill(index) : Promise.reject('No transfer manager'));
-
-        dlPromise
-            .then(buffer => {
-                if (!buffer || buffer.length === 0) {
-                    throw new Error('Empty buffer received');
-                }
-                const bmpDataUri = downscaleToThumbnailBmp(buffer);
-                if (bmpDataUri) {
-                    const payload = JSON.stringify({ type: 'STILL_DATA', index, data: bmpDataUri });
-                    wss.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN) client.send(payload);
-                    });
-                    console.log('[ATEM Bridge] Successfully processed Still ' + (index + 1));
-                }
-                resolve();
-            })
-            .catch(err => {
-                console.warn('[ATEM Bridge] Download failed for Still ' + (index + 1) + ':', err.message || err);
-                resolve();
-            });
-    });
-
-    task.type = 'download';
-    task.index = index;
-    transferQueue.push(task);
-    processTransferQueue();
-}
-
-function queueUploadStill(index, buffer, name) {
-    const task = () => new Promise((resolve) => {
-        if (!isAtemConnected || typeof atem.uploadStill !== 'function') {
-            return resolve();
-        }
-        console.log('[ATEM Bridge] Uploading to Still ' + (index + 1) + '...');
-        trafficPauseUntil = Date.now() + 2000;
-
-        atem.uploadStill(index, buffer, name || ('Still ' + (index + 1)), '')
-            .then(() => {
-                console.log('[ATEM Bridge] Successfully uploaded to Still ' + (index + 1));
-                broadcastState(null, true);
-                setTimeout(() => queueDownloadStill(index), 800);
-                resolve();
-            })
-            .catch(err => {
-                console.warn('[ATEM Bridge] Upload failed for Still ' + (index + 1) + ':', err.message || err);
-                resolve();
-            });
-    });
-    task.type = 'upload';
-    task.index = index;
-    transferQueue.unshift(task);
-    processTransferQueue();
-}
-
-function encodeBmp(rgbaBuffer, width, height) {
-    const fileSize = 54 + rgbaBuffer.length;
-    const bmp = Buffer.alloc(fileSize);
-    bmp.write('BM', 0);
-    bmp.writeUInt32LE(fileSize, 2);
-    bmp.writeUInt32LE(54, 10);
-    bmp.writeUInt32LE(40, 14);
-    bmp.writeUInt32LE(width, 18);
-    bmp.writeInt32LE(-height, 22);
-    bmp.writeUInt16LE(1, 26);
-    bmp.writeUInt16LE(32, 28);
-    rgbaBuffer.copy(bmp, 54);
-    return 'data:image/bmp;base64,' + bmp.toString('base64');
-}
-
-function downscaleToThumbnailBmp(buffer) {
-    if (!buffer || buffer.length < 5000) return null;
-
-    let srcW = 1920, srcH = 1080;
-    if (buffer.length === 1280 * 720 * 4 || buffer.length === 1280 * 720 * 2) {
-        srcW = 1280; srcH = 720;
-    }
-    const dstW = 320, dstH = 180;
-    const scaleX = srcW / dstW;
-    const scaleY = srcH / dstH;
-    const thumb = Buffer.alloc(dstW * dstH * 4);
-
-    const isRgba = buffer.length >= srcW * srcH * 4;
-
-    for (let y = 0; y < dstH; y++) {
-        const srcY = Math.floor(y * scaleY);
-        for (let x = 0; x < dstW; x++) {
-            const srcX = Math.floor(x * scaleX);
-            const dstIdx = (y * dstW + x) * 4;
-
-            if (isRgba) {
-                const srcIdx = (srcY * srcW + srcX) * 4;
-                thumb[dstIdx] = buffer[srcIdx + 2];     // B
-                thumb[dstIdx + 1] = buffer[srcIdx + 1]; // G
-                thumb[dstIdx + 2] = buffer[srcIdx];     // R
-                thumb[dstIdx + 3] = 255;                // A
-            } else {
-                const macropixel = Math.floor(srcX / 2);
-                const srcIdx = (srcY * (srcW / 2) + macropixel) * 4;
-                if (srcIdx + 3 < buffer.length) {
-                    const u = buffer[srcIdx];
-                    const yVal = (srcX % 2 === 0) ? buffer[srcIdx + 1] : buffer[srcIdx + 3];
-                    const v = buffer[srcIdx + 2];
-                    const c = yVal - 16;
-                    const d = u - 128;
-                    const e = v - 128;
-                    thumb[dstIdx] = Math.max(0, Math.min(255, (298 * c + 516 * d + 128) >> 8)); // B
-                    thumb[dstIdx + 1] = Math.max(0, Math.min(255, (298 * c - 100 * d - 208 * e + 128) >> 8)); // G
-                    thumb[dstIdx + 2] = Math.max(0, Math.min(255, (298 * c + 409 * e + 128) >> 8)); // R
-                    thumb[dstIdx + 3] = 255;
-                }
-            }
-        }
-    }
-    return encodeBmp(thumb, dstW, dstH);
-}
-
 function setupAtemListeners() {
-    atem.on('receivedCommand', (command) => {
-        if (handleHardwareCommand(command)) broadcastState();
-    });
-
     atem.on('receivedCommands', (commands) => {
         if (Array.isArray(commands)) {
             let changed = false;
@@ -277,7 +117,7 @@ function broadcastState(targetWs = null, immediate = false) {
         broadcastTimeout = setTimeout(() => {
             sendStatePayload();
             broadcastTimeout = null;
-        }, 20); // Throttle to 50fps max to prevent React UI freezing
+        }, 20); // 50fps max to protect React render pipeline
     }
 }
 
@@ -345,21 +185,13 @@ function sendStatePayload(targetWs = null) {
 
         if (atem && atem.state && atem.state.media) {
             if (atem.state.media.stillPool) {
-                mediaPool.stills = atem.state.media.stillPool.map((s, idx) => {
-                    let hashStr = '';
-                    if (s && s.hash) {
-                        hashStr = typeof s.hash === 'string' ? s.hash : (Buffer.isBuffer(s.hash) ? s.hash.toString('hex') : String(s.hash));
-                    }
-                    const fileName = s ? (s.fileName || s.name || '') : '';
-                    return {
-                        isUsed: Boolean(s && s.isUsed),
-                        name: fileName,
-                        hash: hashStr || (fileName + '_' + Boolean(s && s.isUsed))
-                    };
-                });
+                mediaPool.stills = atem.state.media.stillPool.map((s) => ({
+                    isUsed: Boolean(s && s.isUsed),
+                    name: s ? (s.fileName || s.name || '') : ''
+                }));
             }
             if (atem.state.media.clipPool) {
-                mediaPool.clips = atem.state.media.clipPool.map(c => ({
+                mediaPool.clips = atem.state.media.clipPool.map((c) => ({
                     isUsed: Boolean(c && c.isUsed),
                     name: c ? (c.name || '') : ''
                 }));
@@ -378,9 +210,12 @@ function sendStatePayload(targetWs = null) {
         });
 
         if (targetWs && targetWs.readyState === WebSocket.OPEN) {
-            targetWs.send(payload); return;
+            targetWs.send(payload);
+            return;
         }
-        wss.clients.forEach(client => { if (client.readyState === WebSocket.OPEN) client.send(payload); });
+        wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) client.send(payload);
+        });
     } catch (err) {}
 }
 
@@ -423,17 +258,6 @@ wss.on('connection', (ws) => {
 
             if (data.action && data.action !== 'GET_STATE' && data.action !== 'CONNECT') {
                 console.log('[ATEM Bridge -> Hardware Dispatch] Action: ' + data.action + ' | Params: ' + JSON.stringify(data));
-            }
-
-            const SWITCHER_ACTIONS = [
-                'SET_PGM', 'SET_PVW', 'CUT', 'AUTO', 'SET_AUX',
-                'SET_TRANSITION_RATE', 'TOGGLE_USK_ONAIR', 'TOGGLE_TRANS_SELECTION',
-                'TOGGLE_DSK_TIE', 'TOGGLE_DSK_ONAIR', 'SET_DSK_RATE', 'EXECUTE_DSK_AUTO',
-                'EXECUTE_FTB', 'SET_FTB_RATE', 'MACRO_RUN', 'MACRO_STOP', 'MACRO_LOOP'
-            ];
-
-            if (SWITCHER_ACTIONS.includes(data.action)) {
-                trafficPauseUntil = Date.now() + 1000;
             }
 
             if (data.action === 'CONNECT' || data.action === 'GET_STATE') {
@@ -518,11 +342,6 @@ wss.on('connection', (ws) => {
                     atem.setFadeToBlackRate(ftb.rate, 0).catch(e => {});
                 }
                 broadcastState(null, true);
-            } else if (data.action === 'UPLOAD_STILL' && data.rgbaBase64) {
-                const buffer = Buffer.from(data.rgbaBase64, 'base64');
-                queueUploadStill(data.index, buffer, data.name);
-            } else if (data.action === 'GET_STILL' && data.index !== undefined) {
-                queueDownloadStill(data.index);
             } else if (data.action === 'CLEAR_STILL' && data.index !== undefined) {
                 if (typeof atem.clearMediaPoolStill === 'function') {
                     atem.clearMediaPoolStill(data.index).catch(e => console.error('[ATEM Bridge] clearMediaPoolStill error:', e.message || e));

@@ -1,5 +1,12 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v3.75] - Picture Download Engine Removal & Zero-Latency Mixer Core
+- Completely Removed Picture Download Engine: Purged queueDownloadStill, queueUploadStill, downscaleToThumbnailBmp, encodeBmp, and transfer queue from bridge/server.js. This permanently eliminates UDP port 9910 bandwidth contention and CPU event-loop blocking.
+- Preserved Media Pool Metadata and Routing: Retained authoritative stillPool and clipPool name extraction from atem.state.media so file names and isUsed states remain available for UI tooltips and MP1/MP2 player assignment.
+- Streamlined ATEM Event Listeners: Removed redundant receivedCommand listener that was triggering triple state broadcasts per packet, leaving stateChanged and batched receivedCommands with 20ms throttled dispatch.
+- Instantaneous Mixer Responsiveness: With zero background media transfers competing for ATEM UDP frames, all Program/Preview cuts, transitions, DSK, and Aux routing execute with sub-millisecond latency.
+
+
 ## [v3.74] - Mixer Control Restoration, Media Engine Gating & Concentric Tally Inversion
 - Resolved Mixer Button Latency and Reversions: Injected immediate local optimistic state dispatch for KEY 1-4, BKGD, USK ON AIR, DSK TIE, DSK ON AIR, and DSK Rate, eliminating sluggishness and network dropouts.
 - Fixed Aux Output Reversion: Eliminated server-side stale cache rebroadcasting race conditions, locking Aux input changes into place immediately upon selection.

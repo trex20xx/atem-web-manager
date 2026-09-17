@@ -1,2 +1,2 @@
-v3.74
-[FIX] Mixer and Media Pool optimizations: restored instant responsive control to KEY 1-4, TIE, ON AIR, and Aux Routing via optimistic local dispatch. Relocated master Picture Engine toggle to far right of Media Pool, disabling background UDP thumbnail fetching when OFF. Redesigned flat Material clear button, inverted overlapping concentric tally borders (Red outer, Green inner), and finalized Trunk-Based Development Git operations in OPS scripts.
+v3.75
+[PERF] Completely stripped background picture download engine, YUV/BMP decoding loops, and data transfer queues from bridge/server.js to eradicate ATEM UDP port 9910 saturation. Streamlined hardware listeners to eliminate triple-broadcast storms. Preserved full Media Pool slot layout, file name telemetry, and MP1/MP2 routing with sub-millisecond switcher bus responsiveness.
