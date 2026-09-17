@@ -1,29 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - CONSOLE PANEL (v3.72)
+// ATEM WEB MANAGER - CONSOLE PANEL (v3.76)
 // =========================================================================
-// bridge console follows the same design as the other panels in terms of corner 
-// radius, padding, centering, aligning, scaling. All future panels should actually do.
-// Displays detailed log streams from the ATEM switcher, including explicit buttons 
-// presses, connection parameters, and includes a log exporter function.
+// Features persistent module-level log buffering to ensure historical entries
+// are never purged when swapping quadrant assignments or navigating away.
+
+let globalBridgeLogs = [];
+const MAX_LOG_HISTORY = 350;
 
 const ConsolePanel = () => {
-    const [logs, setLogs] = useState([]);
+    const [logs, setLogs] = useState(() => [...globalBridgeLogs]);
     const endRef = useRef(null);
     const bodyRef = useRef(null);
 
     useEffect(() => {
         const ws = new WebSocket('ws://localhost:8080');
+        
         ws.onmessage = (e) => {
             try {
                 const data = JSON.parse(e.data);
                 if (data.type === 'LOG') {
-                    setLogs(prev => [...prev, data].slice(-250)); // Keep last 250 rows
+                    globalBridgeLogs.push(data);
+                    if (globalBridgeLogs.length > MAX_LOG_HISTORY) {
+                        globalBridgeLogs.shift();
+                    }
+                    setLogs([...globalBridgeLogs]);
                 }
             } catch (err) {}
         };
-        return () => ws.close();
+
+        return () => {
+            ws.close();
+        };
     }, []);
 
     useEffect(() => {
@@ -35,13 +44,13 @@ const ConsolePanel = () => {
     const handleExport = () => {
         const textContent = logs.map(log => {
             const timeStr = new Date(log.timestamp).toISOString().split('T')[1].slice(0, -1);
-            return `[${timeStr}] [${log.level.toUpperCase()}] ${log.message}`;
+            return '[' + timeStr + '] [' + log.level.toUpperCase() + '] ' + log.message;
         }).join('\r\n');
 
         const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.download = `atem-bridge-logs-${Date.now()}.txt`;
+        link.download = 'atem-bridge-logs-' + Date.now() + '.txt';
         link.href = url;
         link.click();
         URL.revokeObjectURL(url);
@@ -63,8 +72,8 @@ const ConsolePanel = () => {
                         {logs.map((log, i) => {
                             const time = new Date(log.timestamp).toISOString().split('T')[1].slice(0, -1);
                             return (
-                                <div key={i} className={`log-line log-${log.level}`}>
-                                    <span className="log-time">[{time}]</span>
+                                <div key={i} className={'log-line log-' + log.level}>
+                                    <span className="log-time">{'[' + time + ']'}</span>
                                     <span className="log-msg">{log.message}</span>
                                 </div>
                             );

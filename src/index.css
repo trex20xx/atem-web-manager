@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.74)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.76)
  * =========================================================================
  */
 
@@ -1008,7 +1008,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     border-color: var(--orange-hl);
 }
 
-/* Reverted Concentric Tally: Red outer border, Green inner 4px inset */
+/* Tally Rectangles for Media Pool routing */
 .mp-slot.mp-tally-green {
     border-color: var(--green) !important;
     box-shadow: inset 0 0 0 1px var(--green);
@@ -1017,9 +1017,43 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     border-color: var(--red) !important;
     box-shadow: inset 0 0 0 1px var(--red);
 }
-.mp-slot.mp-tally-both {
+
+/* Concentric Dual Tally: Inner boundary nested inside X button */
+.mp-inner-tally {
+    position: absolute;
+    inset: 26px 20px;
+    border-radius: var(--ui-radius);
+    pointer-events: none;
+    z-index: 5;
+}
+.mp-inner-tally.mp-inner-green {
+    border: 1px solid var(--green) !important;
+    box-shadow: inset 0 0 0 1px var(--green);
+}
+.mp-inner-tally.mp-inner-red {
+    border: 1px solid var(--red) !important;
+    box-shadow: inset 0 0 0 1px var(--red);
+}
+
+/* Header Action Buttons Color Matching */
+.mp1-header-btn {
+    color: var(--green) !important;
+    font-weight: 500 !important;
+}
+.mp1-header-btn.active {
+    background: rgba(52, 168, 83, 0.25) !important;
+    border-color: var(--green) !important;
+    color: #ffffff !important;
+}
+
+.mp2-header-btn {
+    color: var(--red) !important;
+    font-weight: 500 !important;
+}
+.mp2-header-btn.active {
+    background: rgba(234, 67, 53, 0.25) !important;
     border-color: var(--red) !important;
-    box-shadow: inset 0 0 0 1px var(--red), inset 0 0 0 4px var(--green) !important;
+    color: #ffffff !important;
 }
 
 .mp-thumb-container {
@@ -1033,30 +1067,12 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     overflow: hidden;
 }
 
-.mp-badge {
-    position: absolute;
-    top: 4px;
-    padding: 3px 6px;
-    border-radius: var(--pill-radius);
-    background: var(--panel2);
-    color: var(--text);
-    border: 1px solid var(--atem-border);
-    font-size: 10px;
-    font-weight: 500;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
-    line-height: 1;
-    pointer-events: none;
-}
-
 .mp-clear-btn {
     position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 18px;
-    height: 18px;
+    top: 6px;
+    right: 6px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: rgba(18, 18, 18, 0.75);
     color: var(--text);
@@ -1078,28 +1094,9 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     color: #ffffff;
 }
 
-.mp-slot-num-circle {
-    position: absolute;
-    bottom: 4px;
-    left: 4px;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: rgba(18, 18, 18, 0.75);
-    color: var(--text);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    font-size: 10px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
-    pointer-events: none;
-}
-
 .mp-empty-circle {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
     border: 1px solid var(--atem-border);
     display: flex;
@@ -1108,13 +1105,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     color: var(--muted);
     font-size: 13px;
     font-weight: 400;
-}
-
-.mp-thumbnail {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    background: transparent;
 }
 
 /* =========================================================================
@@ -1202,6 +1192,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     gap: 6px;
 }
 
+/* 74px x 36px Standardized Grid Button Dimensions */
 .atem-btn-standard { 
     width: 74px; 
     height: 36px !important; 
@@ -1220,7 +1211,13 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     box-sizing: border-box; 
 }
 .atem-btn-standard:hover { background: rgba(150,150,150,0.2); color: var(--text); }
-.atem-btn-standard .btn-number { font-size: var(--le-font-size); font-weight: var(--device-font-weight); line-height: 1; font-family: var(--le-font-family); white-space: nowrap; }
+.atem-btn-standard .btn-number { 
+    font-size: var(--le-font-size) !important; 
+    font-weight: var(--device-font-weight) !important; 
+    line-height: 1; 
+    font-family: var(--le-font-family); 
+    white-space: nowrap; 
+}
 
 .atem-btn-standard.btn-muted {
     opacity: 0.35 !important;
@@ -1228,6 +1225,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     cursor: default !important;
 }
 
+/* Tally Active States */
 .atem-btn-standard.tally-red { background: #d32f2f !important; border-color: var(--atem-border) !important; color: #fff !important; box-shadow: none !important; outline: none !important; }
 .atem-btn-standard.tally-green { background: #2e7d32 !important; border-color: var(--atem-border) !important; color: #fff !important; box-shadow: none !important; outline: none !important; }
 .atem-btn-standard.tally-orange { background: #e67e22 !important; border-color: var(--atem-border) !important; color: #fff !important; box-shadow: none !important; outline: none !important; }
@@ -1282,8 +1280,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     box-sizing: border-box;
 }
 
-.aux-source-btn .btn-number { font-size: 11px; }
-
 .atem-bus-grid { 
     display: grid; 
     grid-template-columns: repeat(10, 74px);
@@ -1334,8 +1330,8 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 }
 .rate-display-value {
     color: var(--orange-hl);
-    font-size: 13px;
-    font-weight: 400;
+    font-size: var(--le-font-size);
+    font-weight: var(--device-font-weight);
     font-family: var(--le-font-family);
     line-height: 1;
 }
@@ -1345,8 +1341,8 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     border: none; 
     color: var(--orange-hl); 
     text-align: center; 
-    font-size: 13px; 
-    font-weight: 400; 
+    font-size: var(--le-font-size); 
+    font-weight: var(--device-font-weight); 
     font-family: var(--le-font-family);
     line-height: 1;
     outline: none; 
@@ -1576,14 +1572,14 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 }
 
 [data-enhanced-text="true"] .atem-btn-standard .btn-number {
-    font-size: 15px;
+    font-size: 15px !important;
     font-weight: 700 !important;
     color: #ffffff;
 }
 
 [data-enhanced-text="true"] .rate-display-value,
 [data-enhanced-text="true"] .rate-input-field {
-    font-size: 15px;
+    font-size: 15px !important;
     font-weight: 700 !important;
     color: var(--orange-hl) !important;
 }

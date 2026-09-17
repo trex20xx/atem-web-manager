@@ -1,19 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.74)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.76)
 // =========================================================================
 // Hardware-Locked IP: 192.168.10.240
-// Switcher Button Geometry: 74px x 36px | 4px Padding Symmetry
-// Lifecycle States:
-//   - Disconnected: Muted Standby Mode (uniform 0.35 opacity across all rows,
-//                   pointer-events: none, no buttons lit, no rate values)
-//   - Connected: Active Mode (opacity: 1, pointer-events: auto, live tallies & rates)
-// Keyboard Shortcuts (Active state only):
-//   - Keys 1-9, 0       -> Selects Inputs 1-10 on PREVIEW (Green Tally)
-//   - Shift + 1-9, 0    -> Selects Inputs 1-10 on PROGRAM (Red Tally)
-//   - Space             -> CUT Transition
-//   - Enter             -> AUTO Transition
+// Features 0ms instant optimistic switching, countdown rate frame animations
+// on transition triggers with auto-restore, and unified IN1 typography.
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
@@ -23,7 +15,7 @@ const formatFrames = (frames) => {
     const validFrames = parseInt(frames, 10) || 0;
     const s = Math.floor(validFrames / 25);
     const f = validFrames % 25;
-    return `${s}:${f.toString().padStart(2, '0')}`;
+    return s + ':' + f.toString().padStart(2, '0');
 };
 
 const parseFrames = (str) => {
@@ -155,7 +147,6 @@ const DragRateInput = ({ value, onChange, onCommit, title, disabled, onDoubleCli
 };
 
 const AtemConstellationBus = ({ connectedDevice }) => {
-    // Determine active connection state
     const isPanelActive = Boolean(connectedDevice && connectedDevice.ip === LOCKED_ATEM_IP);
 
     const [isUnlocked, setIsUnlocked] = useState(true);
@@ -178,11 +169,24 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     const [selectedOut, setSelectedOut] = useState(null);
     const [auxSources, setAuxSources] = useState([1, 2, 3, 4, 5, 6]);
 
+    // Store baseline rates to restore after countdown finishes
+    const storedTransRateRef = useRef(25);
+    const storedDskRateRef = useRef(25);
+    const storedFtbRateRef = useRef(25);
+
+    // Active countdown interval timers
+    const transCountdownTimer = useRef(null);
+    const dskCountdownTimer = useRef(null);
+    const ftbCountdownTimer = useRef(null);
+
+    // Optimistic guard timestamps preventing stale packet rubber-banding
+    const optimisticLocks = useRef({ pgm: 0, pvw: 0, aux: {} });
+
     const wsRef = useRef(null);
     const reconnectTimerRef = useRef(null);
 
     const initWebSocket = () => {
-        const wsUrl = `ws://localhost:${BRIDGE_PORT}`;
+        const wsUrl = 'ws://localhost:' + BRIDGE_PORT;
         try {
             wsRef.current = new WebSocket(wsUrl);
 
@@ -194,16 +198,50 @@ const AtemConstellationBus = ({ connectedDevice }) => {
             wsRef.current.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
+                    const now = Date.now();
+
                     if (data.hardwareConnected !== undefined) setBridgeStatus(data.hardwareConnected ? 'linked' : 'standby');
-                    if (data.pgm !== undefined) setPgmInput(Number(data.pgm));
-                    if (data.pvw !== undefined) setPvwInput(Number(data.pvw));
+                    
+                    // Accept hardware updates only if local optimistic lock expired
+                    if (data.pgm !== undefined && now > optimisticLocks.current.pgm) {
+                        setPgmInput(Number(data.pgm));
+                    }
+                    if (data.pvw !== undefined && now > optimisticLocks.current.pvw) {
+                        setPvwInput(Number(data.pvw));
+                    }
                     if (data.inTransition !== undefined) setInTransition(Boolean(data.inTransition));
-                    if (data.transitionRate !== undefined) setTransitionRate(Number(data.transitionRate));
+                    if (data.transitionRate !== undefined && !transCountdownTimer.current) {
+                        setTransitionRate(Number(data.transitionRate));
+                        storedTransRateRef.current = Number(data.transitionRate);
+                    }
                     if (data.transitionSelection !== undefined) setTransitionSelection(Number(data.transitionSelection));
                     if (data.uskOnAir && Array.isArray(data.uskOnAir)) setUskOnAir(data.uskOnAir);
-                    if (data.dsk) setDsk(data.dsk);
-                    if (data.ftb) setFtb(data.ftb);
-                    if (data.auxSources && Array.isArray(data.auxSources)) setAuxSources(data.auxSources.map(Number));
+                    if (data.dsk) {
+                        setDsk(prev => ({
+                            ...prev,
+                            ...data.dsk,
+                            rate: dskCountdownTimer.current ? prev.rate : data.dsk.rate
+                        }));
+                        if (data.dsk.rate !== undefined && !dskCountdownTimer.current) {
+                            storedDskRateRef.current = data.dsk.rate;
+                        }
+                    }
+                    if (data.ftb) {
+                        setFtb(prev => ({
+                            ...prev,
+                            ...data.ftb,
+                            rate: ftbCountdownTimer.current ? prev.rate : data.ftb.rate
+                        }));
+                        if (data.ftb.rate !== undefined && !ftbCountdownTimer.current) {
+                            storedFtbRateRef.current = data.ftb.rate;
+                        }
+                    }
+                    if (data.auxSources && Array.isArray(data.auxSources)) {
+                        setAuxSources(prev => {
+                            const incoming = data.auxSources.map(Number);
+                            return prev.map((curr, idx) => (now < (optimisticLocks.current.aux[idx] || 0) ? curr : incoming[idx]));
+                        });
+                    }
                 } catch (err) {}
             };
 
@@ -232,15 +270,35 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         initWebSocket();
         return () => {
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+            if (transCountdownTimer.current) clearInterval(transCountdownTimer.current);
+            if (dskCountdownTimer.current) clearInterval(dskCountdownTimer.current);
+            if (ftbCountdownTimer.current) clearInterval(ftbCountdownTimer.current);
             if (wsRef.current) {
                 try { wsRef.current.close(); } catch(err) {}
             }
         };
     }, []);
 
-    useEffect(() => { setLocalTransRate(transitionRate); }, [transitionRate]);
-    useEffect(() => { setLocalDskRate(dsk.rate); }, [dsk.rate]);
-    useEffect(() => { setLocalFtbRate(ftb.rate); }, [ftb.rate]);
+    useEffect(() => { 
+        if (!transCountdownTimer.current) {
+            setLocalTransRate(transitionRate);
+            if (transitionRate) storedTransRateRef.current = transitionRate;
+        }
+    }, [transitionRate]);
+
+    useEffect(() => { 
+        if (!dskCountdownTimer.current) {
+            setLocalDskRate(dsk.rate);
+            if (dsk.rate) storedDskRateRef.current = dsk.rate;
+        }
+    }, [dsk.rate]);
+
+    useEffect(() => { 
+        if (!ftbCountdownTimer.current) {
+            setLocalFtbRate(ftb.rate);
+            if (ftb.rate) storedFtbRateRef.current = ftb.rate;
+        }
+    }, [ftb.rate]);
 
     const sendCommand = (action, payload = {}) => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -254,49 +312,121 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         }
     };
 
+    // Transition countdown execution animation engine
+    const triggerRateCountdown = (type) => {
+        if (type === 'TRANS') {
+            if (transCountdownTimer.current) clearInterval(transCountdownTimer.current);
+            const total = storedTransRateRef.current || 25;
+            let current = total;
+            setInTransition(true);
+
+            transCountdownTimer.current = setInterval(() => {
+                current -= 1;
+                if (current <= 0) {
+                    clearInterval(transCountdownTimer.current);
+                    transCountdownTimer.current = null;
+                    setLocalTransRate(total);
+                    setInTransition(false);
+                } else {
+                    setLocalTransRate(current);
+                }
+            }, 40); // 25fps frame rate interval
+        } else if (type === 'DSK') {
+            if (dskCountdownTimer.current) clearInterval(dskCountdownTimer.current);
+            const total = storedDskRateRef.current || 25;
+            let current = total;
+            setDsk(prev => ({ ...prev, inTransition: true }));
+
+            dskCountdownTimer.current = setInterval(() => {
+                current -= 1;
+                if (current <= 0) {
+                    clearInterval(dskCountdownTimer.current);
+                    dskCountdownTimer.current = null;
+                    setLocalDskRate(total);
+                    setDsk(prev => ({ ...prev, inTransition: false }));
+                } else {
+                    setLocalDskRate(current);
+                }
+            }, 40);
+        } else if (type === 'FTB') {
+            if (ftbCountdownTimer.current) clearInterval(ftbCountdownTimer.current);
+            const total = storedFtbRateRef.current || 25;
+            let current = total;
+            setFtb(prev => ({ ...prev, inTransition: true }));
+
+            ftbCountdownTimer.current = setInterval(() => {
+                current -= 1;
+                if (current <= 0) {
+                    clearInterval(ftbCountdownTimer.current);
+                    ftbCountdownTimer.current = null;
+                    setLocalFtbRate(total);
+                    setFtb(prev => ({ ...prev, inTransition: false, isFullyBlack: !prev.isFullyBlack }));
+                } else {
+                    setLocalFtbRate(current);
+                }
+            }, 40);
+        }
+    };
+
     const sendAtemCommand = (commandType, payload = {}) => {
         if (!isPanelActive || !isUnlocked) return;
+        const now = Date.now();
 
         if (commandType === 'SET_PGM') {
             if (selectedOut !== null) {
-                const updated = [...auxSources];
-                updated[selectedOut] = payload.input;
-                setAuxSources(updated);
+                optimisticLocks.current.aux[selectedOut] = now + 450;
+                setAuxSources(prev => {
+                    const updated = [...prev];
+                    updated[selectedOut] = payload.input;
+                    return updated;
+                });
                 sendCommand('SET_AUX', { aux: selectedOut, source: payload.input });
                 return;
             }
+            optimisticLocks.current.pgm = now + 450;
             setPgmInput(payload.input);
             sendCommand('SET_PGM', payload);
             return;
         }
 
         if (commandType === 'SET_PVW') {
+            optimisticLocks.current.pvw = now + 450;
             setPvwInput(payload.input);
             sendCommand('SET_PVW', payload);
             return;
         }
 
         if (commandType === 'CUT') {
-            if (bridgeStatus !== 'linked') {
-                const temp = pgmInput;
-                setPgmInput(pvwInput);
-                setPvwInput(temp);
-            }
+            const temp = pgmInput;
+            setPgmInput(pvwInput);
+            setPvwInput(temp);
+            optimisticLocks.current.pgm = now + 450;
+            optimisticLocks.current.pvw = now + 450;
             sendCommand('CUT');
             return;
         }
 
         if (commandType === 'AUTO') {
-            if (bridgeStatus !== 'linked') {
-                setInTransition(true);
-                setTimeout(() => {
-                    const temp = pgmInput;
-                    setPgmInput(pvwInput);
-                    setPvwInput(temp);
-                    setInTransition(false);
-                }, 600);
-            }
+            triggerRateCountdown('TRANS');
+            const temp = pgmInput;
+            setPgmInput(pvwInput);
+            setPvwInput(temp);
+            optimisticLocks.current.pgm = now + 650;
+            optimisticLocks.current.pvw = now + 650;
             sendCommand('AUTO');
+            return;
+        }
+
+        if (commandType === 'EXECUTE_DSK_AUTO') {
+            triggerRateCountdown('DSK');
+            setDsk(prev => ({ ...prev, onAir: !prev.onAir }));
+            sendCommand('EXECUTE_DSK_AUTO');
+            return;
+        }
+
+        if (commandType === 'EXECUTE_FTB') {
+            triggerRateCountdown('FTB');
+            sendCommand('EXECUTE_FTB');
             return;
         }
 
@@ -308,9 +438,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         sendAtemCommandRef.current = sendAtemCommand;
     });
 
-    // -------------------------------------------------------------------------
-    // KEYBOARD SHORTCUTS ENGINE (Active hardware state only)
-    // -------------------------------------------------------------------------
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (!isPanelActive || !isUnlocked) return;
@@ -363,7 +490,6 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isPanelActive, isUnlocked]);
 
-    // Action Handlers with Instant Optimistic UI Feedback
     const handleTransSelection = (bit) => {
         if (!isPanelActive || !isUnlocked) return;
         const current = transitionSelection !== null ? transitionSelection : 1;
@@ -396,7 +522,18 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
     const handleDskRateChange = (val) => {
         setLocalDskRate(val);
+        storedDskRateRef.current = val;
         setDsk(prev => ({ ...prev, rate: val }));
+    };
+
+    const handleTransRateChange = (val) => {
+        setLocalTransRate(val);
+        storedTransRateRef.current = val;
+    };
+
+    const handleFtbRateChange = (val) => {
+        setLocalFtbRate(val);
+        storedFtbRateRef.current = val;
     };
 
     const inputSources = [
@@ -449,13 +586,13 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                 {/* ROW 1: PROGRAM */}
                 <div className="atem-section-wrapper row-one">
                     <div className="atem-section-header-row">
-                        <span className={`atem-section-title ${isPanelActive && selectedOut !== null ? 'router-label' : ''}`} style={{ opacity: !isUnlocked ? 0.45 : 1, transition: 'opacity 0.25s ease' }}>
-                            {isPanelActive && selectedOut !== null ? `OUTPUT ${selectedOut + 1}` : 'PROGRAM'}
+                        <span className={'atem-section-title ' + (isPanelActive && selectedOut !== null ? 'router-label' : '')} style={{ opacity: !isUnlocked ? 0.45 : 1, transition: 'opacity 0.25s ease' }}>
+                            {isPanelActive && selectedOut !== null ? ('OUTPUT ' + (selectedOut + 1)) : 'PROGRAM'}
                         </span>
                         <div className="atem-bus-status">
-                            <span className={`atem-bus-online-dot ${isPanelActive && bridgeStatus === 'linked' ? 'online' : 'offline'}`} />
+                            <span className={'atem-bus-online-dot ' + (isPanelActive && bridgeStatus === 'linked' ? 'online' : 'offline')} />
                             <span className="atem-bus-ip">{LOCKED_ATEM_IP}</span>
-                            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginLeft: '12px' }} title={isUnlocked ? "Lock Panel" : "Unlock Panel"}>
+                            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginLeft: '12px' }} title={isUnlocked ? 'Lock Panel' : 'Unlock Panel'}>
                                 <input type="checkbox" className="toggle-switch-small" checked={isUnlocked} onChange={() => setIsUnlocked(!isUnlocked)} />
                             </label>
                         </div>
@@ -464,8 +601,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         <div className="atem-bus-grid ten-cols">
                             {inputSources.map((s) => (
                                 <button
-                                    key={`pgm-${s.id}`}
-                                    className={`atem-btn-standard ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
+                                    key={'pgm-' + s.id}
+                                    className={'atem-btn-standard ' + (getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : '')}
                                     onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}
                                 >
                                     <span className="btn-number">{s.label}</span>
@@ -478,8 +615,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                 const isMuted = Boolean(s.isAuxOnly && selectedOut === null);
                                 return (
                                     <button
-                                        key={`pgm-int-${s.id}`}
-                                        className={`atem-btn-standard aux-source-btn ${isMuted ? 'btn-muted' : ''} ${getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : ''}`}
+                                        key={'pgm-int-' + s.id}
+                                        className={'atem-btn-standard ' + (isMuted ? 'btn-muted ' : '') + (getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : '')}
                                         onClick={() => !isMuted && sendAtemCommand('SET_PGM', { input: s.id })}
                                         disabled={isMuted}
                                     >
@@ -507,8 +644,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         <div className="atem-bus-grid ten-cols">
                             {inputSources.map((s) => (
                                 <button
-                                    key={`pvw-${s.id}`}
-                                    className={`atem-btn-standard ${getIsActivePvw(s.id) ? 'tally-green' : ''}`}
+                                    key={'pvw-' + s.id}
+                                    className={'atem-btn-standard ' + (getIsActivePvw(s.id) ? 'tally-green' : '')}
                                     onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}
                                 >
                                     <span className="btn-number">{s.label}</span>
@@ -521,8 +658,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                 const isMuted = Boolean(s.isAuxOnly);
                                 return (
                                     <button
-                                        key={`pvw-int-${s.id}`}
-                                        className={`atem-btn-standard aux-source-btn ${isMuted ? 'btn-muted' : ''} ${getIsActivePvw(s.id) ? 'tally-green' : ''}`}
+                                        key={'pvw-int-' + s.id}
+                                        className={'atem-btn-standard ' + (isMuted ? 'btn-muted ' : '') + (getIsActivePvw(s.id) ? 'tally-green' : '')}
                                         onClick={() => !isMuted && sendAtemCommand('SET_PVW', { input: s.id })}
                                         disabled={isMuted}
                                     >
@@ -545,8 +682,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                 <div className="atem-btn-spacer" />
                                 {[0, 1, 2, 3].map(usk => (
                                     <button 
-                                        key={`usk-${usk}`} 
-                                        className={`atem-btn-standard ${isPanelActive && uskOnAir[usk] ? 'tally-red' : ''}`} 
+                                        key={'usk-' + usk} 
+                                        className={'atem-btn-standard ' + (isPanelActive && uskOnAir[usk] ? 'tally-red' : '')} 
                                         onClick={() => handleUskToggle(usk)}
                                     >
                                         <span className="btn-number">ON AIR</span>
@@ -558,8 +695,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                     const isLit = isPanelActive && transitionSelection !== null && (transitionSelection & bit);
                                     return (
                                         <button 
-                                            key={`trans-${bit}`} 
-                                            className={`atem-btn-standard ${isLit ? 'tally-yellow' : ''}`} 
+                                            key={'trans-' + bit} 
+                                            className={'atem-btn-standard ' + (isLit ? 'tally-yellow' : '')} 
                                             onClick={() => handleTransSelection(bit)}
                                         >
                                             <span className="btn-number">{labels[idx]}</span>
@@ -577,7 +714,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         <div className="atem-section-box">
                             <div className="two-row-grid two-cols">
                                 <button 
-                                    className={`atem-btn-standard ${isPanelActive && dsk.tie ? 'tally-yellow' : ''}`} 
+                                    className={'atem-btn-standard ' + (isPanelActive && dsk.tie ? 'tally-yellow' : '')} 
                                     onClick={handleDskTie}
                                 >
                                     <span className="btn-number">TIE</span>
@@ -593,13 +730,13 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                     }}
                                 />
                                 <button 
-                                    className={`atem-btn-standard ${isPanelActive && dsk.onAir ? 'tally-red' : ''}`} 
+                                    className={'atem-btn-standard ' + (isPanelActive && dsk.onAir ? 'tally-red' : '')} 
                                     onClick={handleDskOnAir}
                                 >
                                     <span className="btn-number">ON AIR</span>
                                 </button>
                                 <button 
-                                    className={`atem-btn-standard ${isPanelActive && dsk.inTransition ? 'tally-orange' : ''}`} 
+                                    className={'atem-btn-standard ' + (isPanelActive && dsk.inTransition ? 'tally-orange' : '')} 
                                     onClick={() => sendAtemCommand('EXECUTE_DSK_AUTO')}>
                                     <span className="btn-number">AUTO</span>
                                 </button>
@@ -616,15 +753,15 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                 <DragRateInput 
                                     value={isPanelActive ? localFtbRate : null} 
                                     disabled={!isPanelActive || !isUnlocked}
-                                    onChange={setLocalFtbRate} 
+                                    onChange={handleFtbRateChange} 
                                     onCommit={(val) => sendAtemCommand('SET_FTB_RATE', { rate: val })} 
                                     onDoubleClick={() => {
-                                        setLocalFtbRate(25);
+                                        handleFtbRateChange(25);
                                         sendAtemCommand('SET_FTB_RATE', { rate: 25 });
                                     }}
                                 />
                                 <button 
-                                    className={`atem-btn-standard ${isPanelActive && ftb.isFullyBlack ? 'tally-red' : (isPanelActive && ftb.inTransition ? 'tally-orange' : '')}`} 
+                                    className={'atem-btn-standard ' + (isPanelActive && ftb.isFullyBlack ? 'tally-red' : (isPanelActive && ftb.inTransition ? 'tally-orange' : ''))} 
                                     onClick={() => sendAtemCommand('EXECUTE_FTB')}
                                 >
                                     <span className="btn-number">FTB</span>
@@ -644,8 +781,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                             <div className="atem-bus-grid six-cols">
                                 {auxOutputsList.map((num, idx) => (
                                     <button 
-                                        key={`out-${num}`} 
-                                        className={`atem-btn-standard ${isPanelActive && selectedOut === idx ? 'out-active' : ''}`} 
+                                        key={'out-' + num} 
+                                        className={'atem-btn-standard ' + (isPanelActive && selectedOut === idx ? 'out-active' : '')} 
                                         onClick={() => setSelectedOut(prev => prev === idx ? null : idx)}
                                     >
                                         <span className="btn-number">OUT {num}</span>
@@ -664,15 +801,15 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                 <DragRateInput 
                                     value={isPanelActive ? localTransRate : null} 
                                     disabled={!isPanelActive || !isUnlocked}
-                                    onChange={setLocalTransRate} 
+                                    onChange={handleTransRateChange} 
                                     onCommit={(val) => sendAtemCommand('SET_TRANSITION_RATE', { rate: val })} 
                                     onDoubleClick={() => {
-                                        setLocalTransRate(25);
+                                        handleTransRateChange(25);
                                         sendAtemCommand('SET_TRANSITION_RATE', { rate: 25 });
                                     }}
                                 />
                                 <button className="atem-btn-standard cut-btn" onClick={() => sendAtemCommand('CUT')}><span className="btn-number">CUT</span></button>
-                                <button className={`atem-btn-standard auto-btn ${isPanelActive && inTransition ? 'trans-active' : ''}`} onClick={() => sendAtemCommand('AUTO')}><span className="btn-number">AUTO</span></button>
+                                <button className={'atem-btn-standard auto-btn ' + (isPanelActive && inTransition ? 'trans-active' : '')} onClick={() => sendAtemCommand('AUTO')}><span className="btn-number">AUTO</span></button>
                             </div>
                         </div>
                     </div>

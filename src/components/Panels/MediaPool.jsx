@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.75)
+// ATEM WEB MANAGER - MEDIA POOL PANEL (v3.76)
 // =========================================================================
-// Hardware-Locked IP: 192.168.10.240
-// Lightweight, zero-latency Media Pool metadata & routing interface.
-// Background UDP picture downloads have been removed to preserve 100% of ATEM
-// network bandwidth for the switcher bus. Displays live slot names, population,
-// flat Material slot-clearing, and concentric MP1/MP2 routing tallies.
+// Features centered slot numbers, colored MP1/MP2 header labels matching tallies,
+// concentric dual-tally nesting with the most recently routed player displayed
+// as the smaller inner tally, and inset flat Material slot clearing.
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
@@ -24,6 +22,7 @@ const MediaPool = ({ connectedDevice }) => {
     ]);
     
     const [selectedMp, setSelectedMp] = useState(null);
+    const [lastAssignedMp, setLastAssignedMp] = useState(2);
 
     const wsRef = useRef(null);
     const reconnectTimerRef = useRef(null);
@@ -100,6 +99,8 @@ const MediaPool = ({ connectedDevice }) => {
     const handleSlotClick = (slotIndex, type) => {
         if (!isPanelActive || !selectedMp) return;
 
+        setLastAssignedMp(selectedMp);
+
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify({
                 action: 'SET_MEDIA_PLAYER_SOURCE',
@@ -123,23 +124,33 @@ const MediaPool = ({ connectedDevice }) => {
         const isMp1 = isPanelActive && mediaPlayers[0] && (type === 'still' ? (mediaPlayers[0].sourceType === 1 && mediaPlayers[0].stillIndex === actualSlotIndex) : (mediaPlayers[0].sourceType === 2 && mediaPlayers[0].clipIndex === actualSlotIndex));
         const isMp2 = isPanelActive && mediaPlayers[1] && (type === 'still' ? (mediaPlayers[1].sourceType === 1 && mediaPlayers[1].stillIndex === actualSlotIndex) : (mediaPlayers[1].sourceType === 2 && mediaPlayers[1].clipIndex === actualSlotIndex));
 
-        let tallyClass = '';
-        if (isMp1 && isMp2) {
-            tallyClass = 'mp-tally-both';
+        const hasBoth = isMp1 && isMp2;
+        let outerTallyClass = '';
+        let innerTallyClass = '';
+
+        if (hasBoth) {
+            if (lastAssignedMp === 1) {
+                outerTallyClass = 'mp-tally-red';
+                innerTallyClass = 'mp-inner-green';
+            } else {
+                outerTallyClass = 'mp-tally-green';
+                innerTallyClass = 'mp-inner-red';
+            }
         } else if (isMp1) {
-            tallyClass = 'mp-tally-green';
+            outerTallyClass = 'mp-tally-green';
         } else if (isMp2) {
-            tallyClass = 'mp-tally-red';
+            outerTallyClass = 'mp-tally-red';
         }
 
         return (
             <div 
-                className={'mp-slot ' + tallyClass}
+                className={'mp-slot ' + outerTallyClass}
                 onClick={() => handleSlotClick(actualSlotIndex, type)}
                 data-description={isPanelActive && (isUsed || displayName) ? (displayName || ('Slot ' + slotNumber)) : undefined}
             >
-                {isMp1 && <div className="mp-badge" style={{ left: '4px' }}>MP1</div>}
-                {isMp2 && <div className="mp-badge" style={{ left: isMp1 ? '38px' : '4px' }}>MP2</div>}
+                {hasBoth && innerTallyClass && (
+                    <div className={'mp-inner-tally ' + innerTallyClass} />
+                )}
 
                 {isPanelActive && type === 'still' && isUsed && (
                     <button 
@@ -152,7 +163,7 @@ const MediaPool = ({ connectedDevice }) => {
                             }
                         }}
                     >
-                        <svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round">
+                        <svg viewBox="0 0 24 24" width="9" height="9" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
@@ -198,13 +209,13 @@ const MediaPool = ({ connectedDevice }) => {
 
                         <div className="macro-actions-group">
                             <button 
-                                className={'macro-action-text-btn ' + (isPanelActive && selectedMp === 1 ? 'active-green' : '')}
+                                className={'macro-action-text-btn mp1-header-btn ' + (isPanelActive && selectedMp === 1 ? 'active' : '')}
                                 onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
                             >
                                 MP1
                             </button>
                             <button 
-                                className={'macro-action-text-btn ' + (isPanelActive && selectedMp === 2 ? 'active-red' : '')}
+                                className={'macro-action-text-btn mp2-header-btn ' + (isPanelActive && selectedMp === 2 ? 'active' : '')}
                                 onClick={() => setSelectedMp(prev => prev === 2 ? null : 2)}
                             >
                                 MP2
@@ -251,13 +262,13 @@ const MediaPool = ({ connectedDevice }) => {
 
                             <div className="macro-actions-group">
                                 <button 
-                                    className={'macro-action-text-btn ' + (isPanelActive && selectedMp === 1 ? 'active-green' : '')}
+                                    className={'macro-action-text-btn mp1-header-btn ' + (isPanelActive && selectedMp === 1 ? 'active' : '')}
                                     onClick={() => setSelectedMp(prev => prev === 1 ? null : 1)}
                                 >
                                     MP1
                                 </button>
                                 <button 
-                                    className={'macro-action-text-btn ' + (isPanelActive && selectedMp === 2 ? 'active-red' : '')}
+                                    className={'macro-action-text-btn mp2-header-btn ' + (isPanelActive && selectedMp === 2 ? 'active' : '')}
                                     onClick={() => setSelectedMp(prev => prev === 2 ? null : 2)}
                                 >
                                     MP2

@@ -1,5 +1,12 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v3.76] - Mixer Rate Countdown, Font Unification & Persistent Console Logs
+- Real-Time Transition Rate Countdown: Triggering AUTO, DSK AUTO, or FTB now smoothly counts down the frame value on the respective rate button in real-time down to 0:00. Once the transition finishes, the display automatically reverts to the original stored rate value.
+- Eradicated Input Switching Latency: Introduced an optimistic 450ms lock guard in AtemConstellationBus.jsx for PGM, PVW, and Aux routing. Intermediate stale WebSocket packets are prevented from overriding user selections before the physical ATEM finishes acknowledging, delivering true 0ms tactile switching.
+- Unified Button Typography: Standardized all switcher button labels (Program, Preview, Internal sources, Keys 1-4, On Air, Tie, Outputs, Cut, Auto, and FTB) to strictly match the exact 13px font size and 400 font weight of the IN1 button.
+- Persistent Console History: Re-architected ConsolePanel.jsx with an external memory ring buffer (retaining up to 300 entries), ensuring bridge log history is never cleared when switching quadrants or assigning different panels.
+
+
 ## [v3.75] - Picture Download Engine Removal & Zero-Latency Mixer Core
 - Completely Removed Picture Download Engine: Purged queueDownloadStill, queueUploadStill, downscaleToThumbnailBmp, encodeBmp, and transfer queue from bridge/server.js. This permanently eliminates UDP port 9910 bandwidth contention and CPU event-loop blocking.
 - Preserved Media Pool Metadata and Routing: Retained authoritative stillPool and clipPool name extraction from atem.state.media so file names and isUsed states remain available for UI tooltips and MP1/MP2 player assignment.
