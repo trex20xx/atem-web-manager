@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.79)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.80)
  * =========================================================================
  */
 
@@ -627,6 +627,33 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .atem-btn { background: var(--atem-hl); border: 1px solid var(--atem-border); color: var(--atem-text); padding: 6px 20px; border-radius: 4px; font-size: 13px; cursor: pointer; transition: background 0.1s; }
 .atem-btn:hover { filter: brightness(1.2); }
 
+/* Apple macOS Slim Overlay Scrollbar */
+.console-body {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(150, 150, 150, 0) transparent;
+    transition: scrollbar-color 0.3s ease;
+}
+.console-body:hover {
+    scrollbar-color: rgba(150, 150, 150, 0.4) transparent;
+}
+.console-body::-webkit-scrollbar {
+    width: 5px;
+}
+.console-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+.console-body::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 10px;
+    transition: background-color 0.3s ease;
+}
+.console-body:hover::-webkit-scrollbar-thumb {
+    background: rgba(150, 150, 150, 0.35);
+}
+.console-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(150, 150, 150, 0.6);
+}
+
 ::-webkit-scrollbar { width:6px; height:6px; }
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:rgba(150,150,150,0); border-radius:4px; transition:background 0.2s; }
@@ -1045,14 +1072,14 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     border-color: var(--red) !important;
 }
 
+/* Action text header buttons */
 .mp1-header-btn {
     color: var(--muted) !important;
     font-weight: 500 !important;
 }
 .mp1-header-btn.active {
-    background: rgba(52, 168, 83, 0.15) !important;
-    border-color: var(--green) !important;
     color: var(--green) !important;
+    font-weight: 700 !important;
 }
 
 .mp2-header-btn {
@@ -1060,9 +1087,8 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     font-weight: 500 !important;
 }
 .mp2-header-btn.active {
-    background: rgba(234, 67, 53, 0.15) !important;
-    border-color: var(--red) !important;
     color: var(--red) !important;
+    font-weight: 700 !important;
 }
 
 .mp-thumb-container {
@@ -1076,7 +1102,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     overflow: hidden;
 }
 
-/* Clean, non-circular slot numbers */
+/* Slot Numbers: Centered without circular ring */
 .mp-slot-number {
     position: absolute;
     z-index: 10;
@@ -1152,6 +1178,13 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .macro-action-text-btn:hover:not(:disabled) {
     color: var(--text);
 }
+
+/* Color states for text buttons */
+.macro-action-text-btn.active-white { color: var(--text) !important; font-weight: 500 !important; }
+.macro-action-text-btn.active-user { color: #3b5f94 !important; font-weight: 500 !important; }
+.macro-action-text-btn.active-atem { color: #d32f2f !important; font-weight: 500 !important; }
+.macro-action-text-btn.active-bridge { color: #e67e22 !important; font-weight: 500 !important; }
+.macro-action-text-btn.active-system { color: #2e7d32 !important; font-weight: 500 !important; }
 
 .macro-action-text-btn.active-orange { color: var(--orange-hl) !important; opacity: 1; font-weight: 400 !important; }
 .macro-action-text-btn.active-green { color: #2e7d32 !important; opacity: 1; font-weight: 400 !important; }
@@ -1368,7 +1401,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 /* =========================================================================
    ATEM MACROS PANEL (QUADRANT 4)
-   ======================================================================== */
+   ========================================================================= */
 
 .macro-section-box {
     background: rgba(0, 0, 0, 0.15);
@@ -1521,26 +1554,13 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .src-bridge { color: #e67e22; }
 .src-system { color: #2e7d32; }
 
-/* Filter Buttons - Text Only, No Pills */
-.console-filter-btn {
-    background: transparent;
-    border: none;
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    padding: 2px 6px;
+.ascii-banner-text {
+    font-family: monospace;
+    white-space: pre-wrap;
     color: var(--muted);
-    transition: color 0.15s ease;
-    text-transform: uppercase;
+    font-size: 10px;
+    line-height: 1.2;
 }
-.console-filter-btn:hover {
-    color: var(--text);
-}
-.console-filter-btn.active-all { color: var(--text) !important; font-weight: 700; }
-.console-filter-btn.active-user { color: #3b5f94 !important; font-weight: 700; }
-.console-filter-btn.active-atem { color: #d32f2f !important; font-weight: 700; }
-.console-filter-btn.active-bridge { color: #e67e22 !important; font-weight: 700; }
-.console-filter-btn.active-system { color: #2e7d32 !important; font-weight: 700; }
 
 /* =========================================================================
    ENHANCED VISIBILITY ACCESSIBILITY MODE (Bigger, Bolder, Brighter)

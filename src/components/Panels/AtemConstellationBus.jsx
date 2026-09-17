@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.77)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.80)
 // =========================================================================
 // Hardware-Locked IP: 192.168.10.240
 // Features 0ms instant optimistic switching across PGM, PVW, Aux, Trans, and Keys,
 // countdown rate frame animations on transition triggers with auto-restore,
-// and unified IN1 typography.
+// and execution rate telemetry logging.
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
@@ -170,21 +170,22 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     const [selectedOut, setSelectedOut] = useState(null);
     const [auxSources, setAuxSources] = useState([1, 2, 3, 4, 5, 6]);
 
-    // Store baseline rates to restore after countdown finishes
     const storedTransRateRef = useRef(25);
     const storedDskRateRef = useRef(25);
     const storedFtbRateRef = useRef(25);
 
-    // Active countdown interval timers
     const transCountdownTimer = useRef(null);
     const dskCountdownTimer = useRef(null);
     const ftbCountdownTimer = useRef(null);
 
-    // Optimistic guard timestamps preventing stale packet rubber-banding across all buttons
     const optimisticLocks = useRef({ pgm: 0, pvw: 0, aux: {}, usk: {}, trans: 0, dskTie: 0, dskOnAir: 0 });
 
     const wsRef = useRef(null);
     const reconnectTimerRef = useRef(null);
+
+    const dispatchSysLog = (msg) => {
+        window.dispatchEvent(new CustomEvent('atem:system-log', { detail: msg }));
+    };
 
     const initWebSocket = () => {
         const wsUrl = 'ws://localhost:' + BRIDGE_PORT;
@@ -324,6 +325,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
             const total = storedTransRateRef.current || 25;
             let current = total;
             setInTransition(true);
+            dispatchSysLog('Auto transition started at rate ' + total + ' frames');
 
             transCountdownTimer.current = setInterval(() => {
                 current -= 1;
@@ -332,6 +334,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                     transCountdownTimer.current = null;
                     setLocalTransRate(total);
                     setInTransition(false);
+                    dispatchSysLog('Auto transition completed');
                 } else {
                     setLocalTransRate(current);
                 }
@@ -341,6 +344,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
             const total = storedDskRateRef.current || 25;
             let current = total;
             setDsk(prev => ({ ...prev, inTransition: true }));
+            dispatchSysLog('DSK 1 Auto transition started at rate ' + total + ' frames');
 
             dskCountdownTimer.current = setInterval(() => {
                 current -= 1;
@@ -349,6 +353,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                     dskCountdownTimer.current = null;
                     setLocalDskRate(total);
                     setDsk(prev => ({ ...prev, inTransition: false }));
+                    dispatchSysLog('DSK 1 Auto transition completed');
                 } else {
                     setLocalDskRate(current);
                 }
@@ -358,6 +363,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
             const total = storedFtbRateRef.current || 25;
             let current = total;
             setFtb(prev => ({ ...prev, inTransition: true }));
+            dispatchSysLog('Fade to Black started at rate ' + total + ' frames');
 
             ftbCountdownTimer.current = setInterval(() => {
                 current -= 1;
@@ -366,6 +372,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                     ftbCountdownTimer.current = null;
                     setLocalFtbRate(total);
                     setFtb(prev => ({ ...prev, inTransition: false, isFullyBlack: !prev.isFullyBlack }));
+                    dispatchSysLog('Fade to Black completed');
                 } else {
                     setLocalFtbRate(current);
                 }
@@ -602,7 +609,16 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                             <span className={'atem-bus-online-dot ' + (isPanelActive && bridgeStatus === 'linked' ? 'online' : 'offline')} />
                             <span className="atem-bus-ip">{LOCKED_ATEM_IP}</span>
                             <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginLeft: '12px' }} title={isUnlocked ? 'Lock Panel' : 'Unlock Panel'}>
-                                <input type="checkbox" className="toggle-switch-small" checked={isUnlocked} onChange={() => setIsUnlocked(!isUnlocked)} />
+                                <input 
+                                    type="checkbox" 
+                                    className="toggle-switch-small" 
+                                    checked={isUnlocked} 
+                                    onChange={() => {
+                                        const next = !isUnlocked;
+                                        setIsUnlocked(next);
+                                        dispatchSysLog('Mixer Panel ' + (next ? 'UNLOCKED' : 'LOCKED'));
+                                    }} 
+                                />
                             </label>
                         </div>
                     </div>
@@ -736,6 +752,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                     onDoubleClick={() => {
                                         handleDskRateChange(25);
                                         sendAtemCommand('SET_DSK_RATE', { rate: 25 });
+                                        dispatchSysLog('DSK 1 Rate reset to 25 frames');
                                     }}
                                 />
                                 <button 
@@ -767,6 +784,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                     onDoubleClick={() => {
                                         handleFtbRateChange(25);
                                         sendAtemCommand('SET_FTB_RATE', { rate: 25 });
+                                        dispatchSysLog('FTB Rate reset to 25 frames');
                                     }}
                                 />
                                 <button 
@@ -792,7 +810,11 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                     <button 
                                         key={'out-' + num} 
                                         className={'atem-btn-standard ' + (isPanelActive && selectedOut === idx ? 'out-active' : '')} 
-                                        onClick={() => setSelectedOut(prev => prev === idx ? null : idx)}
+                                        onClick={() => {
+                                            const nextOut = selectedOut === idx ? null : idx;
+                                            setSelectedOut(nextOut);
+                                            dispatchSysLog('Aux Routing Mode: ' + (nextOut !== null ? ('OUT ' + (nextOut + 1)) : 'OFF'));
+                                        }}
                                     >
                                         <span className="btn-number">OUT {num}</span>
                                     </button>
@@ -815,6 +837,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                     onDoubleClick={() => {
                                         handleTransRateChange(25);
                                         sendAtemCommand('SET_TRANSITION_RATE', { rate: 25 });
+                                        dispatchSysLog('Transition Rate reset to 25 frames');
                                     }}
                                 />
                                 <button className="atem-btn-standard cut-btn" onClick={() => sendAtemCommand('CUT')}><span className="btn-number">CUT</span></button>

@@ -1,60 +1,86 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { APP_VERSION } from '../../version';
 
 // =========================================================================
-// ATEM WEB MANAGER - CONSOLE PANEL (v3.78)
+// ATEM WEB MANAGER - CONSOLE PANEL (v3.80)
 // =========================================================================
-// Features persistent module-level log buffering to ensure historical entries
-// are never purged when swapping quadrant assignments. 
-// Includes an inline sliding multi-source filter tray (USER, ATEM, BRIDGE, SYSTEM)
-// and strict color mapping to mute visual noise while preserving hierarchy.
+// Features clean text-only filter buttons (no pills), standard theme colors,
+// active device isolation, duplicate log filtering, ASCII art standby screen,
+// macOS slim overlay scrollbar, and ATEM_WEB_MANAGER_%DATE%_%TIME%.txt exports.
 
 let globalBridgeLogs = [];
-const MAX_LOG_HISTORY = 350;
+const MAX_LOG_HISTORY = 400;
 
-const ConsolePanel = () => {
+const asciiBanner = 
+"   ___  ________________  __   _      __________     __  _____   _  _____  ________________ \n" +
+"  / _ |/_  __/ __/ __/  |/  / | | /| / / __/ _ )    /  |/  / _ | / |/ / _ |/ ___/ __/ _  \\\n" +
+" / __ | / / / _// _// /|_/ /  | |/ |/ / _// _  |   / /|_/ / __ |/    / __ / (_ / _// , _/ \n" +
+"/_/ |_|/_/ /___/___/_/  /_/   |__/|__/___/____/  /_/  /_/_/ |_/_/|_/_/ |_\\___/___/_/|_|  \n" +
+"\n" +
+"                       V E R S I O N   " + APP_VERSION + "\n";
+
+const ConsolePanel = ({ activeDeviceIp = '192.168.10.240', isConnected = false }) => {
     const [logs, setLogs] = useState(() => [...globalBridgeLogs]);
-    const [filters, setFilters] = useState({ USER: true, ATEM: true, BRIDGE: true, SYSTEM: true });
-    const [filtersOpen, setFiltersOpen] = useState(false);
+    const [showAllDevices, setShowAllDevices] = useState(false);
+    const [filters, setFilters] = useState({ 
+        USER: true, 
+        ATEM: true, 
+        BRIDGE: true, 
+        SYSTEM: true 
+    });
     
     const endRef = useRef(null);
     const bodyRef = useRef(null);
+    const wsRef = useRef(null);
 
     useEffect(() => {
-        const ws = new WebSocket('ws://localhost:8080');
+        if (globalBridgeLogs.length === 0) {
+            globalBridgeLogs.push({
+                type: 'LOG',
+                level: 'info',
+                source: 'SYSTEM',
+                ip: 'SYSTEM',
+                message: asciiBanner,
+                timestamp: Date.now()
+            });
+            setLogs([...globalBridgeLogs]);
+        }
+
+        const wsUrl = 'ws://localhost:8080';
+        wsRef.current = new WebSocket(wsUrl);
         
-        ws.onmessage = (e) => {
+        wsRef.current.onmessage = (e) => {
             try {
                 const data = JSON.parse(e.data);
                 if (data.type === 'LOG') {
-                    // Fallback to BRIDGE if source is somehow missing
                     const src = data.source || 'BRIDGE';
-                    const enriched = { ...data, source: src };
-                    globalBridgeLogs.push(enriched);
-                    if (globalBridgeLogs.length > MAX_LOG_HISTORY) {
-                        globalBridgeLogs.shift();
+                    const enriched = { 
+                        ...data, 
+                        source: src, 
+                        ip: data.ip || (src === 'SYSTEM' ? 'SYSTEM' : '192.168.10.240') 
+                    };
+
+                    // Sliding window duplicate suppression (250ms threshold)
+                    const lastLog = globalBridgeLogs[globalBridgeLogs.length - 1];
+                    const isDuplicate = lastLog && 
+                        lastLog.source === enriched.source && 
+                        lastLog.message === enriched.message && 
+                        (enriched.timestamp - lastLog.timestamp) < 250;
+
+                    if (!isDuplicate) {
+                        globalBridgeLogs.push(enriched);
+                        if (globalBridgeLogs.length > MAX_LOG_HISTORY) {
+                            globalBridgeLogs.shift();
+                        }
+                        setLogs([...globalBridgeLogs]);
                     }
-                    setLogs([...globalBridgeLogs]);
                 }
             } catch (err) {}
         };
 
         const handleSysLog = (e) => {
-            const data = {
-                type: 'LOG',
-                level: 'info',
-                source: 'SYSTEM',
-                message: e.detail,
-                timestamp: Date.now()
-            };
-            globalBridgeLogs.push(data);
-            if (globalBridgeLogs.length > MAX_LOG_HISTORY) {
-                globalBridgeLogs.shift();
-            }
-            setLogs([...globalBridgeLogs]);
-            
-            // Forward to bridge so all clients sync
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ action: 'SYSTEM_LOG', message: e.detail }));
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({ action: 'SYSTEM_LOG', message: e.detail }));
             }
         };
 
@@ -62,58 +88,114 @@ const ConsolePanel = () => {
 
         return () => {
             window.removeEventListener('atem:system-log', handleSysLog);
-            ws.close();
+            if (wsRef.current) wsRef.current.close();
         };
     }, []);
 
     useEffect(() => {
-        if (endRef.current) {
+        if (endRef.current && isConnected) {
             endRef.current.scrollIntoView({ behavior: 'smooth' });
         }
-    }, [logs]);
+    }, [logs, isConnected]);
 
     const toggleFilter = (f) => {
         setFilters(prev => ({ ...prev, [f]: !prev[f] }));
     };
 
-    const visibleLogs = logs.filter(log => filters[log.source]);
+    const currentIp = activeDeviceIp || '192.168.10.240';
+    
+    const visibleLogs = logs.filter(log => {
+        if (!showAllDevices && log.source !== 'SYSTEM') {
+            if (log.ip && log.ip !== 'SYSTEM' && log.ip !== currentIp) {
+                return false;
+            }
+        }
+        return filters[log.source];
+    });
 
     const handleExport = () => {
         const textContent = visibleLogs.map(log => {
             const timeStr = new Date(log.timestamp).toISOString().split('T')[1].slice(0, -1);
-            return `[${timeStr}] [${log.source}] ${log.message}`;
+            return '[' + timeStr + '] [' + log.source + '] ' + log.message;
         }).join('\r\n');
+
+        const pad = (n) => String(n).padStart(2, '0');
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = pad(now.getMonth() + 1);
+        const dd = pad(now.getDate());
+        const hh = pad(now.getHours());
+        const min = pad(now.getMinutes());
+        const ss = pad(now.getSeconds());
+        const timestampStr = yyyy + '-' + mm + '-' + dd + '_' + hh + '-' + min + '-' + ss;
 
         const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.download = `atem-bridge-logs-${Date.now()}.txt`;
+        link.download = 'ATEM_WEB_MANAGER_' + timestampStr + '.txt';
         link.href = url;
         link.click();
         URL.revokeObjectURL(url);
     };
+
+    // Before connecting to hardware, display ONLY the ASCII banner
+    if (!isConnected) {
+        return (
+            <div className="quadrant-master-panel">
+                <div className="panel-layout-frame" style={{ justifyContent: 'flex-start' }}>
+                    <div className="macro-compact-header-row">
+                        <span className="atem-section-title">CONSOLE</span>
+                    </div>
+                    <div className="macro-section-box" style={{ flex: 1, minHeight: 0, padding: '8px' }}>
+                        <div className="console-body" style={{ height: '360px', overflowY: 'auto' }}>
+                            <div className="log-line">
+                                <span className="log-msg ascii-banner-text">{asciiBanner}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="quadrant-master-panel">
             <div className="panel-layout-frame" style={{ justifyContent: 'flex-start' }}>
                 <div className="macro-compact-header-row">
                     <div className="macro-title-group">
-                        <span className="atem-section-title">BRIDGE CONSOLE</span>
+                        <span className="atem-section-title">CONSOLE</span>
                     </div>
-                    <div className="macro-actions-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div className={`console-filter-tray ${filtersOpen ? 'open' : ''}`}>
-                            {['USER', 'ATEM', 'BRIDGE', 'SYSTEM'].map(src => (
-                                <button 
-                                    key={src} 
-                                    className={`filter-tag ${filters[src] ? 'active' : ''} tag-${src.toLowerCase()}`} 
-                                    onClick={() => toggleFilter(src)}
-                                >
-                                    {src}
-                                </button>
-                            ))}
-                        </div>
-                        <button className={`macro-action-text-btn ${filtersOpen ? 'active-orange' : ''}`} onClick={() => setFiltersOpen(!filtersOpen)}>
-                            FILTER
+                    <div className="macro-actions-group">
+                        <button 
+                            className={'macro-action-text-btn ' + (showAllDevices ? 'active-white' : '')} 
+                            onClick={() => setShowAllDevices(prev => !prev)}
+                            title="Toggle between filtering to current active device or all devices"
+                        >
+                            {showAllDevices ? 'ALL DEVICES' : 'CURRENT'}
+                        </button>
+                        <button 
+                            className={'macro-action-text-btn ' + (filters.USER ? 'active-user' : '')} 
+                            onClick={() => toggleFilter('USER')}
+                        >
+                            USER
+                        </button>
+                        <button 
+                            className={'macro-action-text-btn ' + (filters.ATEM ? 'active-atem' : '')} 
+                            onClick={() => toggleFilter('ATEM')}
+                        >
+                            ATEM
+                        </button>
+                        <button 
+                            className={'macro-action-text-btn ' + (filters.BRIDGE ? 'active-bridge' : '')} 
+                            onClick={() => toggleFilter('BRIDGE')}
+                        >
+                            BRIDGE
+                        </button>
+                        <button 
+                            className={'macro-action-text-btn ' + (filters.SYSTEM ? 'active-system' : '')} 
+                            onClick={() => toggleFilter('SYSTEM')}
+                        >
+                            SYSTEM
                         </button>
                         <button className="macro-action-text-btn" onClick={handleExport}>
                             EXPORT
@@ -124,11 +206,11 @@ const ConsolePanel = () => {
                     <div className="console-body" ref={bodyRef} style={{ height: '360px', overflowY: 'auto' }}>
                         {visibleLogs.map((log, i) => {
                             const time = new Date(log.timestamp).toISOString().split('T')[1].slice(0, -1);
-                            const srcClass = `src-${log.source.toLowerCase()}`;
+                            const srcClass = 'src-' + log.source.toLowerCase();
                             return (
                                 <div key={i} className="log-line">
-                                    <span className="log-time">[{time}]</span>
-                                    <span className={`log-source ${srcClass}`}>[{log.source}]</span>
+                                    <span className="log-time">{'[' + time + ']'}</span>
+                                    <span className={'log-source ' + srcClass}>{'[' + log.source + ']'}</span>
                                     <span className="log-msg">{log.message}</span>
                                 </div>
                             );

@@ -1,5 +1,15 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v3.80] - Console Design Polish, Device Filtering, ASCII Standby & Friendly Logging
+- Console Header Restyling: Changed title to CONSOLE. Completely removed the sliding tray and pill backgrounds. Filters (CURRENT/ALL, USER, ATEM, BRIDGE, SYSTEM, EXPORT) are now plain text buttons sharing exact typography and spacing with the Media Pool and Macros headers.
+- Standardized Non-Neon Color Palette: Filter text and log tags use the core application colors: Pastel Blue (#3b5f94) for USER, Tally Red (#d32f2f) for ATEM, Tally Orange (#e67e22) for BRIDGE, and Tally Green (#2e7d32) for SYSTEM. Inactive buttons rest in muted grey.
+- Disconnected ASCII Standby Mode: When disconnected from hardware, the console displays exclusively the clean ASCII artwork banner with version info. Live log streaming engages upon device connection.
+- Active Device vs All Devices Filtering: Introduced CURRENT / ALL DEVICES toggle. CURRENT filters telemetry to the active sidebar device IP plus universal SYSTEM logs. Exporting generates ATEM_WEB_MANAGER_YYYY-MM-DD_HH-MM-SS.txt containing only logs matching the active filter.
+- Duplicate Command Suppression: Built a sliding 250ms window deduplication filter in ConsolePanel.jsx to eliminate double-logging of system and playback events.
+- Apple macOS Overlay Scrollbar: Applied slim 5px rounded overlay scrollbar styling to the console body, completely invisible until hovered or scrolled.
+- Friendly Input & Aux Telemetry: Updated bridge/server.js to translate raw IDs into plain-English labels (e.g., Input 1, Black (BLK), Color Bars (BARS), Color 1/2, Media Player 1/2, Preview/Program) and log rate values on execution.
+
+
 ## [v3.79] - Console Redesign, Per-Device Logging, ASCII Art & Universal Telemetry
 - Console UI Overhaul: Removed the "FILTER" button, sliding tray, and pill background overlays. Filter toggles (ALL DEVICES, USER, ATEM, BRIDGE, SYSTEM) are now permanently inline text buttons styled with the standard application palette (Pastel Blue for USER, standard Red/Orange/Green for ATEM/BRIDGE/SYSTEM).
 - Title Simplification: Renamed the panel from "BRIDGE CONSOLE" to simply "CONSOLE" for minimalism.

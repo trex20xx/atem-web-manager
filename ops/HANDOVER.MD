@@ -1,5 +1,5 @@
 # ATEM WEB MANAGER - AI HANDOVER SPECIFICATION
-Current Application Version: v3.79
+Current Application Version: v3.80
 
 This document serves as the master architectural memory bank for the ATEM Web Manager. It must be provided as the primary source of truth to any incoming AI assistant initializing a new session. It defines the application state, structural invariants, execution context, and operational protocols.
 
@@ -53,7 +53,7 @@ The workspace relies on a robust pair of cross-platform CLI tools: OPS.BAT for W
 ### Menu Pathways
 - [1] RUN & EVALUATE: Installs dependencies, cleans ports (8080/3000), bootstraps WOFF2 fonts, merges changelogs, serializes codebase.txt, starts the Node.js bridge silently in the background, and boots Vite. Upon Vite termination, intercepts control directly into GitHub Operations.
 - [2] GITHUB OPERATIONS (TRUNK-BASED): Access point for all Git tasks. [1] MERGE TO MAIN utilizes a Trunk-Based approach:
-  - If executed from main, it directly commits, pushes (using explicit refs/heads/ and refs/tags/), and then tags a historical marker branch (e.g. v3.79), leaving the workspace cleanly on main.
+  - If executed from main, it directly commits, pushes (using explicit refs/heads/ and refs/tags/), and then tags a historical marker branch (e.g. v3.80), leaving the workspace cleanly on main.
   - If executed from a feature branch, it updates the branch, checks out main, merges the branch in, tags it, pushes, and then returns the operator back to the feature branch.
 - [3] WIPE & RE-CLONE: Requires the .atem_workspace_token with the secure key ATEM_MANAGER_SECURE_WIPE_KEY_2026. Triggers a detached ghost script to terminate locks, delete the root folder, and re-clone the repo dynamically to cure corrupt states.
 - [4] EXPORT CODEBASE: Manually serializes all JS, JSX, CSS, and configuration files into codebase.txt for AI prompt ingestion.
@@ -65,20 +65,15 @@ The workspace relies on a robust pair of cross-platform CLI tools: OPS.BAT for W
 
 ---
 
-## 4. CURRENT FEATURES & RECENT UPGRADES (v3.79)
+## 4. CURRENT FEATURES & RECENT UPGRADES (v3.80)
 
-- Console UI Overhaul: Removed the sliding tray, filter toggle button, and pill background overlays. Filter buttons (ALL, USER, ATEM, BRIDGE, SYSTEM) are now permanently visible inline text buttons styled with the broadcast theme palette:
-  - USER: Pastel Blue (#3b5f94, matching sidebar device rows)
-  - ATEM: Red (#d32f2f, matching tally red)
-  - BRIDGE: Orange (#e67e22, matching aux/tally orange)
-  - SYSTEM: Green (#2e7d32, matching tally green)
-  - ALL: White / Active Text (var(--text))
-- Console Title: Simplified title from 'BRIDGE CONSOLE' to 'CONSOLE'.
-- Per-Device Log Filtering: ConsolePanel.jsx ingests activeDeviceIp forwarded from App.jsx through QuadrantGrid and Panel. When ALL is toggled off, logs are isolated to the active device IP while keeping SYSTEM logs universally visible.
-- Duplicate Log Fix: Resolved duplicate SYSTEM logging by strictly decoupling local event dispatching from WebSocket broadcast reflection.
-- ASCII Art Startup Banner: Initializing the console renders a clean ATEM WEB MANAGER ASCII text logo with the active version string.
-- Export Filename: Exports generate files named ATEM_WEB_MANAGER_YYYY-MM-DD_HH-MM-SS.txt containing only logs visible under the current active filter state.
-- Universal System Telemetry: Injected dispatchSysLog across App.jsx, Player.jsx, and AtemConstellationBus.jsx, capturing UI events (Sidebar toggles, Theme changes, Settings adjustments, Fullscreen, Video connections, Snapshots, and Panel Locks).
+- Console Redesign & Simplified Title: Title simplified to CONSOLE. All filter buttons (ALL/CURRENT, USER, ATEM, BRIDGE, SYSTEM, EXPORT) are plain text matching other headers (no pills, no sliding tray).
+- Broadcast Non-Neon Palette: Uses theme colors across buttons and log streams: Pastel Blue (#3b5f94) for USER, Tally Red (#d32f2f) for ATEM, Tally Orange (#e67e22) for BRIDGE, and Tally Green (#2e7d32) for SYSTEM. Inactive buttons rest in muted grey.
+- Disconnected ASCII Standby Mode: When disconnected from hardware, the console displays exclusively the clean ASCII artwork banner with version info. Live log streaming engages upon device connection.
+- Active Device vs All Devices Filtering: CURRENT isolates telemetry to the active sidebar device IP plus universal SYSTEM logs. ALL DEVICES displays the full stream. Exporting generates ATEM_WEB_MANAGER_YYYY-MM-DD_HH-MM-SS.txt containing only logs matching the active filter.
+- Duplicate Command Suppression: Built a sliding 250ms window deduplication filter in ConsolePanel.jsx to eliminate double-logging of system and playback events.
+- Apple macOS Overlay Scrollbar: Applied slim 5px rounded overlay scrollbar styling to the console body, completely invisible until hovered or scrolled.
+- Friendly Input & Aux Telemetry: Updated bridge/server.js to translate raw IDs into plain-English labels (e.g., Input 1, Black (BLK), Color Bars (BARS), Color 1/2, Media Player 1/2, Preview/Program) and log rate values on execution.
 - Zero-Latency Mixer Core: Completely stripped background thumbnail download queues and bitmap decimation loops from bridge/server.js and MediaPool.jsx. All UDP port 9910 bandwidth and the Node.js event loop are dedicated 100% to switcher cut/bus commands.
 - Mixer Optimistic Locks: 450ms optimistic state guards in AtemConstellationBus.jsx cover PGM, PVW, AUX, KEY 1-4, USK ON AIR, DSK TIE, and DSK ON AIR, ensuring zero rubber-banding or state reversions during rapid switching.
 - Transition Rate Countdown: Triggering AUTO, DSK AUTO, or FTB counts down the frame value on the respective rate button in real-time down to 0:00, then automatically reverts to the original stored rate value.

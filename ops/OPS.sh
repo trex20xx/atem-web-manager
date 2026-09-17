@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # =============================================================================
-# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS/Linux) (v3.77)
+# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS/Linux) (v3.80)
 # =============================================================================
 # This CLI manages the end-to-end development lifecycle:
 # 1. Self-contained Node.js runtime resolution and integrity verification.
@@ -181,7 +181,7 @@ resolve_commit_msg() {
     
     DETECTED_VER=$(grep -oE 'v[0-9]+\.[0-9]+' src/version.js | head -n 1)
     if [ -z "$DETECTED_VER" ]; then
-        DETECTED_VER="v3.77"
+        DETECTED_VER="v3.80"
     fi
 
     if [ ! -f "$DESC_FILE" ]; then
@@ -205,7 +205,7 @@ resolve_commit_msg() {
         echo "  src/version.js:      $DETECTED_VER"
         echo "-----------------------------------------------------------------"
         echo "  [1] Enter commit description manually"
-        echo "  [2] Abort to download/replace ops/DESCRIPTOR.txt"
+        echo "  [2] Abort to download/replace ops\DESCRIPTOR.txt"
         echo "-----------------------------------------------------------------"
         read -p " Select (1-2, or Enter to abort): " MISMATCH_CHOICE
         if [ "$MISMATCH_CHOICE" == "1" ]; then
@@ -463,7 +463,7 @@ EOF
 while true; do
     clear
     echo "-----------------------------------------------------------------"
-    echo "           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.77)       "
+    echo "           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.80)       "
     echo "-----------------------------------------------------------------"
     echo "  [1] RUN & EVALUATE     (Vite + Daemon, Auto-Export & Evaluation)"
     echo "  [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)"
