@@ -30,15 +30,12 @@ const DragRateInput = ({ value, onChange, onCommit, title, disabled, onReset }) 
         e.preventDefault();
         e.stopPropagation();
 
-        // Middle Click (Button 1) Reset
         if (e.button === 1) {
             if (onReset) onReset();
             return;
         }
-
         if (e.button !== 0) return;
 
-        // Double Click Detection
         const now = Date.now();
         if (now - lastClickTimeRef.current < 350) {
             if (onReset) onReset();
@@ -68,7 +65,6 @@ const DragRateInput = ({ value, onChange, onCommit, title, disabled, onReset }) 
                     if (newVal !== currentValRef.current) {
                         currentValRef.current = newVal;
                         onChange(newVal);
-                        if (onCommit) onCommit(newVal);
                     }
                     startYRef.current -= (step * 2);
                 }
@@ -93,7 +89,7 @@ const DragRateInput = ({ value, onChange, onCommit, title, disabled, onReset }) 
     return (
         <div 
             className="rate-box-button" 
-            title={title + " (Drag up/down, Double-Click or Middle-Click to reset)"} 
+            title={title + " (Drag up/down, Double-Click/Middle-Click to reset)"} 
             onMouseDown={disabled || value == null ? undefined : handleMouseDown}
             style={{ userSelect: 'none', WebkitUserSelect: 'none', cursor: disabled ? 'default' : 'ns-resize' }}
         >
@@ -111,460 +107,111 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
     const [pgmInput, setPgmInput] = useState(null);
     const [pvwInput, setPvwInput] = useState(null);
     const [inTransition, setInTransition] = useState(false);
-    const [bridgeStatus, setBridgeStatus] = useState('connecting');
     const [activityFlash, setActivityFlash] = useState(false);
 
     const [transitionRate, setTransitionRate] = useState(null);
-    const [transitionSelection, setTransitionSelection] = useState(null);
+    const [transitionSelection, setTransitionSelection] = useState(1);
     const [uskOnAir, setUskOnAir] = useState([false, false, false, false]);
 
     const [dsk, setDsk] = useState({ onAir: false, inTransition: false, autoOnAir: false, tie: false, rate: null });
     const [ftb, setFtb] = useState({ inTransition: false, isFullyBlack: false, rate: null });
 
-    const [localTransRate, setLocalTransRate] = useState(null);
-    const [localDskRate, setLocalDskRate] = useState(null);
-    const [localFtbRate, setLocalFtbRate] = useState(null);
-
     const [selectedOut, setSelectedOut] = useState(null);
     const [auxSources, setAuxSources] = useState([1, 2, 3, 4, 5, 6]);
     
     // T-Bar visual state
-    const [tbarVal, setTbarVal] = useState(0); // 0 to 100 percentage
-    const tbarDirectionRef = useRef(1); // 1 = down, -1 = up
+    const [tbarVal, setTbarVal] = useState(0); 
+    const [tbarStartEnd, setTbarStartEnd] = useState('top'); 
 
-    const storedTransRateRef = useRef(25);
-    const storedDskRateRef = useRef(25);
-    const storedFtbRateRef = useRef(25);
-
-    const transCountdownTimer = useRef(null);
-    const dskCountdownTimer = useRef(null);
-    const ftbCountdownTimer = useRef(null);
-
-    const optimisticLocks = useRef({ pgm: 0, pvw: 0, aux: {}, usk: {}, trans: 0, dskTie: 0, dskOnAir: 0, tbar: 0 });
     const flashTimerRef = useRef(null);
-
     const wsRef = useRef(null);
-    const reconnectTimerRef = useRef(null);
 
     const dispatchSysLog = (msg) => {
         window.dispatchEvent(new CustomEvent('atem:system-log', { detail: msg }));
     };
 
     const triggerActivityFlash = () => {
-        if (!isPanelActive || bridgeStatus !== 'linked') return;
+        if (!isPanelActive) return;
         setActivityFlash(true);
         if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-        flashTimerRef.current = setTimeout(() => {
-            setActivityFlash(false);
-        }, 120);
+        flashTimerRef.current = setTimeout(() => setActivityFlash(false), 120);
     };
 
-    const initWebSocket = () => {
+    useEffect(() => {
         const wsUrl = 'ws://localhost:' + BRIDGE_PORT;
         try {
             wsRef.current = new WebSocket(wsUrl);
-
             wsRef.current.onopen = () => {
-                setBridgeStatus('standby');
-                wsRef.current.send(JSON.stringify({ action: 'CONNECT', ip: LOCKED_ATEM_IP }));
                 wsRef.current.send(JSON.stringify({ action: 'GET_STATE', ip: LOCKED_ATEM_IP }));
             };
-
             wsRef.current.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    const now = Date.now();
-
-                    if (data.hardwareConnected !== undefined) setBridgeStatus(data.hardwareConnected ? 'linked' : 'standby');
                     
-                    if (data.pgm !== undefined || data.pvw !== undefined || data.auxSources) {
+                    if (data.pgm !== undefined || data.pvw !== undefined) {
                         triggerActivityFlash();
                     }
 
-                    if (data.pgm !== undefined && now > optimisticLocks.current.pgm) {
-                        setPgmInput(Number(data.pgm));
-                    }
-                    if (data.pvw !== undefined && now > optimisticLocks.current.pvw) {
-                        setPvwInput(Number(data.pvw));
-                    }
+                    if (data.pgm !== undefined) setPgmInput(Number(data.pgm));
+                    if (data.pvw !== undefined) setPvwInput(Number(data.pvw));
                     
-                    // Hardware T-Bar tracking
-                    if (data.inTransition !== undefined) {
-                        if (data.inTransition === false && data.transitionPosition === 0) {
-                            if (tbarVal > 50) {
-                                setTbarVal(100);
-                                tbarDirectionRef.current = -1;
-                            } else {
-                                setTbarVal(0);
-                                tbarDirectionRef.current = 1;
-                            }
+                    if (data.inTransition !== undefined) setInTransition(Boolean(data.inTransition));
+                    if (data.transitionPosition !== undefined) {
+                        const rawPos = Number(data.transitionPosition);
+                        if (rawPos === 0 && inTransition) {
+                            // Hardware reached end of transition
+                            setTbarVal(0);
+                            setTbarStartEnd(tbarStartEnd === 'top' ? 'bottom' : 'top');
+                        } else {
+                            const atemPos = rawPos / 100;
+                            setTbarVal(tbarStartEnd === 'top' ? atemPos : 100 - atemPos);
                         }
-                        setInTransition(Boolean(data.inTransition));
                     }
 
-                    if (data.transitionPosition !== undefined && data.inTransition && now > optimisticLocks.current.tbar) {
-                        const atemPos = Number(data.transitionPosition) / 100;
-                        setTbarVal(tbarDirectionRef.current === 1 ? atemPos : 100 - atemPos);
-                    }
+                    if (data.transitionRate !== undefined) setTransitionRate(Number(data.transitionRate));
+                    if (data.transitionSelection !== undefined) setTransitionSelection(Number(data.transitionSelection));
+                    if (data.uskOnAir) setUskOnAir(data.uskOnAir);
+                    
+                    if (data.dsk) setDsk(prev => ({ ...prev, ...data.dsk }));
+                    if (data.ftb) setFtb(prev => ({ ...prev, ...data.ftb }));
+                    if (data.auxSources) setAuxSources(data.auxSources);
 
-                    if (data.transitionRate !== undefined && !transCountdownTimer.current) {
-                        setTransitionRate(Number(data.transitionRate));
-                        storedTransRateRef.current = Number(data.transitionRate);
-                    }
-                    if (data.transitionSelection !== undefined && now > optimisticLocks.current.trans) {
-                        setTransitionSelection(Number(data.transitionSelection));
-                    }
-                    if (data.uskOnAir && Array.isArray(data.uskOnAir)) {
-                        setUskOnAir(prev => data.uskOnAir.map((v, i) => now < (optimisticLocks.current.usk[i] || 0) ? prev[i] : v));
-                    }
-                    if (data.dsk) {
-                        setDsk(prev => ({
-                            ...prev,
-                            ...data.dsk,
-                            tie: now < optimisticLocks.current.dskTie ? prev.tie : data.dsk.tie,
-                            onAir: now < optimisticLocks.current.dskOnAir ? prev.onAir : data.dsk.onAir,
-                            rate: dskCountdownTimer.current ? prev.rate : (data.dsk.rate !== undefined ? data.dsk.rate : prev.rate)
-                        }));
-                        if (data.dsk.rate !== undefined && !dskCountdownTimer.current) {
-                            storedDskRateRef.current = data.dsk.rate;
-                        }
-                    }
-                    if (data.ftb) {
-                        setFtb(prev => ({
-                            ...prev,
-                            ...data.ftb,
-                            rate: ftbCountdownTimer.current ? prev.rate : (data.ftb.rate !== undefined ? data.ftb.rate : prev.rate)
-                        }));
-                        if (data.ftb.rate !== undefined && !ftbCountdownTimer.current) {
-                            storedFtbRateRef.current = data.ftb.rate;
-                        }
-                    }
-                    if (data.auxSources && Array.isArray(data.auxSources)) {
-                        const incoming = data.auxSources.map(Number);
-                        setAuxSources(prev => {
-                            return incoming.map((val, idx) => {
-                                if (now < (optimisticLocks.current.aux[idx] || 0)) {
-                                    return prev[idx];
-                                }
-                                return val;
-                            });
-                        });
-                    }
                 } catch (err) {}
             };
+        } catch (e) {}
 
-            wsRef.current.onerror = () => setBridgeStatus('offline');
-            wsRef.current.onclose = () => {
-                setBridgeStatus('offline');
-                if (!reconnectTimerRef.current) {
-                    reconnectTimerRef.current = setTimeout(() => {
-                        reconnectTimerRef.current = null;
-                        initWebSocket();
-                    }, 2500);
-                }
-            };
-        } catch (e) {
-            setBridgeStatus('offline');
-            if (!reconnectTimerRef.current) {
-                reconnectTimerRef.current = setTimeout(() => {
-                    reconnectTimerRef.current = null;
-                    initWebSocket();
-                }, 2500);
-            }
-        }
-    };
-
-    useEffect(() => {
-        initWebSocket();
         return () => {
-            if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
             if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-            if (transCountdownTimer.current) clearInterval(transCountdownTimer.current);
-            if (dskCountdownTimer.current) clearInterval(dskCountdownTimer.current);
-            if (ftbCountdownTimer.current) clearInterval(ftbCountdownTimer.current);
-            if (wsRef.current) {
-                try { wsRef.current.close(); } catch(err) {}
-            }
+            if (wsRef.current) wsRef.current.close();
         };
-    }, []);
-
-    useEffect(() => { 
-        if (!transCountdownTimer.current) {
-            setLocalTransRate(transitionRate);
-            if (transitionRate) storedTransRateRef.current = transitionRate;
-        }
-    }, [transitionRate]);
-
-    useEffect(() => { 
-        if (!dskCountdownTimer.current) {
-            setLocalDskRate(dsk.rate);
-            if (dsk.rate) storedDskRateRef.current = dsk.rate;
-        }
-    }, [dsk.rate]);
-
-    useEffect(() => { 
-        if (!ftbCountdownTimer.current) {
-            setLocalFtbRate(ftb.rate);
-            if (ftb.rate) storedFtbRateRef.current = ftb.rate;
-        }
-    }, [ftb.rate]);
+    }, [isPanelActive]); // Restart socket if connection status changes to fetch state cleanly
 
     const sendCommand = (action, payload = {}) => {
+        if (!isPanelActive || !isUnlocked) return;
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            try {
-                wsRef.current.send(JSON.stringify({ 
-                    action, 
-                    ip: LOCKED_ATEM_IP, 
-                    ...payload 
-                }));
-            } catch (err) {}
+            triggerActivityFlash();
+            wsRef.current.send(JSON.stringify({ action, ip: LOCKED_ATEM_IP, ...payload }));
         }
     };
 
-    const triggerRateCountdown = (type) => {
-        if (type === 'TRANS') {
-            if (transCountdownTimer.current) clearInterval(transCountdownTimer.current);
-            const totalFrames = storedTransRateRef.current || 25;
-            let current = totalFrames;
-            setInTransition(true);
-            dispatchSysLog('Auto transition started at rate ' + totalFrames + ' frames');
-
-            transCountdownTimer.current = setInterval(() => {
-                current -= 1;
-                if (current <= 0) {
-                    clearInterval(transCountdownTimer.current);
-                    transCountdownTimer.current = null;
-                    setLocalTransRate(totalFrames);
-                    setInTransition(false);
-                    dispatchSysLog('Auto transition completed');
-                } else {
-                    setLocalTransRate(current);
-                }
-            }, 40); 
-        } else if (type === 'DSK') {
-            if (dskCountdownTimer.current) clearInterval(dskCountdownTimer.current);
-            const total = storedDskRateRef.current || 25;
-            let current = total;
-            setDsk(prev => ({ ...prev, inTransition: true }));
-            dispatchSysLog('DSK 1 Auto transition started at rate ' + total + ' frames');
-
-            dskCountdownTimer.current = setInterval(() => {
-                current -= 1;
-                if (current <= 0) {
-                    clearInterval(dskCountdownTimer.current);
-                    dskCountdownTimer.current = null;
-                    setLocalDskRate(total);
-                    setDsk(prev => ({ ...prev, inTransition: false }));
-                    dispatchSysLog('DSK 1 Auto transition completed');
-                } else {
-                    setLocalDskRate(current);
-                }
-            }, 40);
-        } else if (type === 'FTB') {
-            if (ftbCountdownTimer.current) clearInterval(ftbCountdownTimer.current);
-            const total = storedFtbRateRef.current || 25;
-            let current = total;
-            setFtb(prev => ({ ...prev, inTransition: true }));
-            dispatchSysLog('Fade to Black started at rate ' + total + ' frames');
-
-            ftbCountdownTimer.current = setInterval(() => {
-                current -= 1;
-                if (current <= 0) {
-                    clearInterval(ftbCountdownTimer.current);
-                    ftbCountdownTimer.current = null;
-                    setLocalFtbRate(total);
-                    setFtb(prev => ({ ...prev, inTransition: false, isFullyBlack: !prev.isFullyBlack }));
-                    dispatchSysLog('Fade to Black completed');
-                } else {
-                    setLocalFtbRate(current);
-                }
-            }, 40);
-        }
-    };
-
-    const sendAtemCommand = (commandType, payload = {}) => {
-        if (!isPanelActive || !isUnlocked) return;
-        const now = Date.now();
-
-        if (commandType === 'SET_PGM') {
-            if (selectedOut !== null) {
-                optimisticLocks.current.aux[selectedOut] = now + 450;
-                setAuxSources(prev => {
-                    const updated = [...prev];
-                    updated[selectedOut] = payload.input;
-                    return updated;
-                });
-                sendCommand('SET_AUX', { aux: selectedOut, source: payload.input });
-                return;
-            }
-            optimisticLocks.current.pgm = now + 450;
-            setPgmInput(payload.input);
-            sendCommand('SET_PGM', payload);
+    const handleInputClick = (type, id) => {
+        if (selectedOut !== null && type === 'PGM') {
+            sendCommand('SET_AUX', { aux: selectedOut, source: id });
             return;
         }
-
-        if (commandType === 'SET_PVW') {
-            optimisticLocks.current.pvw = now + 450;
-            setPvwInput(payload.input);
-            sendCommand('SET_PVW', payload);
-            return;
-        }
-
-        if (commandType === 'CUT') {
-            const temp = pgmInput;
-            setPgmInput(pvwInput);
-            setPvwInput(temp);
-            optimisticLocks.current.pgm = now + 450;
-            optimisticLocks.current.pvw = now + 450;
-            sendCommand('CUT');
-            return;
-        }
-
-        if (commandType === 'AUTO') {
-            triggerRateCountdown('TRANS');
-            const temp = pgmInput;
-            setPgmInput(pvwInput);
-            setPvwInput(temp);
-            optimisticLocks.current.pgm = now + 650;
-            optimisticLocks.current.pvw = now + 650;
-            sendCommand('AUTO');
-            return;
-        }
-
-        if (commandType === 'EXECUTE_DSK_AUTO') {
-            triggerRateCountdown('DSK');
-            setDsk(prev => ({ ...prev, onAir: !prev.onAir }));
-            sendCommand('EXECUTE_DSK_AUTO');
-            return;
-        }
-
-        if (commandType === 'EXECUTE_FTB') {
-            triggerRateCountdown('FTB');
-            sendCommand('EXECUTE_FTB');
-            return;
-        }
-
-        sendCommand(commandType, payload);
-    };
-
-    const sendAtemCommandRef = useRef(sendAtemCommand);
-    useEffect(() => {
-        sendAtemCommandRef.current = sendAtemCommand;
-    });
-
-    useEffect(() => {
-        const handleKeyDown = (e) => {
-            if (!isPanelActive || !isUnlocked) return;
-            if (e.repeat) return;
-
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
-                return;
-            }
-            if (e.ctrlKey || e.altKey || e.metaKey) {
-                return;
-            }
-
-            if (e.code === 'Space') {
-                e.preventDefault();
-                sendAtemCommandRef.current('CUT');
-                return;
-            }
-
-            if (e.code === 'Enter' || e.code === 'NumpadEnter') {
-                e.preventDefault();
-                sendAtemCommandRef.current('AUTO');
-                return;
-            }
-
-            const keyMap = {
-                Digit1: 1, Numpad1: 1,
-                Digit2: 2, Numpad2: 2,
-                Digit3: 3, Numpad3: 3,
-                Digit4: 4, Numpad4: 4,
-                Digit5: 5, Numpad5: 5,
-                Digit6: 6, Numpad6: 6,
-                Digit7: 7, Numpad7: 7,
-                Digit8: 8, Numpad8: 8,
-                Digit9: 9, Numpad9: 9,
-                Digit0: 10, Numpad0: 10
-            };
-
-            const inputNum = keyMap[e.code];
-            if (inputNum !== undefined) {
-                e.preventDefault();
-                if (e.shiftKey) {
-                    sendAtemCommandRef.current('SET_PGM', { input: inputNum });
-                } else {
-                    sendAtemCommandRef.current('SET_PVW', { input: inputNum });
-                }
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isPanelActive, isUnlocked]);
-
-    const handleTransSelection = (bit) => {
-        if (!isPanelActive || !isUnlocked) return;
-        optimisticLocks.current.trans = Date.now() + 450;
-        const current = transitionSelection !== null ? transitionSelection : 1;
-        const next = current ^ bit;
-        setTransitionSelection(next || 1);
-        sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit });
-    };
-
-    const handleUskToggle = (usk) => {
-        if (!isPanelActive || !isUnlocked) return;
-        optimisticLocks.current.usk[usk] = Date.now() + 450;
-        setUskOnAir(prev => {
-            const next = [...prev];
-            next[usk] = !next[usk];
-            return next;
-        });
-        sendAtemCommand('TOGGLE_USK_ONAIR', { usk });
-    };
-
-    const handleDskTie = () => {
-        if (!isPanelActive || !isUnlocked) return;
-        optimisticLocks.current.dskTie = Date.now() + 450;
-        const nextTie = !dsk.tie;
-        setDsk(prev => ({ ...prev, tie: nextTie }));
-        sendAtemCommand('TOGGLE_DSK_TIE', { tie: nextTie });
-    };
-
-    const handleDskOnAir = () => {
-        if (!isPanelActive || !isUnlocked) return;
-        optimisticLocks.current.dskOnAir = Date.now() + 450;
-        const nextOnAir = !dsk.onAir;
-        setDsk(prev => ({ ...prev, onAir: nextOnAir }));
-        sendAtemCommand('TOGGLE_DSK_ONAIR', { onAir: nextOnAir });
-    };
-
-    const handleDskRateChange = (val) => {
-        setLocalDskRate(val);
-        storedDskRateRef.current = val;
-        sendAtemCommand('SET_DSK_RATE', { rate: val });
-    };
-
-    const handleTransRateChange = (val) => {
-        setLocalTransRate(val);
-        storedTransRateRef.current = val;
-        sendAtemCommand('SET_TRANSITION_RATE', { rate: val });
-    };
-
-    const handleFtbRateChange = (val) => {
-        setLocalFtbRate(val);
-        storedFtbRateRef.current = val;
-        sendAtemCommand('SET_FTB_RATE', { rate: val });
+        sendCommand(type === 'PGM' ? 'SET_PGM' : 'SET_PVW', { input: id });
     };
 
     const handleTbarChange = (e) => {
-        if (!isPanelActive || !isUnlocked) return;
         const val = parseInt(e.target.value, 10);
         setTbarVal(val);
-        optimisticLocks.current.tbar = Date.now() + 400;
-        let atemPos = tbarDirectionRef.current === 1 ? val : 100 - val;
+        let atemPos = tbarStartEnd === 'top' ? val : 100 - val;
         sendCommand('SET_TRANS_POSITION', { position: atemPos * 100 });
+    };
+
+    const handleTransSelection = (bit) => {
+        const next = transitionSelection ^ bit;
+        sendCommand('TOGGLE_TRANS_SELECTION', { bit: next || 1 });
     };
 
     const inputSources = [
@@ -573,88 +220,42 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
     ];
 
     const internalSources = [
-        { id: 0, label: 'BLK' },
-        { id: 1000, label: 'BARS' },
-        { id: 2001, label: 'COL 1' },
-        { id: 2002, label: 'COL 2' },
-        { id: 3010, label: 'MP1' },
-        { id: 3020, label: 'MP2' },
-        { id: 'spacer-1', spacer: true },
-        { id: 'spacer-2', spacer: true },
-        { id: 10011, label: 'PVW', isAuxOnly: true },
-        { id: 10010, label: 'PGM', isAuxOnly: true }
+        { id: 0, label: 'BLK' }, { id: 1000, label: 'BARS' }, { id: 2001, label: 'COL 1' }, { id: 2002, label: 'COL 2' },
+        { id: 3010, label: 'MP1' }, { id: 3020, label: 'MP2' }, { id: 'spacer-1', spacer: true }, { id: 'spacer-2', spacer: true },
+        { id: 10011, label: 'PVW', isAuxOnly: true }, { id: 10010, label: 'PGM', isAuxOnly: true }
     ];
 
-    const auxOutputsList = [1, 2, 3, 4, 5, 6];
+    const getIsActivePgm = (sourceId) => selectedOut !== null ? (auxSources[selectedOut] === sourceId) : (pgmInput === sourceId);
+    const getIsActivePvw = (sourceId) => selectedOut !== null ? false : (pvwInput === sourceId);
 
-    const getIsActivePgm = (sourceId) => {
-        if (!isPanelActive || pgmInput === null) return false;
-        return selectedOut !== null ? (auxSources[selectedOut] === sourceId) : (pgmInput === sourceId);
-    };
+    const activeLockStyle = { opacity: !isUnlocked ? 0.45 : 1, pointerEvents: !isUnlocked ? 'none' : 'auto', transition: 'opacity 0.25s ease' };
+    const mutedSectionStyle = { opacity: (isPanelActive && selectedOut !== null) ? 0.35 : (!isUnlocked ? 0.45 : 1), pointerEvents: (selectedOut !== null || !isUnlocked) ? 'none' : 'auto', transition: 'opacity 0.25s ease' };
 
-    const getIsActivePvw = (sourceId) => {
-        if (!isPanelActive || pvwInput === null) return false;
-        return selectedOut !== null ? false : (pvwInput === sourceId);
-    };
-
-    const activeLockStyle = {
-        opacity: !isUnlocked ? 0.45 : 1,
-        pointerEvents: !isUnlocked ? 'none' : 'auto',
-        transition: 'opacity 0.25s ease'
-    };
-
-    const mutedSectionStyle = {
-        opacity: (isPanelActive && selectedOut !== null) ? 0.35 : (!isUnlocked ? 0.45 : 1), 
-        pointerEvents: (selectedOut !== null || !isUnlocked) ? 'none' : 'auto',
-        transition: 'opacity 0.25s ease'
-    };
+    let lcdFillPercent = tbarVal;
+    let isFillFromBottom = tbarStartEnd === 'bottom';
 
     return (
         <div className="quadrant-master-panel">
-            <div 
-                className="panel-layout-frame" 
-                style={{ 
-                    gap: '16px',
-                    opacity: !isPanelActive ? 0.35 : 1,
-                    pointerEvents: !isPanelActive ? 'none' : 'auto',
-                    transition: 'opacity 0.25s ease'
-                }}
-            >
+            <div className="panel-layout-frame" style={{ gap: '16px', opacity: !isPanelActive ? 0.35 : 1, pointerEvents: !isPanelActive ? 'none' : 'auto', transition: 'opacity 0.25s ease' }}>
+                
                 {/* ROW 1: PROGRAM */}
                 <div className="atem-section-wrapper row-one">
                     <div className="atem-section-header-row">
-                        <span className={'atem-section-title ' + (isPanelActive && selectedOut !== null ? 'router-label' : '')} style={{ opacity: !isUnlocked ? 0.45 : 1, transition: 'opacity 0.25s ease' }}>
+                        <span className={'atem-section-title ' + (isPanelActive && selectedOut !== null ? 'router-label' : '')} style={{ opacity: !isUnlocked ? 0.45 : 1 }}>
                             {isPanelActive && selectedOut !== null ? ('OUTPUT ' + (selectedOut + 1)) : 'PROGRAM'}
                         </span>
                         <div className="atem-bus-status">
-                            <span 
-                                className={'atem-bus-online-dot ' + (isPanelActive && bridgeStatus === 'linked' ? 'online' : 'offline') + (isPanelActive && activityFlash ? ' active-flash' : '')} 
-                                style={{ filter: !isPanelActive ? 'grayscale(1)' : 'none' }}
-                            />
+                            <span className={'atem-bus-online-dot ' + (isPanelActive ? 'online' : 'offline') + (isPanelActive && activityFlash ? ' active-flash' : '')} style={{ filter: !isPanelActive ? 'grayscale(1)' : 'none' }} />
                             <span className="atem-bus-ip" style={{ filter: !isPanelActive ? 'grayscale(1)' : 'none' }}>{LOCKED_ATEM_IP}</span>
                             <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginLeft: '12px' }} title={isUnlocked ? 'Lock Panel' : 'Unlock Panel'}>
-                                <input 
-                                    type="checkbox" 
-                                    className="toggle-switch-small" 
-                                    checked={isUnlocked} 
-                                    onChange={() => {
-                                        const next = !isUnlocked;
-                                        setIsUnlocked(next);
-                                        dispatchSysLog('Mixer Panel ' + (next ? 'UNLOCKED' : 'LOCKED'));
-                                    }} 
-                                    style={{ filter: !isPanelActive ? 'grayscale(1) opacity(0.5)' : 'none' }}
-                                />
+                                <input type="checkbox" className="toggle-switch-small" checked={isUnlocked} onChange={() => setIsUnlocked(!isUnlocked)} style={{ filter: !isPanelActive ? 'grayscale(1) opacity(0.5)' : 'none' }} />
                             </label>
                         </div>
                     </div>
                     <div className="atem-section-box" style={activeLockStyle}>
                         <div className="atem-bus-grid ten-cols">
                             {inputSources.map((s) => (
-                                <button
-                                    key={'pgm-' + s.id}
-                                    className={'atem-btn-standard ' + (getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : '')}
-                                    onClick={() => sendAtemCommand('SET_PGM', { input: s.id })}
-                                >
+                                <button key={'pgm-' + s.id} className={'atem-btn-standard ' + (getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : '')} onClick={() => handleInputClick('PGM', s.id)}>
                                     <span className="btn-number">{s.label}</span>
                                 </button>
                             ))}
@@ -664,12 +265,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                                 if (s.spacer) return <div key={s.id} className="atem-btn-spacer" />;
                                 const isMuted = Boolean(s.isAuxOnly && selectedOut === null);
                                 return (
-                                    <button
-                                        key={'pgm-int-' + s.id}
-                                        className={'atem-btn-standard ' + (isMuted ? 'btn-muted ' : '') + (getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : '')}
-                                        onClick={() => !isMuted && sendAtemCommand('SET_PGM', { input: s.id })}
-                                        disabled={isMuted}
-                                    >
+                                    <button key={'pgm-int-' + s.id} className={'atem-btn-standard ' + (isMuted ? 'btn-muted ' : '') + (getIsActivePgm(s.id) ? (selectedOut !== null ? 'tally-orange' : 'tally-red') : '')} onClick={() => !isMuted && handleInputClick('PGM', s.id)} disabled={isMuted}>
                                         <span className="btn-number">{s.label}</span>
                                     </button>
                                 );
@@ -686,11 +282,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                     <div className="atem-section-box">
                         <div className="atem-bus-grid ten-cols">
                             {inputSources.map((s) => (
-                                <button
-                                    key={'pvw-' + s.id}
-                                    className={'atem-btn-standard ' + (getIsActivePvw(s.id) ? 'tally-green' : '')}
-                                    onClick={() => sendAtemCommand('SET_PVW', { input: s.id })}
-                                >
+                                <button key={'pvw-' + s.id} className={'atem-btn-standard ' + (getIsActivePvw(s.id) ? 'tally-green' : '')} onClick={() => handleInputClick('PVW', s.id)}>
                                     <span className="btn-number">{s.label}</span>
                                 </button>
                             ))}
@@ -700,12 +292,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                                 if (s.spacer) return <div key={s.id} className="atem-btn-spacer" />;
                                 const isMuted = Boolean(s.isAuxOnly);
                                 return (
-                                    <button
-                                        key={'pvw-int-' + s.id}
-                                        className={'atem-btn-standard ' + (isMuted ? 'btn-muted ' : '') + (getIsActivePvw(s.id) ? 'tally-green' : '')}
-                                        onClick={() => !isMuted && sendAtemCommand('SET_PVW', { input: s.id })}
-                                        disabled={isMuted}
-                                    >
+                                    <button key={'pvw-int-' + s.id} className={'atem-btn-standard ' + (isMuted ? 'btn-muted ' : '') + (getIsActivePvw(s.id) ? 'tally-green' : '')} onClick={() => !isMuted && handleInputClick('PVW', s.id)} disabled={isMuted}>
                                         <span className="btn-number">{s.label}</span>
                                     </button>
                                 );
@@ -714,7 +301,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                     </div>
                 </div>
 
-                {/* ROW 3: LOWER CONTROL MODULES */}
+                {/* ROW 3: LOWER CONTROL MODULES & T-BAR */}
                 <div className="atem-flex-row row-three" style={mutedSectionStyle}>
                     <div className="atem-section-wrapper next-trans-col">
                         <div className="atem-section-header-row">
@@ -724,11 +311,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                             <div className="two-row-grid five-cols">
                                 <div className="atem-btn-spacer" />
                                 {[0, 1, 2, 3].map(usk => (
-                                    <button 
-                                        key={'usk-' + usk} 
-                                        className={'atem-btn-standard ' + (isPanelActive && uskOnAir[usk] ? 'tally-red' : '')} 
-                                        onClick={() => handleUskToggle(usk)}
-                                    >
+                                    <button key={'usk-' + usk} className={'atem-btn-standard ' + (isPanelActive && uskOnAir[usk] ? 'tally-red' : '')} onClick={() => sendCommand('TOGGLE_USK_ONAIR', { usk })}>
                                         <span className="btn-number">ON AIR</span>
                                     </button>
                                 ))}
@@ -737,11 +320,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                                     const labels = ['BKGD', 'KEY 1', 'KEY 2', 'KEY 3', 'KEY 4'];
                                     const isLit = isPanelActive && transitionSelection !== null && (transitionSelection & bit);
                                     return (
-                                        <button 
-                                            key={'trans-' + bit} 
-                                            className={'atem-btn-standard ' + (isLit ? 'tally-yellow' : '')} 
-                                            onClick={() => handleTransSelection(bit)}
-                                        >
+                                        <button key={'trans-' + bit} className={'atem-btn-standard ' + (isLit ? 'tally-yellow' : '')} onClick={() => handleTransSelection(bit)}>
                                             <span className="btn-number">{labels[idx]}</span>
                                         </button>
                                     );
@@ -756,95 +335,68 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                         </div>
                         <div className="atem-section-box">
                             <div className="two-row-grid two-cols">
-                                <button 
-                                    className={'atem-btn-standard ' + (isPanelActive && dsk.tie ? 'tally-yellow' : '')} 
-                                    onClick={handleDskTie}
-                                >
+                                <button className={'atem-btn-standard ' + (isPanelActive && dsk.tie ? 'tally-yellow' : '')} onClick={() => sendCommand('TOGGLE_DSK_TIE')}>
                                     <span className="btn-number">TIE</span>
                                 </button>
                                 <DragRateInput 
-                                    value={isPanelActive ? localDskRate : null} 
+                                    value={isPanelActive ? dsk.rate : null} 
                                     disabled={!isPanelActive || !isUnlocked}
-                                    onChange={handleDskRateChange} 
-                                    onCommit={(val) => sendAtemCommand('SET_DSK_RATE', { rate: val })} 
-                                    onReset={() => {
-                                        handleDskRateChange(25);
-                                        sendAtemCommand('SET_DSK_RATE', { rate: 25 });
-                                        dispatchSysLog('DSK 1 Rate reset to 25 frames');
-                                    }}
+                                    onChange={(val) => setDsk(p => ({ ...p, rate: val }))} 
+                                    onCommit={(val) => sendCommand('SET_DSK_RATE', { rate: val })} 
+                                    onReset={() => { sendCommand('SET_DSK_RATE', { rate: 25 }); dispatchSysLog('DSK 1 Rate reset to 25 frames'); }}
                                 />
-                                <button 
-                                    className={'atem-btn-standard ' + (isPanelActive && dsk.onAir ? 'tally-red' : '')} 
-                                    onClick={handleDskOnAir}
-                                >
+                                <button className={'atem-btn-standard ' + (isPanelActive && dsk.onAir ? 'tally-red' : '')} onClick={() => sendCommand('TOGGLE_DSK_ONAIR')}>
                                     <span className="btn-number">ON AIR</span>
                                 </button>
-                                <button 
-                                    className={'atem-btn-standard ' + (isPanelActive && dsk.inTransition ? 'tally-orange' : '')} 
-                                    onClick={() => sendAtemCommand('EXECUTE_DSK_AUTO')}
-                                >
+                                <button className={'atem-btn-standard ' + (isPanelActive && dsk.inTransition ? 'tally-orange' : '')} onClick={() => sendCommand('EXECUTE_DSK_AUTO')}>
                                     <span className="btn-number">AUTO</span>
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    {/* Column 9: T-BAR */}
+                    {/* Column 9: T-BAR (Absolute Stretched Overlap) */}
                     {enableTBar && (
                         <div className="atem-section-wrapper tbar-col-slot">
-                            <div className="atem-section-box tbar-stretched-box">
+                            <div className="atem-section-box tbar-absolute-box">
                                 <div className="tbar-track-layout">
-                                    <div className="tbar-slider-track">
-                                        <div className="tbar-slider-active-trail" style={{
-                                            top: tbarDirectionRef.current === 1 ? 0 : 'auto',
-                                            bottom: tbarDirectionRef.current === -1 ? 0 : 'auto',
-                                            height: `${tbarDirectionRef.current === 1 ? tbarVal : (100 - tbarVal)}%`
+                                    <div className="tbar-lcd-meter">
+                                        <div className="tbar-lcd-active-trail" style={{ 
+                                            top: !isFillFromBottom ? 0 : 'auto', 
+                                            bottom: isFillFromBottom ? 0 : 'auto', 
+                                            height: `${lcdFillPercent}%` 
                                         }} />
                                     </div>
-                                    <input 
-                                        type="range" 
-                                        className="tbar-range-fader" 
-                                        min="0" 
-                                        max="100" 
-                                        value={tbarVal} 
-                                        onChange={handleTbarChange}
-                                        onMouseDown={(e) => {
-                                            const p = e.target.closest('.panel');
-                                            if (p) p.draggable = false;
-                                        }}
-                                        onMouseUp={(e) => {
-                                            const p = e.target.closest('.panel');
-                                            if (p) p.draggable = true;
-                                        }}
-                                        disabled={!isPanelActive || !isUnlocked}
-                                    />
+                                    <div className="tbar-fader-axis">
+                                        <input 
+                                            type="range" className="tbar-range-fader" min="0" max="100" 
+                                            value={tbarVal} 
+                                            onChange={handleTbarChange}
+                                            onMouseDown={(e) => { const p = e.target.closest('.panel'); if (p) p.draggable = false; }}
+                                            onMouseUp={(e) => { const p = e.target.closest('.panel'); if (p) p.draggable = true; }}
+                                            disabled={!isPanelActive || !isUnlocked}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     )}
 
                     {/* Column 10: FTB */}
-                    <div className="atem-section-wrapper ftb-col" style={{ marginLeft: 'auto' }}>
+                    <div className="atem-section-wrapper ftb-col" style={{ marginLeft: enableTBar ? '4px' : 'auto' }}>
                         <div className="atem-section-header-row">
                             <span className="atem-section-title">FTB</span>
                         </div>
                         <div className="atem-section-box">
                             <div className="two-row-grid one-col">
                                 <DragRateInput 
-                                    value={isPanelActive ? localFtbRate : null} 
+                                    value={isPanelActive ? ftb.rate : null} 
                                     disabled={!isPanelActive || !isUnlocked}
-                                    onChange={handleFtbRateChange} 
-                                    onCommit={(val) => sendAtemCommand('SET_FTB_RATE', { rate: val })} 
-                                    onReset={() => {
-                                        handleFtbRateChange(25);
-                                        sendAtemCommand('SET_FTB_RATE', { rate: 25 });
-                                        dispatchSysLog('FTB Rate reset to 25 frames');
-                                    }}
+                                    onChange={(val) => setFtb(p => ({ ...p, rate: val }))} 
+                                    onCommit={(val) => sendCommand('SET_FTB_RATE', { rate: val })} 
+                                    onReset={() => { sendCommand('SET_FTB_RATE', { rate: 25 }); dispatchSysLog('FTB Rate reset to 25 frames'); }}
                                 />
-                                <button 
-                                    className={'atem-btn-standard ' + (isPanelActive && ftb.isFullyBlack ? 'tally-red' : (isPanelActive && ftb.inTransition ? 'tally-orange' : ''))} 
-                                    onClick={() => sendAtemCommand('EXECUTE_FTB')}
-                                >
+                                <button className={'atem-btn-standard ' + (isPanelActive && ftb.isFullyBlack ? 'tally-red' : (isPanelActive && ftb.inTransition ? 'tally-orange' : ''))} onClick={() => sendCommand('EXECUTE_FTB')}>
                                     <span className="btn-number">FTB</span>
                                 </button>
                             </div>
@@ -867,7 +419,6 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                                         onClick={() => {
                                             const nextOut = selectedOut === idx ? null : idx;
                                             setSelectedOut(nextOut);
-                                            dispatchSysLog('Aux Routing Mode: ' + (nextOut !== null ? ('OUT ' + (nextOut + 1)) : 'OFF'));
                                         }}
                                     >
                                         <span className="btn-number">OUT {num}</span>
@@ -884,18 +435,14 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                         <div className="atem-section-box">
                             <div className="atem-bus-grid three-cols">
                                 <DragRateInput 
-                                    value={isPanelActive ? localTransRate : null} 
+                                    value={isPanelActive ? transitionRate : null} 
                                     disabled={!isPanelActive || !isUnlocked}
-                                    onChange={handleTransRateChange} 
-                                    onCommit={(val) => sendAtemCommand('SET_TRANSITION_RATE', { rate: val })} 
-                                    onReset={() => {
-                                        handleTransRateChange(25);
-                                        sendAtemCommand('SET_TRANSITION_RATE', { rate: 25 });
-                                        dispatchSysLog('Transition Rate reset to 25 frames');
-                                    }}
+                                    onChange={(val) => setTransitionRate(val)} 
+                                    onCommit={(val) => sendCommand('SET_TRANSITION_RATE', { rate: val })} 
+                                    onReset={() => { sendCommand('SET_TRANSITION_RATE', { rate: 25 }); dispatchSysLog('Transition Rate reset to 25 frames'); }}
                                 />
-                                <button className="atem-btn-standard cut-btn" onClick={() => sendAtemCommand('CUT')}><span className="btn-number">CUT</span></button>
-                                <button className={'atem-btn-standard auto-btn ' + (isPanelActive && inTransition ? 'trans-active' : '')} onClick={() => sendAtemCommand('AUTO')}><span className="btn-number">AUTO</span></button>
+                                <button className="atem-btn-standard cut-btn" onClick={() => sendCommand('CUT')}><span className="btn-number">CUT</span></button>
+                                <button className={'atem-btn-standard auto-btn ' + (isPanelActive && inTransition ? 'trans-active' : '')} onClick={() => sendCommand('AUTO')}><span className="btn-number">AUTO</span></button>
                             </div>
                         </div>
                     </div>
