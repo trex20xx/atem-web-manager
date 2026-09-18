@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { APP_VERSION } from '../../version';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - CONSOLE PANEL (v3.88)
+// ATEM WEB MANAGER - CONSOLE PANEL (v3.89)
 // =========================================================================
 
 let globalBridgeLogs = [];
@@ -24,7 +25,7 @@ const formatLocalTime = (ts, mode) => {
 
 const formatPrettyMessage = (msg) => {
     if (typeof msg !== 'string') return String(msg);
-    if (msg.includes('source set to') || msg.includes('Set ') || msg.includes('routed to')) {
+    if (msg.includes('source set to') || msg.includes('Set ') || msg.includes('routed to') || msg.includes('set to Input')) {
         return msg;
     }
     if (msg.includes('Routed Media Player') && msg.includes('{')) {
@@ -59,6 +60,12 @@ const ConsolePanel = ({
         BRIDGE: true, 
         SYSTEM: true 
     });
+
+    const [localLcdSheen] = useLocalStorage('atem_consoleLcdSheen', false);
+    const [localLcdEffect] = useLocalStorage('atem_consoleLcdEffect', false);
+
+    const isScanlines = consoleLcdEffect || localLcdEffect;
+    const isSheen = localLcdSheen;
     
     const endRef = useRef(null);
     const bodyRef = useRef(null);
@@ -182,6 +189,13 @@ const ConsolePanel = ({
         URL.revokeObjectURL(url);
     };
 
+    const boxClasses = [
+        'macro-section-box',
+        'console-box',
+        isScanlines ? 'console-lcd-scanlines' : '',
+        isSheen ? 'console-glossy-dark' : ''
+    ].filter(Boolean).join(' ');
+
     if (!isConnected) {
         return (
             <div className="quadrant-master-panel">
@@ -189,8 +203,8 @@ const ConsolePanel = ({
                     <div className="macro-compact-header-row">
                         <span className="atem-section-title">CONSOLE</span>
                     </div>
-                    <div className={'macro-section-box console-box ' + (consoleLcdEffect ? 'console-lcd-effect' : '')} style={{ flex: 1, minHeight: 0, padding: '12px' }}>
-                        {consoleLcdEffect && <div className="console-lcd-reflection" />}
+                    <div className={boxClasses} style={{ flex: 1, minHeight: 0, padding: '12px' }}>
+                        {isSheen && <div className="console-lcd-reflection" />}
                         <div className="console-standby-container">
                             <div className="console-standby-title" style={{ fontFamily: `"${consoleFont}", Orbitron, Oxanium, sans-serif`, color: 'var(--muted)', opacity: 0.35 }}>
                                 ATEM WEB MANAGER
@@ -270,8 +284,8 @@ const ConsolePanel = ({
                         </button>
                     </div>
                 </div>
-                <div className={'macro-section-box console-box ' + (consoleLcdEffect ? 'console-lcd-effect' : '')} style={{ flex: 1, minHeight: 0, padding: '8px' }}>
-                    {consoleLcdEffect && <div className="console-lcd-reflection" />}
+                <div className={boxClasses} style={{ flex: 1, minHeight: 0, padding: '8px' }}>
+                    {isSheen && <div className="console-lcd-reflection" />}
                     <div className="console-body selectable" ref={bodyRef}>
                         {visibleLogs.map((log, i) => {
                             const timeStr = formatLocalTime(log.timestamp, timeMode);

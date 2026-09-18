@@ -1,2 +1,2 @@
-v3.88
-[OPS] Upgraded DSK command dispatch with Blackmagic API parity, verified Aux/OUT boot sync, switched Rate boxes to pure drag scrubbing with middle-click/double-click reset, added sidebar Apple connect pill with hover reveals, unified console input logs with parenthetical names, restored text-only MP1/MP2 tallies, and enabled mouse text selection across logs.
+v3.89
+[OPS] Positioned T-Bar in Column 9 stretching vertically without header text, added bidirectional LCD meter tracking and synchronized AUTO movement. Put FTB back to flush right in Column 10. Added Theme/Style Editor tab in Settings with default reset, Pandorum Light/Bold fonts, separated LCD sheen from scanlines with darkened glossy backdrop, local OS clock timestamps, 3-state TIME toggle, and monochrome text selection.

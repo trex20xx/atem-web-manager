@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - SETTINGS MODAL (v3.88)
+// ATEM WEB MANAGER - SETTINGS MODAL (v3.89)
 // =========================================================================
 
 const QUAD_SELECT_OPTIONS = [
@@ -43,6 +43,7 @@ const SettingsModal = ({
     const [pos, setPos] = useState({ x: 0, y: 0 });
     const dragOffset = useRef({ x: 0, y: 0 });
 
+    const [consoleLcdSheen, setConsoleLcdSheen] = useLocalStorage('atem_consoleLcdSheen', false);
     const [customTheme, setCustomTheme] = useLocalStorage('atem_custom_theme', DEFAULT_THEME_VARS);
 
     const applyThemeVars = (vars) => {
@@ -232,13 +233,24 @@ const SettingsModal = ({
                                     </div>
                                 </div>
                                 <div className="setting-group">
-                                    <label>Console LCD Shader & Sheen:</label>
+                                    <label>Console LCD Scanlines:</label>
                                     <div className="setting-group-control">
                                         <input 
                                             type="checkbox" 
                                             className="toggle-switch" 
                                             checked={consoleLcdEffect} 
                                             onChange={e => setConsoleLcdEffect(e.target.checked)} 
+                                        />
+                                    </div>
+                                </div>
+                                <div className="setting-group">
+                                    <label>Console Glossy Sheen:</label>
+                                    <div className="setting-group-control">
+                                        <input 
+                                            type="checkbox" 
+                                            className="toggle-switch" 
+                                            checked={consoleLcdSheen} 
+                                            onChange={e => setConsoleLcdSheen(e.target.checked)} 
                                         />
                                     </div>
                                 </div>

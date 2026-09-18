@@ -1,5 +1,21 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v3.89] - T-Bar Column 9 Placement, Theme Editor & Console Specular Sheen
+- Re-anchored FTB section flush right in Column 10 (`margin-left: auto; width: 84px`), restoring perfect row bounding box symmetry.
+- Positioned the T-Bar directly under Input 9 in Column 9 (between DSK 1 and FTB): removed header title text and stretched the container vertically (98px) to seamlessly bridge the space between Preview Input 9 and the CUT button.
+- Engineered vertical T-Bar fader handle (less bright `#444` finish with semitransparent circle hover ring) alongside a bidirectional LED meter that illuminates from the start position, turns off upon reaching 100% or 0%, and animates in sync with AUTO transitions.
+- Fixed Blackmagic ATEM hardware execution for KEY 1-4 by supplying `nextSelection` enum arrays in `setTransitionProperties` and `changeTransitionSelection`.
+- Fixed DSK 1 TIE and ON AIR dispatch signatures by targeting `setDownstreamKeyTie` and `setDownstreamKeyOnAir`.
+- Resolved Aux/OUT connection sync by inspecting `cmd.properties.id ?? cmd.properties.auxBus` and implementing bidirectional parameter fallbacks for `setAuxSource`.
+- Added a full-featured Theme / Style Editor tab in `SettingsModal.jsx` with real-time controls for base font sizes, weights, colors, panel fills, and borders + an instant "Reset to Default Look" button.
+- Added `Pandorum Light` and `Pandorum Bold` to the Console Display Font selector.
+- Separated the Console LCD Scanlines and Glossy Sheen into two independent settings: added a crisp diagonal glass reflection overlay and darkened the panel background.
+- Converted Console timestamps to the local OS system clock and added a 3-state `TIME` button (`[HH:MM:SS.mmm]` -> `[HH:MM:SS]` -> hidden).
+- Pretty-printed Media Player logs (e.g. `MP2 source set to Still 3`).
+- Aligned toolbar separator dots vertically with text baseline and locked toolbar typography strictly to Roboto.
+- Eliminated whole-button background highlights on Media Pool MP1/MP2 headers in favor of clean text-only tally illumination.
+
+
 ## [v3.88] - Theme Editor Tab, Phone-Style LCD Sheen, Rate Drag-Only & Local Clock Logs
 - Added comprehensive Theme / Style Editor tab to `SettingsModal.jsx`: provides real-time controls for base font size, weights, text/muted colors, panel fills, and borders with a single-click "Reset to Default Look" button.
 - Added `Pandorum Light` and `Pandorum Bold` font definitions in `index.css` and injected them into the settings modal selection menu.

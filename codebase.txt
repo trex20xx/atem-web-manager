@@ -176,7 +176,7 @@ server.bind(ATEM_PORT, EMULATOR_IP, () => {
  
 === FILE: bridge/server.js === 
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.88)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.89)
 // =========================================================================
 
 const { Atem } = require('atem-connection');
@@ -268,8 +268,8 @@ console.log = function() { originalLog.apply(console, arguments); broadcastLog('
 console.warn = function() { originalWarn.apply(console, arguments); broadcastLog('warn', 'BRIDGE', arguments); };
 console.error = function() { originalError.apply(console, arguments); broadcastLog('error', 'BRIDGE', arguments); };
 
-console.log('[ATEM Bridge v3.88] Starting bridge service...');
-console.log('[ATEM Bridge v3.88] Target ATEM Switcher IP: ' + ATEM_IP);
+console.log('[ATEM Bridge v3.89] Starting bridge service...');
+console.log('[ATEM Bridge v3.89] Target ATEM Switcher IP: ' + ATEM_IP);
 
 function setupAtemListeners() {
     atem.on('receivedCommands', (commands) => {
@@ -516,8 +516,14 @@ wss.on('connection', (ws) => {
                 const srcId = parseInt(data.source, 10);
                 currentAux[auxIdx] = srcId;
                 broadcastLog('info', 'USER', ['Aux ' + (auxIdx + 1) + ' set to ' + getFriendlySourceName(srcId)], targetIp);
+                
+                // Bidirectional parameter fallback to support all atem-connection version variants
                 if (typeof atem.setAuxSource === 'function') {
-                    atem.setAuxSource(srcId, auxIdx).catch(e => {});
+                    atem.setAuxSource(auxIdx, srcId).catch(() => {
+                        atem.setAuxSource(srcId, auxIdx).catch(err => {
+                            broadcastLog('error', 'BRIDGE', ['setAuxSource failed: ' + (err.message || err)], targetIp);
+                        });
+                    });
                 }
                 broadcastState(null, true);
             } else if (data.action === 'CUT') {
@@ -560,9 +566,12 @@ wss.on('connection', (ws) => {
                 if (currentTransitionSelection & 16) selArray.push(16);
 
                 try {
+                    // Physical Blackmagic switchers evaluate nextSelection (array of enum keys)
                     if (typeof atem.setTransitionProperties === 'function') {
                         atem.setTransitionProperties({ nextSelection: selArray }, 0).catch(() => {
-                            atem.setTransitionProperties({ nextSelection: currentTransitionSelection }, 0).catch(() => {});
+                            atem.setTransitionProperties({ nextSelection: currentTransitionSelection }, 0).catch(err => {
+                                broadcastLog('error', 'BRIDGE', ['setTransitionProperties failed: ' + (err.message || err)], targetIp);
+                            });
                         });
                     }
                     if (typeof atem.changeTransitionSelection === 'function') {
@@ -575,7 +584,9 @@ wss.on('connection', (ws) => {
                 broadcastLog('info', 'USER', ['Toggled DSK Tie: ' + dsk.tie], targetIp);
                 try {
                     if (typeof atem.setDownstreamKeyTie === 'function') {
-                        atem.setDownstreamKeyTie(Boolean(data.tie), 0).catch(() => {});
+                        atem.setDownstreamKeyTie(Boolean(data.tie), 0).catch(e => {
+                            broadcastLog('error', 'BRIDGE', ['setDownstreamKeyTie failed: ' + (e.message || e)], targetIp);
+                        });
                     } else if (typeof atem.setDownstreamKeyerTie === 'function') {
                         atem.setDownstreamKeyerTie(Boolean(data.tie), 0).catch(() => {});
                     }
@@ -586,7 +597,9 @@ wss.on('connection', (ws) => {
                 broadcastLog('info', 'USER', ['Toggled DSK On Air: ' + dsk.onAir], targetIp);
                 try {
                     if (typeof atem.setDownstreamKeyOnAir === 'function') {
-                        atem.setDownstreamKeyOnAir(Boolean(data.onAir), 0).catch(() => {});
+                        atem.setDownstreamKeyOnAir(Boolean(data.onAir), 0).catch(e => {
+                            broadcastLog('error', 'BRIDGE', ['setDownstreamKeyOnAir failed: ' + (e.message || e)], targetIp);
+                        });
                     } else if (typeof atem.setDownstreamKeyerOnAir === 'function') {
                         atem.setDownstreamKeyerOnAir(Boolean(data.onAir), 0).catch(() => {});
                     }
@@ -1146,7 +1159,7 @@ export default App;
 === FILE: src/index.css === 
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.88)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.89)
  * =========================================================================
  */
 
@@ -1298,7 +1311,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     pointer-events: auto;
 }
 
-/* Primary Top Toolbar */
+/* Primary Top Toolbar strictly locked to Roboto */
 .app-top-bar { 
     position: fixed;
     top: 0;
@@ -1370,17 +1383,20 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .app-title-name {
     color: var(--muted);
     font-weight: 500;
+    font-family: 'Roboto', sans-serif !important;
     transition: color 0.2s ease;
 }
 
 .app-title-group {
     color: var(--muted);
     font-weight: 500;
+    font-family: 'Roboto', sans-serif !important;
 }
 
 .app-title-ip {
     color: #9da5b4;
     font-weight: 500;
+    font-family: 'Roboto', sans-serif !important;
     letter-spacing: 0.6px;
 }
 
@@ -1388,12 +1404,12 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     color: #5c6370;
 }
 
-/* Bullet Separator: centered and vertically aligned */
+/* Bullet Separator: centered and aligned with text baseline */
 .app-title-dot {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
     line-height: 1;
     margin: 0 6px;
@@ -1401,6 +1417,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     opacity: 0.55;
     user-select: none;
     vertical-align: middle;
+    transform: translateY(-1px);
 }
 
 .top-bar-btn { 
@@ -2051,7 +2068,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    border-radius: 50% !important;
+    border-radius: 50% !important; 
     transition: background 0.15s, color 0.15s, transform 0.1s;
     padding: 0; 
 }
@@ -2246,7 +2263,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     border-color: var(--red) !important;
 }
 
-/* Header action labels: text-colored only, no button block background or borders */
+/* Header action labels: strictly text-colored, no button block background/borders */
 .mp1-header-btn {
     color: var(--muted) !important;
     font-weight: 500 !important;
@@ -2470,51 +2487,50 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 .row-three .ftb-col {
     width: 84px;
-}
-
-.row-three .tbar-col {
-    width: 64px;
-}
-
-.row-four .outputs-col {
-    width: 474px;
-}
-
-.row-four .transition-col {
-    width: 240px;
     margin-left: auto;
 }
 
-/* Vertical T-Bar Component in Row 3 (taking 80px height slot) */
-.tbar-box-wrapper {
-    height: 80px;
+/* Vertical T-Bar Component inside Column 9 (stretched vertically between Preview row and CUT button) */
+.row-three .tbar-col-slot {
+    width: 64px;
+    margin-left: 4px;
+    height: 98px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.tbar-stretched-box {
+    height: 98px !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 !important;
+    padding: 4px 6px !important;
     box-sizing: border-box;
 }
-.tbar-vertical-container {
+
+.tbar-track-layout {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     width: 100%;
-    height: 72px;
+    height: 100%;
     position: relative;
 }
-.tbar-lcd-track {
+
+.tbar-lcd-meter {
     width: 6px;
-    height: 64px;
-    background: #0d0d0d;
+    height: 82px;
+    background: #080808;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 3px;
     position: relative;
     overflow: hidden;
 }
-.tbar-lcd-trail-v {
+
+.tbar-lcd-active-trail {
     position: absolute;
-    bottom: 0;
     left: 0;
     right: 0;
     background: repeating-linear-gradient(
@@ -2525,22 +2541,24 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
         #8a1a1a 5px
     );
     border-radius: 2px;
-    transition: height 0.08s linear;
-    box-shadow: 0 0 6px rgba(211, 47, 47, 0.6);
+    box-shadow: 0 0 6px rgba(211, 47, 47, 0.7);
+    transition: height 0.04s linear;
 }
-.tbar-slider-axis {
+
+.tbar-fader-axis {
     position: relative;
     width: 24px;
-    height: 64px;
+    height: 82px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
-.tbar-slider-v {
+
+.tbar-range-fader {
     position: absolute;
     top: 100%;
     left: 0;
-    width: 64px;
+    width: 82px;
     height: 24px;
     transform-origin: 0 0;
     transform: rotate(-90deg);
@@ -2551,48 +2569,63 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     margin: 0;
     cursor: ns-resize;
 }
-.tbar-slider-v::-webkit-slider-runnable-track {
+
+.tbar-range-fader::-webkit-slider-runnable-track {
     width: 100%;
     height: 4px;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.12);
     border-radius: 2px;
 }
-.tbar-slider-v::-webkit-slider-thumb {
+
+.tbar-range-fader::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: var(--panel2);
-    border: 1px solid var(--atem-border);
+    background: #444444; /* Less bright muted grey */
+    border: 1px solid rgba(255, 255, 255, 0.2);
     margin-top: -7px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
     transition: box-shadow 0.15s ease, background 0.15s ease;
     cursor: ns-resize;
 }
-.tbar-slider-v:hover::-webkit-slider-thumb {
-    background: #3f3f3f;
-    box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.15);
+
+.tbar-range-fader:hover::-webkit-slider-thumb {
+    background: #555555;
+    box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.12); /* Semitransparent circle hover overlay */
 }
-.tbar-slider-v::-moz-range-track {
+
+.tbar-range-fader::-moz-range-track {
     width: 100%;
     height: 4px;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.12);
     border-radius: 2px;
 }
-.tbar-slider-v::-moz-range-thumb {
+
+.tbar-range-fader::-moz-range-thumb {
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: var(--panel2);
-    border: 1px solid var(--atem-border);
+    background: #444444;
+    border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
     transition: box-shadow 0.15s ease, background 0.15s ease;
     cursor: ns-resize;
 }
-.tbar-slider-v:hover::-moz-range-thumb {
-    background: #3f3f3f;
-    box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.15);
+
+.tbar-range-fader:hover::-moz-range-thumb {
+    background: #555555;
+    box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.12);
+}
+
+.row-four .outputs-col {
+    width: 474px;
+}
+
+.row-four .transition-col {
+    width: 240px;
+    margin-left: auto;
 }
 
 .atem-section-wrapper {
@@ -2794,22 +2827,22 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     position: relative;
 }
 
-/* Genuine CRT Scanline Shader Overlay */
-.console-lcd-effect::after {
+/* Genuine CRT Scanline Shader Overlay (Separated Toggle) */
+.console-lcd-scanlines::after {
     content: '';
     position: absolute;
     inset: 0;
     background: repeating-linear-gradient(
         to bottom,
-        rgba(255, 255, 255, 0.04) 0px,
-        rgba(255, 255, 255, 0.04) 1px,
+        rgba(255, 255, 255, 0.03) 0px,
+        rgba(255, 255, 255, 0.03) 1px,
         transparent 1px,
         transparent 3px
     ),
     repeating-linear-gradient(
         to bottom,
-        rgba(0, 0, 0, 0.35) 0px,
-        rgba(0, 0, 0, 0.35) 2px,
+        rgba(0, 0, 0, 0.3) 0px,
+        rgba(0, 0, 0, 0.3) 2px,
         transparent 2px,
         transparent 4px
     );
@@ -2818,23 +2851,31 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
-/* Diagonal Phone-Style Specular Glass Sheen Reflection */
+/* Darkened glossy background when sheen is active */
+.console-glossy-dark {
+    background: #080808 !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Crisp Specular Diagonal Glass Sheen Reflection (Phone Advertisement style) */
 .console-lcd-reflection {
     position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
+    top: -60%;
+    left: -60%;
+    width: 220%;
+    height: 220%;
     background: linear-gradient(
         135deg,
-        rgba(255, 255, 255, 0) 30%,
-        rgba(255, 255, 255, 0.02) 42%,
-        rgba(255, 255, 255, 0.07) 48%,
-        rgba(255, 255, 255, 0.07) 50%,
-        rgba(255, 255, 255, 0.02) 56%,
-        rgba(255, 255, 255, 0) 68%
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0) 36%,
+        rgba(255, 255, 255, 0.02) 41%,
+        rgba(255, 255, 255, 0.10) 47%,
+        rgba(255, 255, 255, 0.12) 49%,
+        rgba(255, 255, 255, 0.03) 53%,
+        rgba(255, 255, 255, 0) 60%,
+        rgba(255, 255, 255, 0) 100%
     );
-    transform: rotate(25deg);
+    transform: rotate(28deg);
     pointer-events: none !important;
     z-index: 48;
 }
@@ -3068,10 +3109,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
  
 === FILE: src/version.js === 
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.88)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.89)
 // =========================================================================
 
-export const APP_VERSION = 'v3.88';
+export const APP_VERSION = 'v3.89';
  
 === FILE: src/components/Multiview/Panel.jsx === 
 import React, { useState } from 'react';
@@ -3235,7 +3276,7 @@ export default QuadrantGrid;
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.88)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.89)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -3264,7 +3305,7 @@ const DragRateInput = ({ value, onChange, onCommit, title, disabled, onReset }) 
         e.preventDefault();
         e.stopPropagation();
 
-        // Middle Click (Button 1) Reset
+        // Middle Click Reset
         if (e.button === 1) {
             if (onReset) onReset();
             return;
@@ -3272,7 +3313,7 @@ const DragRateInput = ({ value, onChange, onCommit, title, disabled, onReset }) 
 
         if (e.button !== 0) return;
 
-        // Double Click Detection
+        // Double Click Reset (within 350ms)
         const now = Date.now();
         if (now - lastClickTimeRef.current < 350) {
             if (onReset) onReset();
@@ -3361,7 +3402,10 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
 
     const [selectedOut, setSelectedOut] = useState(null);
     const [auxSources, setAuxSources] = useState([1, 2, 3, 4, 5, 6]);
+    
+    // T-Bar state & bidirectional LED progress
     const [tbarPosition, setTbarPosition] = useState(0);
+    const [tbarStartEnd, setTbarStartEnd] = useState('top'); // 'top' (starts 0%) or 'bottom' (starts 100%)
 
     const storedTransRateRef = useRef(25);
     const storedDskRateRef = useRef(25);
@@ -3370,6 +3414,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
     const transCountdownTimer = useRef(null);
     const dskCountdownTimer = useRef(null);
     const ftbCountdownTimer = useRef(null);
+    const tbarAutoTimer = useRef(null);
 
     const optimisticLocks = useRef({ pgm: 0, pvw: 0, aux: {}, usk: {}, trans: 0, dskTie: 0, dskOnAir: 0, tbar: 0 });
     const flashTimerRef = useRef(null);
@@ -3382,7 +3427,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
     };
 
     const triggerActivityFlash = () => {
-        if (!isPanelActive) return;
+        if (!isPanelActive || bridgeStatus !== 'linked') return;
         setActivityFlash(true);
         if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
         flashTimerRef.current = setTimeout(() => {
@@ -3418,10 +3463,13 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                     if (data.pvw !== undefined && now > optimisticLocks.current.pvw) {
                         setPvwInput(Number(data.pvw));
                     }
-                    if (data.inTransition !== undefined) setInTransition(Boolean(data.inTransition));
+                    if (data.inTransition !== undefined) {
+                        setInTransition(Boolean(data.inTransition));
+                    }
                     
                     if (data.transitionPosition !== undefined && now > optimisticLocks.current.tbar) {
-                        setTbarPosition(Number(data.transitionPosition));
+                        const newPos = Math.round(Number(data.transitionPosition) / 100);
+                        updateTbarPosition(newPos);
                     }
 
                     if (data.transitionRate !== undefined && !transCountdownTimer.current) {
@@ -3499,6 +3547,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
             if (transCountdownTimer.current) clearInterval(transCountdownTimer.current);
             if (dskCountdownTimer.current) clearInterval(dskCountdownTimer.current);
             if (ftbCountdownTimer.current) clearInterval(ftbCountdownTimer.current);
+            if (tbarAutoTimer.current) clearInterval(tbarAutoTimer.current);
             if (wsRef.current) {
                 try { wsRef.current.close(); } catch(err) {}
             }
@@ -3538,20 +3587,48 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
         }
     };
 
+    const updateTbarPosition = (newPos) => {
+        setTbarPosition(newPos);
+        if (newPos >= 100) {
+            setTbarStartEnd('bottom');
+        } else if (newPos <= 0) {
+            setTbarStartEnd('top');
+        }
+    };
+
     const triggerRateCountdown = (type) => {
         if (type === 'TRANS') {
             if (transCountdownTimer.current) clearInterval(transCountdownTimer.current);
-            const total = storedTransRateRef.current || 25;
-            let current = total;
+            if (tbarAutoTimer.current) clearInterval(tbarAutoTimer.current);
+
+            const totalFrames = storedTransRateRef.current || 25;
+            let current = totalFrames;
             setInTransition(true);
-            dispatchSysLog('Auto transition started at rate ' + total + ' frames');
+            dispatchSysLog('Auto transition started at rate ' + totalFrames + ' frames');
+
+            // Synchronized T-Bar movement during AUTO
+            const targetPos = tbarStartEnd === 'top' ? 100 : 0;
+            const startPos = tbarPosition;
+            const totalSteps = totalFrames;
+            let currentStep = 0;
+
+            tbarAutoTimer.current = setInterval(() => {
+                currentStep += 1;
+                const ratio = Math.min(1, currentStep / totalSteps);
+                const interp = Math.round(startPos + (targetPos - startPos) * ratio);
+                updateTbarPosition(interp);
+                if (currentStep >= totalSteps) {
+                    clearInterval(tbarAutoTimer.current);
+                    tbarAutoTimer.current = null;
+                }
+            }, 40);
 
             transCountdownTimer.current = setInterval(() => {
                 current -= 1;
                 if (current <= 0) {
                     clearInterval(transCountdownTimer.current);
                     transCountdownTimer.current = null;
-                    setLocalTransRate(total);
+                    setLocalTransRate(totalFrames);
                     setInTransition(false);
                     dispatchSysLog('Auto transition completed');
                 } else {
@@ -3744,15 +3821,17 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
     const handleDskTie = () => {
         if (!isPanelActive || !isUnlocked) return;
         optimisticLocks.current.dskTie = Date.now() + 450;
-        setDsk(prev => ({ ...prev, tie: !prev.tie }));
-        sendAtemCommand('TOGGLE_DSK_TIE', { tie: !dsk.tie });
+        const nextTie = !dsk.tie;
+        setDsk(prev => ({ ...prev, tie: nextTie }));
+        sendAtemCommand('TOGGLE_DSK_TIE', { tie: nextTie });
     };
 
     const handleDskOnAir = () => {
         if (!isPanelActive || !isUnlocked) return;
         optimisticLocks.current.dskOnAir = Date.now() + 450;
-        setDsk(prev => ({ ...prev, onAir: !prev.onAir }));
-        sendAtemCommand('TOGGLE_DSK_ONAIR', { onAir: !dsk.onAir });
+        const nextOnAir = !dsk.onAir;
+        setDsk(prev => ({ ...prev, onAir: nextOnAir }));
+        sendAtemCommand('TOGGLE_DSK_ONAIR', { onAir: nextOnAir });
     };
 
     const handleDskRateChange = (val) => {
@@ -3776,7 +3855,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
     const handleTbarChange = (e) => {
         if (!isPanelActive || !isUnlocked) return;
         const val = parseInt(e.target.value, 10);
-        setTbarPosition(val);
+        updateTbarPosition(val);
         optimisticLocks.current.tbar = Date.now() + 250;
         sendAtemCommand('SET_TRANS_POSITION', { position: val * 100 });
     };
@@ -3822,6 +3901,20 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
         pointerEvents: (selectedOut !== null || !isUnlocked) ? 'none' : 'auto',
         transition: 'opacity 0.25s ease'
     };
+
+    // Calculate LCD strip fill height & direction
+    let lcdFillPercent = 0;
+    let isFillFromBottom = false;
+
+    if (tbarPosition > 0 && tbarPosition < 100) {
+        if (tbarStartEnd === 'top') {
+            lcdFillPercent = tbarPosition;
+            isFillFromBottom = false; // fills from top downwards
+        } else {
+            lcdFillPercent = 100 - tbarPosition;
+            isFillFromBottom = true; // fills from bottom upwards
+        }
+    }
 
     return (
         <div className="quadrant-master-panel">
@@ -4002,7 +4095,44 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                         </div>
                     </div>
 
-                    <div className="atem-section-wrapper ftb-col" style={{ marginLeft: enableTBar ? '4px' : 'auto' }}>
+                    {/* Column 9: T-BAR (Directly under Input 9 in the 72px interstitial space) */}
+                    {enableTBar && (
+                        <div className="atem-section-wrapper tbar-col-slot">
+                            <div className="atem-section-box tbar-stretched-box">
+                                <div className="tbar-track-layout">
+                                    <div className="tbar-lcd-meter">
+                                        {isFillFromBottom ? (
+                                            <div className="tbar-lcd-active-trail" style={{ bottom: 0, height: `${lcdFillPercent}%` }} />
+                                        ) : (
+                                            <div className="tbar-lcd-active-trail" style={{ top: 0, height: `${lcdFillPercent}%` }} />
+                                        )}
+                                    </div>
+                                    <div className="tbar-fader-axis">
+                                        <input 
+                                            type="range" 
+                                            className="tbar-range-fader" 
+                                            min="0" 
+                                            max="100" 
+                                            value={tbarPosition} 
+                                            onChange={handleTbarChange}
+                                            onMouseDown={(e) => {
+                                                const p = e.target.closest('.panel');
+                                                if (p) p.draggable = false;
+                                            }}
+                                            onMouseUp={(e) => {
+                                                const p = e.target.closest('.panel');
+                                                if (p) p.draggable = true;
+                                            }}
+                                            disabled={!isPanelActive || !isUnlocked}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Column 10: FTB (Permanently anchored at initial right boundary) */}
+                    <div className="atem-section-wrapper ftb-col">
                         <div className="atem-section-header-row">
                             <span className="atem-section-title">FTB</span>
                         </div>
@@ -4027,40 +4157,6 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                             </div>
                         </div>
                     </div>
-
-                    {enableTBar && (
-                        <div className="atem-section-wrapper tbar-col" style={{ width: '64px', marginLeft: 'auto' }}>
-                            <div className="atem-section-header-row">
-                                <span className="atem-section-title" style={{ paddingLeft: '4px' }}>T-BAR</span>
-                            </div>
-                            <div className="atem-section-box tbar-box-wrapper">
-                                <div className="tbar-vertical-container">
-                                    <div className="tbar-lcd-track">
-                                        <div className="tbar-lcd-trail-v" style={{ height: `${tbarPosition}%` }}></div>
-                                    </div>
-                                    <div className="tbar-slider-axis">
-                                        <input 
-                                            type="range" 
-                                            className="tbar-slider-v" 
-                                            min="0" 
-                                            max="100" 
-                                            value={tbarPosition} 
-                                            onChange={handleTbarChange}
-                                            onMouseDown={(e) => {
-                                                const p = e.target.closest('.panel');
-                                                if (p) p.draggable = false;
-                                            }}
-                                            onMouseUp={(e) => {
-                                                const p = e.target.closest('.panel');
-                                                if (p) p.draggable = true;
-                                            }}
-                                            disabled={!isPanelActive || !isUnlocked}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
 
                 {/* ROW 4: BOTTOM ROW */}
@@ -4722,9 +4818,10 @@ export default AtemMacrosCompact;
 === FILE: src/components/Panels/ConsolePanel.jsx === 
 import React, { useState, useEffect, useRef } from 'react';
 import { APP_VERSION } from '../../version';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - CONSOLE PANEL (v3.88)
+// ATEM WEB MANAGER - CONSOLE PANEL (v3.89)
 // =========================================================================
 
 let globalBridgeLogs = [];
@@ -4746,7 +4843,7 @@ const formatLocalTime = (ts, mode) => {
 
 const formatPrettyMessage = (msg) => {
     if (typeof msg !== 'string') return String(msg);
-    if (msg.includes('source set to') || msg.includes('Set ') || msg.includes('routed to')) {
+    if (msg.includes('source set to') || msg.includes('Set ') || msg.includes('routed to') || msg.includes('set to Input')) {
         return msg;
     }
     if (msg.includes('Routed Media Player') && msg.includes('{')) {
@@ -4781,6 +4878,12 @@ const ConsolePanel = ({
         BRIDGE: true, 
         SYSTEM: true 
     });
+
+    const [localLcdSheen] = useLocalStorage('atem_consoleLcdSheen', false);
+    const [localLcdEffect] = useLocalStorage('atem_consoleLcdEffect', false);
+
+    const isScanlines = consoleLcdEffect || localLcdEffect;
+    const isSheen = localLcdSheen;
     
     const endRef = useRef(null);
     const bodyRef = useRef(null);
@@ -4904,6 +5007,13 @@ const ConsolePanel = ({
         URL.revokeObjectURL(url);
     };
 
+    const boxClasses = [
+        'macro-section-box',
+        'console-box',
+        isScanlines ? 'console-lcd-scanlines' : '',
+        isSheen ? 'console-glossy-dark' : ''
+    ].filter(Boolean).join(' ');
+
     if (!isConnected) {
         return (
             <div className="quadrant-master-panel">
@@ -4911,8 +5021,8 @@ const ConsolePanel = ({
                     <div className="macro-compact-header-row">
                         <span className="atem-section-title">CONSOLE</span>
                     </div>
-                    <div className={'macro-section-box console-box ' + (consoleLcdEffect ? 'console-lcd-effect' : '')} style={{ flex: 1, minHeight: 0, padding: '12px' }}>
-                        {consoleLcdEffect && <div className="console-lcd-reflection" />}
+                    <div className={boxClasses} style={{ flex: 1, minHeight: 0, padding: '12px' }}>
+                        {isSheen && <div className="console-lcd-reflection" />}
                         <div className="console-standby-container">
                             <div className="console-standby-title" style={{ fontFamily: `"${consoleFont}", Orbitron, Oxanium, sans-serif`, color: 'var(--muted)', opacity: 0.35 }}>
                                 ATEM WEB MANAGER
@@ -4992,8 +5102,8 @@ const ConsolePanel = ({
                         </button>
                     </div>
                 </div>
-                <div className={'macro-section-box console-box ' + (consoleLcdEffect ? 'console-lcd-effect' : '')} style={{ flex: 1, minHeight: 0, padding: '8px' }}>
-                    {consoleLcdEffect && <div className="console-lcd-reflection" />}
+                <div className={boxClasses} style={{ flex: 1, minHeight: 0, padding: '8px' }}>
+                    {isSheen && <div className="console-lcd-reflection" />}
                     <div className="console-body selectable" ref={bodyRef}>
                         {visibleLogs.map((log, i) => {
                             const timeStr = formatLocalTime(log.timestamp, timeMode);
@@ -5318,7 +5428,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - SETTINGS MODAL (v3.88)
+// ATEM WEB MANAGER - SETTINGS MODAL (v3.89)
 // =========================================================================
 
 const QUAD_SELECT_OPTIONS = [
@@ -5359,6 +5469,7 @@ const SettingsModal = ({
     const [pos, setPos] = useState({ x: 0, y: 0 });
     const dragOffset = useRef({ x: 0, y: 0 });
 
+    const [consoleLcdSheen, setConsoleLcdSheen] = useLocalStorage('atem_consoleLcdSheen', false);
     const [customTheme, setCustomTheme] = useLocalStorage('atem_custom_theme', DEFAULT_THEME_VARS);
 
     const applyThemeVars = (vars) => {
@@ -5548,13 +5659,24 @@ const SettingsModal = ({
                                     </div>
                                 </div>
                                 <div className="setting-group">
-                                    <label>Console LCD Shader & Sheen:</label>
+                                    <label>Console LCD Scanlines:</label>
                                     <div className="setting-group-control">
                                         <input 
                                             type="checkbox" 
                                             className="toggle-switch" 
                                             checked={consoleLcdEffect} 
                                             onChange={e => setConsoleLcdEffect(e.target.checked)} 
+                                        />
+                                    </div>
+                                </div>
+                                <div className="setting-group">
+                                    <label>Console Glossy Sheen:</label>
+                                    <div className="setting-group-control">
+                                        <input 
+                                            type="checkbox" 
+                                            className="toggle-switch" 
+                                            checked={consoleLcdSheen} 
+                                            onChange={e => setConsoleLcdSheen(e.target.checked)} 
                                         />
                                     </div>
                                 </div>

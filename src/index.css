@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.88)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.89)
  * =========================================================================
  */
 
@@ -152,7 +152,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     pointer-events: auto;
 }
 
-/* Primary Top Toolbar */
+/* Primary Top Toolbar strictly locked to Roboto */
 .app-top-bar { 
     position: fixed;
     top: 0;
@@ -224,17 +224,20 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .app-title-name {
     color: var(--muted);
     font-weight: 500;
+    font-family: 'Roboto', sans-serif !important;
     transition: color 0.2s ease;
 }
 
 .app-title-group {
     color: var(--muted);
     font-weight: 500;
+    font-family: 'Roboto', sans-serif !important;
 }
 
 .app-title-ip {
     color: #9da5b4;
     font-weight: 500;
+    font-family: 'Roboto', sans-serif !important;
     letter-spacing: 0.6px;
 }
 
@@ -242,12 +245,12 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     color: #5c6370;
 }
 
-/* Bullet Separator: centered and vertically aligned */
+/* Bullet Separator: centered and aligned with text baseline */
 .app-title-dot {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
     line-height: 1;
     margin: 0 6px;
@@ -255,6 +258,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     opacity: 0.55;
     user-select: none;
     vertical-align: middle;
+    transform: translateY(-1px);
 }
 
 .top-bar-btn { 
@@ -905,7 +909,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    border-radius: 50% !important;
+    border-radius: 50% !important; 
     transition: background 0.15s, color 0.15s, transform 0.1s;
     padding: 0; 
 }
@@ -1100,7 +1104,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     border-color: var(--red) !important;
 }
 
-/* Header action labels: text-colored only, no button block background or borders */
+/* Header action labels: strictly text-colored, no button block background/borders */
 .mp1-header-btn {
     color: var(--muted) !important;
     font-weight: 500 !important;
@@ -1324,51 +1328,50 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 .row-three .ftb-col {
     width: 84px;
-}
-
-.row-three .tbar-col {
-    width: 64px;
-}
-
-.row-four .outputs-col {
-    width: 474px;
-}
-
-.row-four .transition-col {
-    width: 240px;
     margin-left: auto;
 }
 
-/* Vertical T-Bar Component in Row 3 (taking 80px height slot) */
-.tbar-box-wrapper {
-    height: 80px;
+/* Vertical T-Bar Component inside Column 9 (stretched vertically between Preview row and CUT button) */
+.row-three .tbar-col-slot {
+    width: 64px;
+    margin-left: 4px;
+    height: 98px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.tbar-stretched-box {
+    height: 98px !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 !important;
+    padding: 4px 6px !important;
     box-sizing: border-box;
 }
-.tbar-vertical-container {
+
+.tbar-track-layout {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     width: 100%;
-    height: 72px;
+    height: 100%;
     position: relative;
 }
-.tbar-lcd-track {
+
+.tbar-lcd-meter {
     width: 6px;
-    height: 64px;
-    background: #0d0d0d;
+    height: 82px;
+    background: #080808;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 3px;
     position: relative;
     overflow: hidden;
 }
-.tbar-lcd-trail-v {
+
+.tbar-lcd-active-trail {
     position: absolute;
-    bottom: 0;
     left: 0;
     right: 0;
     background: repeating-linear-gradient(
@@ -1379,22 +1382,24 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
         #8a1a1a 5px
     );
     border-radius: 2px;
-    transition: height 0.08s linear;
-    box-shadow: 0 0 6px rgba(211, 47, 47, 0.6);
+    box-shadow: 0 0 6px rgba(211, 47, 47, 0.7);
+    transition: height 0.04s linear;
 }
-.tbar-slider-axis {
+
+.tbar-fader-axis {
     position: relative;
     width: 24px;
-    height: 64px;
+    height: 82px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
-.tbar-slider-v {
+
+.tbar-range-fader {
     position: absolute;
     top: 100%;
     left: 0;
-    width: 64px;
+    width: 82px;
     height: 24px;
     transform-origin: 0 0;
     transform: rotate(-90deg);
@@ -1405,48 +1410,63 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     margin: 0;
     cursor: ns-resize;
 }
-.tbar-slider-v::-webkit-slider-runnable-track {
+
+.tbar-range-fader::-webkit-slider-runnable-track {
     width: 100%;
     height: 4px;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.12);
     border-radius: 2px;
 }
-.tbar-slider-v::-webkit-slider-thumb {
+
+.tbar-range-fader::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: var(--panel2);
-    border: 1px solid var(--atem-border);
+    background: #444444; /* Less bright muted grey */
+    border: 1px solid rgba(255, 255, 255, 0.2);
     margin-top: -7px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
     transition: box-shadow 0.15s ease, background 0.15s ease;
     cursor: ns-resize;
 }
-.tbar-slider-v:hover::-webkit-slider-thumb {
-    background: #3f3f3f;
-    box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.15);
+
+.tbar-range-fader:hover::-webkit-slider-thumb {
+    background: #555555;
+    box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.12); /* Semitransparent circle hover overlay */
 }
-.tbar-slider-v::-moz-range-track {
+
+.tbar-range-fader::-moz-range-track {
     width: 100%;
     height: 4px;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.12);
     border-radius: 2px;
 }
-.tbar-slider-v::-moz-range-thumb {
+
+.tbar-range-fader::-moz-range-thumb {
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: var(--panel2);
-    border: 1px solid var(--atem-border);
+    background: #444444;
+    border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
     transition: box-shadow 0.15s ease, background 0.15s ease;
     cursor: ns-resize;
 }
-.tbar-slider-v:hover::-moz-range-thumb {
-    background: #3f3f3f;
-    box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.15);
+
+.tbar-range-fader:hover::-moz-range-thumb {
+    background: #555555;
+    box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.12);
+}
+
+.row-four .outputs-col {
+    width: 474px;
+}
+
+.row-four .transition-col {
+    width: 240px;
+    margin-left: auto;
 }
 
 .atem-section-wrapper {
@@ -1648,22 +1668,22 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     position: relative;
 }
 
-/* Genuine CRT Scanline Shader Overlay */
-.console-lcd-effect::after {
+/* Genuine CRT Scanline Shader Overlay (Separated Toggle) */
+.console-lcd-scanlines::after {
     content: '';
     position: absolute;
     inset: 0;
     background: repeating-linear-gradient(
         to bottom,
-        rgba(255, 255, 255, 0.04) 0px,
-        rgba(255, 255, 255, 0.04) 1px,
+        rgba(255, 255, 255, 0.03) 0px,
+        rgba(255, 255, 255, 0.03) 1px,
         transparent 1px,
         transparent 3px
     ),
     repeating-linear-gradient(
         to bottom,
-        rgba(0, 0, 0, 0.35) 0px,
-        rgba(0, 0, 0, 0.35) 2px,
+        rgba(0, 0, 0, 0.3) 0px,
+        rgba(0, 0, 0, 0.3) 2px,
         transparent 2px,
         transparent 4px
     );
@@ -1672,23 +1692,31 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
-/* Diagonal Phone-Style Specular Glass Sheen Reflection */
+/* Darkened glossy background when sheen is active */
+.console-glossy-dark {
+    background: #080808 !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Crisp Specular Diagonal Glass Sheen Reflection (Phone Advertisement style) */
 .console-lcd-reflection {
     position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
+    top: -60%;
+    left: -60%;
+    width: 220%;
+    height: 220%;
     background: linear-gradient(
         135deg,
-        rgba(255, 255, 255, 0) 30%,
-        rgba(255, 255, 255, 0.02) 42%,
-        rgba(255, 255, 255, 0.07) 48%,
-        rgba(255, 255, 255, 0.07) 50%,
-        rgba(255, 255, 255, 0.02) 56%,
-        rgba(255, 255, 255, 0) 68%
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0) 36%,
+        rgba(255, 255, 255, 0.02) 41%,
+        rgba(255, 255, 255, 0.10) 47%,
+        rgba(255, 255, 255, 0.12) 49%,
+        rgba(255, 255, 255, 0.03) 53%,
+        rgba(255, 255, 255, 0) 60%,
+        rgba(255, 255, 255, 0) 100%
     );
-    transform: rotate(25deg);
+    transform: rotate(28deg);
     pointer-events: none !important;
     z-index: 48;
 }

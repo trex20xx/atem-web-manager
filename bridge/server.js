@@ -1,5 +1,5 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.88)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.89)
 // =========================================================================
 
 const { Atem } = require('atem-connection');
@@ -91,8 +91,8 @@ console.log = function() { originalLog.apply(console, arguments); broadcastLog('
 console.warn = function() { originalWarn.apply(console, arguments); broadcastLog('warn', 'BRIDGE', arguments); };
 console.error = function() { originalError.apply(console, arguments); broadcastLog('error', 'BRIDGE', arguments); };
 
-console.log('[ATEM Bridge v3.88] Starting bridge service...');
-console.log('[ATEM Bridge v3.88] Target ATEM Switcher IP: ' + ATEM_IP);
+console.log('[ATEM Bridge v3.89] Starting bridge service...');
+console.log('[ATEM Bridge v3.89] Target ATEM Switcher IP: ' + ATEM_IP);
 
 function setupAtemListeners() {
     atem.on('receivedCommands', (commands) => {
@@ -339,8 +339,14 @@ wss.on('connection', (ws) => {
                 const srcId = parseInt(data.source, 10);
                 currentAux[auxIdx] = srcId;
                 broadcastLog('info', 'USER', ['Aux ' + (auxIdx + 1) + ' set to ' + getFriendlySourceName(srcId)], targetIp);
+                
+                // Bidirectional parameter fallback to support all atem-connection version variants
                 if (typeof atem.setAuxSource === 'function') {
-                    atem.setAuxSource(srcId, auxIdx).catch(e => {});
+                    atem.setAuxSource(auxIdx, srcId).catch(() => {
+                        atem.setAuxSource(srcId, auxIdx).catch(err => {
+                            broadcastLog('error', 'BRIDGE', ['setAuxSource failed: ' + (err.message || err)], targetIp);
+                        });
+                    });
                 }
                 broadcastState(null, true);
             } else if (data.action === 'CUT') {
@@ -383,9 +389,12 @@ wss.on('connection', (ws) => {
                 if (currentTransitionSelection & 16) selArray.push(16);
 
                 try {
+                    // Physical Blackmagic switchers evaluate nextSelection (array of enum keys)
                     if (typeof atem.setTransitionProperties === 'function') {
                         atem.setTransitionProperties({ nextSelection: selArray }, 0).catch(() => {
-                            atem.setTransitionProperties({ nextSelection: currentTransitionSelection }, 0).catch(() => {});
+                            atem.setTransitionProperties({ nextSelection: currentTransitionSelection }, 0).catch(err => {
+                                broadcastLog('error', 'BRIDGE', ['setTransitionProperties failed: ' + (err.message || err)], targetIp);
+                            });
                         });
                     }
                     if (typeof atem.changeTransitionSelection === 'function') {
@@ -398,7 +407,9 @@ wss.on('connection', (ws) => {
                 broadcastLog('info', 'USER', ['Toggled DSK Tie: ' + dsk.tie], targetIp);
                 try {
                     if (typeof atem.setDownstreamKeyTie === 'function') {
-                        atem.setDownstreamKeyTie(Boolean(data.tie), 0).catch(() => {});
+                        atem.setDownstreamKeyTie(Boolean(data.tie), 0).catch(e => {
+                            broadcastLog('error', 'BRIDGE', ['setDownstreamKeyTie failed: ' + (e.message || e)], targetIp);
+                        });
                     } else if (typeof atem.setDownstreamKeyerTie === 'function') {
                         atem.setDownstreamKeyerTie(Boolean(data.tie), 0).catch(() => {});
                     }
@@ -409,7 +420,9 @@ wss.on('connection', (ws) => {
                 broadcastLog('info', 'USER', ['Toggled DSK On Air: ' + dsk.onAir], targetIp);
                 try {
                     if (typeof atem.setDownstreamKeyOnAir === 'function') {
-                        atem.setDownstreamKeyOnAir(Boolean(data.onAir), 0).catch(() => {});
+                        atem.setDownstreamKeyOnAir(Boolean(data.onAir), 0).catch(e => {
+                            broadcastLog('error', 'BRIDGE', ['setDownstreamKeyOnAir failed: ' + (e.message || e)], targetIp);
+                        });
                     } else if (typeof atem.setDownstreamKeyerOnAir === 'function') {
                         atem.setDownstreamKeyerOnAir(Boolean(data.onAir), 0).catch(() => {});
                     }
