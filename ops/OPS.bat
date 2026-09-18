@@ -2,7 +2,7 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.81)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.87)
 :: =============================================================================
 :: This CLI manages the end-to-end development lifecycle:
 :: 1. Self-contained portable Node.js runtime resolution and integrity verification.
@@ -32,7 +32,7 @@ cd /d "%PROJECT_ROOT%"
 :MENU
 cls
 echo -----------------------------------------------------------------
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.81)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.87)       
 echo -----------------------------------------------------------------
 echo   [1] RUN ^& EVALUATE     (Vite + Daemon, Auto-Export ^& Evaluation)
 echo   [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)
@@ -129,7 +129,7 @@ if %ERRORLEVEL% equ 0 (
 
 echo.
 echo -----------------------------------------------------------------
-echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.81)                
+echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.87)                
 echo -----------------------------------------------------------------
 echo  Node.js was not found on your system or in bin\node.
 echo  Downloading official portable Node.js LTS (v20.18.0 x64)...
@@ -196,7 +196,7 @@ if not exist "%PROJECT_ROOT%\bridge\node_modules\" (
     cd /d "%PROJECT_ROOT%"
 )
 
-:: Download embedded local Roboto and broadcast display fonts if absent
+:: Download embedded local broadcast display fonts from immutable jsDelivr CDN if absent
 if not exist "%PROJECT_ROOT%\public\fonts\roboto-400.woff2" (
     echo.
     echo -----------------------------------------------------------------
@@ -206,18 +206,18 @@ if not exist "%PROJECT_ROOT%\public\fonts\roboto-400.woff2" (
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
         "$dest = '%PROJECT_ROOT%\public\fonts';" ^
         "$fonts = @(" ^
-        "    @{ name='roboto-400.woff2'; url='https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.woff2' }," ^
-        "    @{ name='roboto-500.woff2'; url='https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmEU9fBBc4.woff2' }," ^
-        "    @{ name='roboto-700.woff2'; url='https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc4.woff2' }," ^
-        "    @{ name='roboto-900.woff2'; url='https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmYUtfBBc4.woff2' }," ^
-        "    @{ name='pandorum.woff2'; url='https://fonts.gstatic.com/s/orbitron/v31/yMJRMIlzdpvBhQQL_QG7dy0.woff2' }," ^
-        "    @{ name='orbitron.woff2'; url='https://fonts.gstatic.com/s/orbitron/v31/yMJRMIlzdpvBhQQL_QG7dy0.woff2' }," ^
-        "    @{ name='oxanium.woff2'; url='https://fonts.gstatic.com/s/oxanium/v12/hxdaZD2xnNYWMvb2z7wW5j57.woff2' }," ^
-        "    @{ name='vt323.woff2'; url='https://fonts.gstatic.com/s/vt323/v17/pxiKyp0ihIEF2isfFJXUdVNF.woff2' }," ^
-        "    @{ name='rajdhani.woff2'; url='https://fonts.gstatic.com/s/rajdhani/v17/LDIbaom4pQcsXCBhoewKYAE.woff2' }," ^
-        "    @{ name='audiowide.woff2'; url='https://fonts.gstatic.com/s/audiowide/v18/kJExDXgbU4jZUGSuJcsMwtWq0A.woff2' }," ^
-        "    @{ name='share-tech-mono.woff2'; url='https://fonts.gstatic.com/s/sharetechmono/v15/J7aJnpd8ZZYN2qXezLD-OG4t6KTB.woff2' }," ^
-        "    @{ name='black-ops-one.woff2'; url='https://fonts.gstatic.com/s/blackopsone/v18/qWcqB6NLVVDr2x8d9XUuodU0.woff2' }" ^
+        "    @{ name='roboto-400.woff2'; url='https://cdn.jsdelivr.net/npm/@fontsource/roboto@5.0.13/files/roboto-latin-400-normal.woff2' }," ^
+        "    @{ name='roboto-500.woff2'; url='https://cdn.jsdelivr.net/npm/@fontsource/roboto@5.0.13/files/roboto-latin-500-normal.woff2' }," ^
+        "    @{ name='roboto-700.woff2'; url='https://cdn.jsdelivr.net/npm/@fontsource/roboto@5.0.13/files/roboto-latin-700-normal.woff2' }," ^
+        "    @{ name='roboto-900.woff2'; url='https://cdn.jsdelivr.net/npm/@fontsource/roboto@5.0.13/files/roboto-latin-900-normal.woff2' }," ^
+        "    @{ name='pandorum.woff2'; url='https://cdn.jsdelivr.net/npm/@fontsource/orbitron@5.0.12/files/orbitron-latin-700-normal.woff2' }," ^
+        "    @{ name='orbitron.woff2'; url='https://cdn.jsdelivr.net/npm/@fontsource/orbitron@5.0.12/files/orbitron-latin-400-normal.woff2' }," ^
+        "    @{ name='oxanium.woff2'; url='https://cdn.jsdelivr.net/npm/@fontsource/oxanium@5.0.8/files/oxanium-latin-400-normal.woff2' }," ^
+        "    @{ name='vt323.woff2'; url='https://cdn.jsdelivr.net/npm/@fontsource/vt323@5.0.8/files/vt323-latin-400-normal.woff2' }," ^
+        "    @{ name='rajdhani.woff2'; url='https://cdn.jsdelivr.net/npm/@fontsource/rajdhani@5.0.8/files/rajdhani-latin-400-normal.woff2' }," ^
+        "    @{ name='audiowide.woff2'; url='https://cdn.jsdelivr.net/npm/@fontsource/audiowide@5.0.8/files/audiowide-latin-400-normal.woff2' }," ^
+        "    @{ name='share-tech-mono.woff2'; url='https://cdn.jsdelivr.net/npm/@fontsource/share-tech-mono@5.0.8/files/share-tech-mono-latin-400-normal.woff2' }," ^
+        "    @{ name='black-ops-one.woff2'; url='https://cdn.jsdelivr.net/npm/@fontsource/black-ops-one@5.0.8/files/black-ops-one-latin-400-normal.woff2' }" ^
         ");" ^
         "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;" ^
         "$ProgressPreference = 'SilentlyContinue';" ^
@@ -259,8 +259,8 @@ set "COMMIT_TMP=%PROJECT_ROOT%\bin\.commit_msg.txt"
 set "DESC_FILE=%PROJECT_ROOT%\ops\DESCRIPTOR.txt"
 
 set "DETECTED_VER="
-for /f "tokens=2 delims='" %%v in ('powershell -NoProfile -Command "Select-String -Path 'src\version.js' -Pattern 'v[0-9]+\.[0-9]+' | ForEach-Object { $_.Matches.Value }"' ) do set "DETECTED_VER=%%v"
-if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.81"
+for /f "usebackq delims=" %%v in (`powershell -NoProfile -Command "(Get-Content -LiteralPath 'src\version.js' | Select-String -Pattern 'v[0-9]+\.[0-9]+').Matches.Value"` ) do set "DETECTED_VER=%%v"
+if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.87"
 
 if not exist "%DESC_FILE%" goto MANUAL_PROMPT
 
@@ -360,8 +360,8 @@ git rm --cached bin/.commit_msg.txt 2>nul
 
 if /I "%CURRENT_BRANCH%"=="main" (
     git add -A
-    git commit -F "$COMMIT_TMP"
-    del "$COMMIT_TMP" 2>nul
+    git commit -F "%COMMIT_TMP%"
+    del "%COMMIT_TMP%" 2>nul
     echo [BRANCHING] Spawning marker branch '%DETECTED_VER%'...
     git branch "%DETECTED_VER%" 2>nul
     echo [TAGGING] Tagging release '%DETECTED_VER%'...
@@ -383,7 +383,7 @@ if /I "%CURRENT_BRANCH%"=="main" (
 )
 
 git add -A
-git commit -F "$COMMIT_TMP"
+git commit -F "%COMMIT_TMP%"
 del "%COMMIT_TMP%" 2>nul
 echo [PUSHING] Publishing '%CURRENT_BRANCH%' to GitHub...
 git push -u origin refs/heads/"%CURRENT_BRANCH%"
@@ -416,8 +416,8 @@ if %ERRORLEVEL% neq 0 goto GITHUB_OPS
 git rm --cached public/Top.mp4 2>nul
 git rm --cached bin/.commit_msg.txt 2>nul
 git add -A
-git commit -F "$COMMIT_TMP"
-del "$COMMIT_TMP%" 2>nul
+git commit -F "%COMMIT_TMP%"
+del "%COMMIT_TMP%" 2>nul
 
 git push -u origin refs/heads/"%CURRENT_BRANCH%"
 echo ^>^>^> Committed and pushed to branch '%CURRENT_BRANCH%'. ^<^<^<

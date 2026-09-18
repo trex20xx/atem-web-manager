@@ -1,4 +1,36 @@
-# ATEM WEB MANAGER - Complete Version History
+﻿# ATEM WEB MANAGER - Complete Version History
+
+## [v3.87] - DSK API Resolution, Drag-Only Rate Scrubbers, Media Pool Tally Fix & Console Selection
+- Repaired physical ATEM DSK command signatures in `bridge/server.js`: mapped `setDownstreamKeyTie` and `setDownstreamKeyOnAir` with backwards-compatible fallbacks, restoring real-world switcher keyer execution.
+- Removed text selection and typing interference from `DragRateInput`: rate adjustments are now purely frame-dragged, while double-click and middle-click triggers instantaneously reset rates to 25 frames (1:00) and dispatch commands to the ATEM.
+- Enforced Aux/OUT live telemetry extraction directly from `atem.state.video.auxiliaries` upon connection handshakes and command updates, resolving stale startup output indicators.
+- Added Apple-style pill connect/disconnect switches on sidebar device rows: inactive toggles are strictly hidden until hovered, while active connections remain permanently visible and vertically aligned.
+- Fixed Media Pool MP1 and MP2 header buttons in `index.css`: removed box-wide background and border fills, preserving text-only tally coloration.
+- Fully unblocked mouse text selection across the Console log body (`user-select: text !important`).
+- Unified console input telemetry: both user and ATEM state updates log as `Program/Preview/Aux set to Input X (Source Name)`.
+- Replaced direct gstatic font links in deployment bootstrap pipelines with immutable jsDelivr `@fontsource` CDN endpoints to permanently eliminate 404 download errors.
+
+
+## [v3.86] - Middle-Click Rate Reset, Monochrome Standby & Console Upgrades
+- Added Middle-Click reset capability to Transition, DSK, and FTB rate scrubbers along with double-click velocity limitations.
+- Enforced complete monochrome standby mode for the Mixer panel's online indicator dot and Apple-style toggle switch when hardware is disconnected.
+- Engineered a green pulsing animation for the online indicator dot that fires synchronously whenever ATEM hardware routing or state changes are detected.
+- Repaired Console LCD overlay shader by overriding `mix-blend-mode` with a flawless native RGBA repeating-linear-gradient scanline map.
+- Centralized the Console divider spacing and allowed universal mouse-selection over all console log streams.
+- Relocated and integrated the Sidebar Device connection toggle into an Apple-style pill switch situated neatly beside the edit button, exclusively revealed on hover when offline.
+- Normalized active sidebar device font metrics to `font-weight: 600` strictly matched to `var(--le-font-size)` to guarantee bright illumination without container shrinking.
+- Re-aligned the Sidebar Search box padding with equal top/bottom 12px dimensions.
+
+
+## [v3.84] - T-Bar Implementation, Hardware Routing Overrides & Console Scrolling
+- Designed and integrated an interactive hardware T-Bar directly into the ATEM Constellation Mixer panel, configurable via Settings.
+- Engineered T-Bar geometry occupying columns 8-9 on the third row, displacing the FTB section cleanly. Built a slider input wrapped with a native Blackmagic-style LCD gradient trail reflecting real-time physical positioning.
+- Resolved physical ATEM hardware routing overrides: `AtemConstellationBus.jsx` and `ConsolePanel.jsx` now intercept the active routing payload directly from the bridge server and intelligently translate Aux/Pgm/Pvw integer mapping back into friendly broadcast names (e.g., `Preview routed to Color Bars (BARS)`).
+- Re-architected Console Disconnected Typography: Merged the disconnected ASCII standby directly into the core log stream panel rendering, dimming text opacity down to `0.45` to effortlessly blend into the background without drawing extreme focal contrast.
+- Stabilized Console Scroll Jitter: Shifted the macOS slim scrollbar from `overflow: auto` to `overflow: scroll` combined with `background-clip: padding-box`, guaranteeing the structural track width remains permanent to entirely eliminate reflow jumping when high-velocity logs arrive.
+- Added Console Memory Control: Appended a `CLEAR` button to the Console header which temporarily halts log mapping from a set timestamp, immediately resetting the view. The button toggles to `RESET`, enabling the user to retroactively dump all historically cached logs back into the viewer frame.
+- Fixed Console LCD Overlay Shader: Bound the CSS `::after` scanline overlay directly to `.console-box` with explicit `inset: 0` constraints and `mix-blend-mode: multiply` for authentic CRT monitor degradation styling without blocking user interactions.
+
 
 ## [v3.83] - Version Increment & Documentation Synchronization
 - Incremented master application version to v3.83 across src/version.js, ops/DESCRIPTOR.txt, and ops/HANDOVER.MD.
@@ -43,7 +75,7 @@
 
 ## [v2.91] - Section Text Button Edge Alignment, Title Distance Lock & 4px Box Padding Symmetry
 - Aligned all section titles (`PROGRAM`, `PREVIEW`, `NEXT TRANSITION`, `DSK 1`, `FTB`, `OUTPUTS`, `TRANSITION`) flush with the left edge of the first button inside their section (`margin-left: 4px`).
-- Aligned the Program IP status indicator (`● 192.168.10.240`) flush with the right edge of the last button (Input 10).
+- Aligned the Program IP status indicator (`â— 192.168.10.240`) flush with the right edge of the last button (Input 10).
 - Locked the vertical distance of all section titles to a fixed `4px` directly above their respective bounding boxes, eliminating the previous height offset on `PROGRAM` and `IP`.
 - Equalized all bounding box margins strictly to `padding: 4px !important;` on all 4 sides, matching the `4px` button spacing.
 - Synchronized application version tag to v2.91 across all modules.
@@ -133,7 +165,7 @@
 ## [v2.74] - Multiview 16:9 Track Lockdown, Horizontal Bus Restoration & Keyer Array Protocol
 - Enforced `minmax(0, 1fr)` and strict `min-height: 0` constraints across `.quadrant-wrapper` and `.panel`, mathematically preventing any panel content from stretching or distorting the 16:9 aspect ratio.
 - Restored `grid-template-columns: repeat(10, 70px)` to `.atem-bus-grid`, resolving the vertical button stack glitch and returning Program and Preview to horizontal dual-row layouts.
-- Rewrote the ATEM Transition Selection handler in `bridge/server.js` to support both array-based enum mapping (`[1, 2]`) and bitmask parameters, restoring physical switcher Key 1–4 control.
+- Rewrote the ATEM Transition Selection handler in `bridge/server.js` to support both array-based enum mapping (`[1, 2]`) and bitmask parameters, restoring physical switcher Key 1â€“4 control.
 - Hardened Upstream Keyer execution (`setUpstreamKeyerOnAir`) with bidirectional state extraction.
 - Fortified markdown code delivery blocks to prevent nested code fences from prematurely terminating artifacts.
 - Synchronized application version tag to v2.74 across all modules.
@@ -168,7 +200,7 @@
 ## [v2.70] - Lower Control Modules Alignment Realignment, FTB Relocation & Rate Drag Shielding
 - Relocated FTB control module from Input 9 to Input 10, establishing clean 50px buffer gaps at Column 6 and Column 9.
 - Re-architected `.atem-lower-sections-grid` to match the exact 764px bounding box width and 10px 14px padding of `.pgm-pvw-box`.
-- Formatted NEXT TRANSITION (Cols 1–5), DSK 1 (Cols 7–8), and FTB (Col 10) so every button aligns with PGM/PVW inputs and bottom outputs.
+- Formatted NEXT TRANSITION (Cols 1â€“5), DSK 1 (Cols 7â€“8), and FTB (Col 10) so every button aligns with PGM/PVW inputs and bottom outputs.
 - Fixed sticky mouse cursor bug in `DragRateInput` by correctly binding and removing `onMouseUp` on the window event listener.
 - Added live real-time ATEM hardware rate dispatching during scrub dragging, Enter submission, and click-away blur.
 - Synchronized application version tag to v2.70 across all documentation and runtime modules.
@@ -176,8 +208,8 @@
 
 ## [v2.69] - Two-Row Control Modules Architecture & Scrub-Drag Interaction Stabilization
 - Re-architected `DragRateInput` by separating display and editing modes, enabling smooth vertical scrub-dragging without input element event collisions while retaining single-click typing with Enter submission.
-- Created the "NEXT TRANSITION" section matching the official software layout aligned directly under Inputs 1–5 (Row 1: On Air 1–4; Row 2: BKGD, Key 1–4).
-- Added the "DSK 1" section aligned under Inputs 7–8 across two rows (TIE 1, Rate, ON AIR, AUTO).
+- Created the "NEXT TRANSITION" section matching the official software layout aligned directly under Inputs 1â€“5 (Row 1: On Air 1â€“4; Row 2: BKGD, Key 1â€“4).
+- Added the "DSK 1" section aligned under Inputs 7â€“8 across two rows (TIE 1, Rate, ON AIR, AUTO).
 - Added the "FADE TO BLACK" section aligned under Input 9 across two rows (Rate, FTB).
 - Formatted sections to an exact two-button-tall height wrapped in individual `atem-section-box` borders.
 - Moved keyer triggers into the Next Transition section, returning bus row 2 to standard sources (`BLK`, `BARS`, `COL 1`, `COL 2`, `MP1`, `MP2`).
@@ -187,7 +219,7 @@
 
 ## [v2.68] - Precision Alignment, Hardware Aux Bus Resolution & Isolated Drag Rate
 - Fitted the Program and Preview bus arrays inside a tight `width: fit-content; margin: 0 auto;` container to completely eliminate button overflow and box clipping.
-- Structured the bottom control row into the exact same 10-column grid (`repeat(10, 70px)`) as the buses above: OUT 1–6 (Cols 1–6), Spacer (Col 7), Rate (Col 8), CUT (Col 9 under Input 9), and AUTO (Col 10 under Input 10).
+- Structured the bottom control row into the exact same 10-column grid (`repeat(10, 70px)`) as the buses above: OUT 1â€“6 (Cols 1â€“6), Spacer (Col 7), Rate (Col 8), CUT (Col 9 under Input 9), and AUTO (Col 10 under Input 10).
 - Rewrote `DragRateInput` mouse event handling, allowing both smooth vertical scrub-dragging and click-to-type input without triggering parent quadrant panel drag gestures.
 - Switched rate adjustment commands in `bridge/server.js` to `setMixTransitionSettings({ rate })`, restoring real hardware rate manipulation.
 - Resolved physical ATEM Aux routing failures by dynamically discovering hardware bus keys from `state.video.auxiliaries` in `bridge/server.js`.
@@ -200,7 +232,7 @@
 
 
 ## [v2.67] - Strict Grid Realignment, Rate Drag Shielding & Bottom Row Symmetry
-- Restructured the bottom control row into the exact same 10-column grid (`repeat(10, 70px)`) as the buses above: OUT 1–6 (Cols 1–6), Spacer (Col 7), Rate (Col 8), CUT (Col 9 under Input 9), and AUTO (Col 10 under Input 10).
+- Restructured the bottom control row into the exact same 10-column grid (`repeat(10, 70px)`) as the buses above: OUT 1â€“6 (Cols 1â€“6), Spacer (Col 7), Rate (Col 8), CUT (Col 9 under Input 9), and AUTO (Col 10 under Input 10).
 - Applied `width: fit-content; margin: 0 auto;` to `.pgm-pvw-box` to tightly wrap the bus grid with zero spillover.
 - Suppressed HTML5 quadrant drag-event collisions on the Rate button during click-and-drag adjustments.
 - Aligned Rate input font family, size (`var(--le-font-size)`), and weight (`var(--device-font-weight)`) with switcher button numbers while preserving the orange highlight.
@@ -237,7 +269,7 @@
 
 
 ## [v2.63] - Master Changelog Restoration
-- Restored the complete historical archive in `ops/CHANGELOG.MD` spanning v1.72 through v2.63, fixing the missing v1.72–v2.50 entries.
+- Restored the complete historical archive in `ops/CHANGELOG.MD` spanning v1.72 through v2.63, fixing the missing v1.72â€“v2.50 entries.
 - Synchronized master application version tag to v2.63.
 
 
@@ -296,7 +328,7 @@
 - Added a `SELECT NONE` option to `QuadrantContextMenu.jsx`, rendering centered numbers when slots are unpopulated.
 - Embedded a Fullscreen toggle button in `App.jsx` top bar between theme and settings buttons.
 - Integrated official ATEM internal sources into PGM and PVW buses (`BLK`, `BARS`, `COL 1`, `COL 2`, `MP 1`, `MP 2`).
-- Implemented an Aux output router bar with 6 output buttons (`OUT 1`–`OUT 6`), enabling direct source routing through the PGM row.
+- Implemented an Aux output router bar with 6 output buttons (`OUT 1`â€“`OUT 6`), enabling direct source routing through the PGM row.
 - Added bidirectional `SET_AUX` WebSocket command handling and auxiliary telemetry broadcasting in `bridge/server.js`.
 - Synchronized master application version tag to v2.58.
 
@@ -369,7 +401,7 @@
 - Replaced macro selected state with a subtle, flat grey highlight (`#404040`), removing all orange fills.
 - Redesigned Recall & Run icon to a clean double-play vector arrow matching standard play sizing.
 - Added GlobalTooltip hover descriptions on all transport buttons and dynamically enabled tooltips for macro names that exceed button width boundaries.
-- Reordered the 20-button macro matrix into column-first orientation (Column 1: 1–10; Column 2: 11–20).
+- Reordered the 20-button macro matrix into column-first orientation (Column 1: 1â€“10; Column 2: 11â€“20).
 - Bolstered pagination navigation arrows with bold 2.8px stroke chevrons for improved legibility.
 - Accelerated mouse wheel pagination scrolling response by reducing debounce to 35ms.
 

@@ -2,11 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { APP_VERSION } from '../../version';
 
 // =========================================================================
-// ATEM WEB MANAGER - CONSOLE PANEL (v3.81)
+// ATEM WEB MANAGER - CONSOLE PANEL (v3.87)
 // =========================================================================
-// Features Pandorum/Orbitron typography standby screen, full-height log layout,
-// inline ALL source activation, adjacent device filter/export controls,
-// and subtle LCD screen shader overlay support.
 
 let globalBridgeLogs = [];
 const MAX_LOG_HISTORY = 400;
@@ -19,6 +16,8 @@ const ConsolePanel = ({
 }) => {
     const [logs, setLogs] = useState(() => [...globalBridgeLogs]);
     const [showAllDevices, setShowAllDevices] = useState(false);
+    const [isCleared, setIsCleared] = useState(false);
+    const [clearTimestamp, setClearTimestamp] = useState(0);
     const [filters, setFilters] = useState({ 
         USER: true, 
         ATEM: true, 
@@ -90,11 +89,22 @@ const ConsolePanel = ({
         setFilters({ USER: true, ATEM: true, BRIDGE: true, SYSTEM: true });
     };
 
-    const areAllSourcesActive = filters.USER && filters.ATEM && filters.BRIDGE && filters.SYSTEM;
+    const handleClearReset = () => {
+        if (isCleared) {
+            setIsCleared(false);
+            setClearTimestamp(0);
+        } else {
+            setIsCleared(true);
+            setClearTimestamp(Date.now());
+        }
+    };
 
+    const areAllSourcesActive = filters.USER && filters.ATEM && filters.BRIDGE && filters.SYSTEM;
     const currentIp = activeDeviceIp || '192.168.10.240';
     
     const visibleLogs = logs.filter(log => {
+        if (isCleared && log.timestamp <= clearTimestamp) return false;
+        
         if (!showAllDevices && log.source !== 'SYSTEM') {
             if (log.ip && log.ip !== 'SYSTEM' && log.ip !== currentIp) {
                 return false;
@@ -104,7 +114,10 @@ const ConsolePanel = ({
     });
 
     const handleExport = () => {
-        const textContent = visibleLogs.map(log => {
+        const textContent = logs.filter(log => {
+            if (!showAllDevices && log.source !== 'SYSTEM' && log.ip !== 'SYSTEM' && log.ip !== currentIp) return false;
+            return filters[log.source];
+        }).map(log => {
             const timeStr = new Date(log.timestamp).toISOString().split('T')[1].slice(0, -1);
             return '[' + timeStr + '] [' + log.source + '] ' + log.message;
         }).join('\r\n');
@@ -137,10 +150,10 @@ const ConsolePanel = ({
                     </div>
                     <div className={'macro-section-box console-box ' + (consoleLcdEffect ? 'console-lcd-effect' : '')} style={{ flex: 1, minHeight: 0, padding: '12px' }}>
                         <div className="console-standby-container">
-                            <div className="console-standby-title" style={{ fontFamily: consoleFont + ', Orbitron, Oxanium, sans-serif' }}>
+                            <div className="console-standby-title" style={{ fontFamily: `"${consoleFont}", Orbitron, Oxanium, sans-serif`, color: 'var(--muted)', opacity: 0.35 }}>
                                 ATEM WEB MANAGER
                             </div>
-                            <div className="console-standby-version">
+                            <div className="console-standby-version" style={{ color: 'var(--muted)', opacity: 0.35 }}>
                                 {APP_VERSION}
                             </div>
                         </div>
@@ -158,13 +171,15 @@ const ConsolePanel = ({
                         <span className="atem-section-title">CONSOLE</span>
                     </div>
                     <div className="macro-actions-group">
-                        <button 
-                            className={'macro-action-text-btn ' + (areAllSourcesActive ? 'active-white' : '')} 
-                            onClick={handleEnableAllSources}
-                            title="Enable all log sources"
-                        >
-                            ALL
-                        </button>
+                        {!areAllSourcesActive && (
+                            <button 
+                                className="macro-action-text-btn" 
+                                onClick={handleEnableAllSources}
+                                title="Enable all log sources"
+                            >
+                                ALL
+                            </button>
+                        )}
                         <button 
                             className={'macro-action-text-btn ' + (filters.USER ? 'active-user' : '')} 
                             onClick={() => toggleFilter('USER')}
@@ -189,7 +204,7 @@ const ConsolePanel = ({
                         >
                             SYSTEM
                         </button>
-                        <span style={{ color: 'var(--atem-border)', margin: '0 2px' }}>|</span>
+                        <span style={{ color: 'var(--atem-border)', margin: '0 4px', display: 'inline-flex', alignItems: 'center', lineHeight: '14px', height: '14px' }}>|</span>
                         <button 
                             className={'macro-action-text-btn ' + (showAllDevices ? 'active-white' : '')} 
                             onClick={() => setShowAllDevices(prev => !prev)}
@@ -200,18 +215,21 @@ const ConsolePanel = ({
                         <button className="macro-action-text-btn" onClick={handleExport}>
                             EXPORT
                         </button>
+                        <button className={'macro-action-text-btn ' + (isCleared ? 'active-red' : '')} onClick={handleClearReset}>
+                            {isCleared ? 'RESET' : 'CLEAR'}
+                        </button>
                     </div>
                 </div>
                 <div className={'macro-section-box console-box ' + (consoleLcdEffect ? 'console-lcd-effect' : '')} style={{ flex: 1, minHeight: 0, padding: '8px' }}>
-                    <div className="console-body" ref={bodyRef}>
+                    <div className="console-body selectable" ref={bodyRef} style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>
                         {visibleLogs.map((log, i) => {
                             const time = new Date(log.timestamp).toISOString().split('T')[1].slice(0, -1);
                             const srcClass = 'src-' + log.source.toLowerCase();
                             return (
-                                <div key={i} className="log-line">
-                                    <span className="log-time">{'[' + time + ']'}</span>
-                                    <span className={'log-source ' + srcClass}>{'[' + log.source + ']'}</span>
-                                    <span className="log-msg">{log.message}</span>
+                                <div key={i} className="log-line" style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>
+                                    <span className="log-time" style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>{'[' + time + ']'}</span>
+                                    <span className={'log-source ' + srcClass} style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>{'[' + log.source + ']'}</span>
+                                    <span className="log-msg" style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>{log.message}</span>
                                 </div>
                             );
                         })}

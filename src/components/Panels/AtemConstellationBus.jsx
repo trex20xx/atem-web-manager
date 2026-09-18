@@ -1,12 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.80)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.87)
 // =========================================================================
-// Hardware-Locked IP: 192.168.10.240
-// Features 0ms instant optimistic switching across PGM, PVW, Aux, Trans, and Keys,
-// countdown rate frame animations on transition triggers with auto-restore,
-// and execution rate telemetry logging.
 
 const LOCKED_ATEM_IP = '192.168.10.240';
 const BRIDGE_PORT = 8080;
@@ -30,26 +26,37 @@ const parseFrames = (str) => {
     return parseInt(s, 10) || 0;
 };
 
-const DragRateInput = ({ value, onChange, onCommit, title, disabled, onDoubleClick }) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [typedVal, setTypedVal] = useState(value != null ? formatFrames(value) : '');
-    
+const DragRateInput = ({ value, onChange, onCommit, title, disabled, onReset }) => {
     const isDraggingRef = useRef(false);
     const startYRef = useRef(0);
     const currentValRef = useRef(value);
+    const lastClickTimeRef = useRef(0);
 
     useEffect(() => {
-        if (!isEditing) {
-            setTypedVal(value != null ? formatFrames(value) : '');
-        }
         currentValRef.current = value;
-    }, [value, isEditing]);
+    }, [value]);
 
     const handleMouseDown = (e) => {
-        if (disabled || isEditing || value == null) return;
-        if (e.button !== 0) return;
+        if (disabled || value == null) return;
         e.preventDefault();
         e.stopPropagation();
+
+        // Middle Click (Button 1) Reset
+        if (e.button === 1) {
+            if (onReset) onReset();
+            return;
+        }
+
+        if (e.button !== 0) return;
+
+        // Double Click Detection (Instant Timestamp Diff)
+        const now = Date.now();
+        if (now - lastClickTimeRef.current < 350) {
+            if (onReset) onReset();
+            lastClickTimeRef.current = 0;
+            return;
+        }
+        lastClickTimeRef.current = now;
 
         const panel = e.currentTarget.closest('.panel');
         if (panel) panel.draggable = false;
@@ -85,11 +92,8 @@ const DragRateInput = ({ value, onChange, onCommit, title, disabled, onDoubleCli
             isDraggingRef.current = false;
             if (panel) panel.draggable = true;
 
-            if (hasMoved) {
-                if (onCommit && currentValRef.current != null) onCommit(currentValRef.current);
-            } else {
-                setTypedVal(formatFrames(currentValRef.current || 25));
-                setIsEditing(true);
+            if (hasMoved && onCommit && currentValRef.current != null) {
+                onCommit(currentValRef.current);
             }
         };
 
@@ -97,57 +101,21 @@ const DragRateInput = ({ value, onChange, onCommit, title, disabled, onDoubleCli
         window.addEventListener('mouseup', onMouseUp);
     };
 
-    const handleKeyDown = (e) => {
-        if (e.key === 'Enter') {
-            setIsEditing(false);
-            const parsed = Math.max(1, Math.min(250, parseFrames(typedVal)));
-            onChange(parsed);
-            if (onCommit) onCommit(parsed);
-        } else if (e.key === 'Escape') {
-            setIsEditing(false);
-            setTypedVal(value != null ? formatFrames(value) : '');
-        }
-    };
-
-    const handleBlur = () => {
-        setIsEditing(false);
-        const parsed = Math.max(1, Math.min(250, parseFrames(typedVal)));
-        onChange(parsed);
-        if (onCommit) onCommit(parsed);
-    };
-
-    if (isEditing && !disabled) {
-        return (
-            <div className="rate-box-button editing" title={title}>
-                <input
-                    type="text"
-                    className="rate-input-field"
-                    autoFocus
-                    value={typedVal}
-                    onChange={(e) => setTypedVal(e.target.value)}
-                    onBlur={handleBlur}
-                    onKeyDown={handleKeyDown}
-                    onMouseDown={(e) => e.stopPropagation()}
-                />
-            </div>
-        );
-    }
-
     return (
         <div 
             className="rate-box-button" 
-            title={title} 
+            title={title + " (Drag up/down, Double-Click or Middle-Click to reset)"} 
             onMouseDown={disabled || value == null ? undefined : handleMouseDown}
-            onDoubleClick={disabled ? undefined : onDoubleClick}
+            style={{ userSelect: 'none', WebkitUserSelect: 'none', cursor: disabled ? 'default' : 'ns-resize' }}
         >
-            <span className="rate-display-value">
+            <span className="rate-display-value" style={{ pointerEvents: 'none' }}>
                 {value != null && !disabled ? formatFrames(value) : ''}
             </span>
         </div>
     );
 };
 
-const AtemConstellationBus = ({ connectedDevice }) => {
+const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
     const isPanelActive = Boolean(connectedDevice && connectedDevice.ip === LOCKED_ATEM_IP);
 
     const [isUnlocked, setIsUnlocked] = useState(true);
@@ -155,6 +123,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     const [pvwInput, setPvwInput] = useState(null);
     const [inTransition, setInTransition] = useState(false);
     const [bridgeStatus, setBridgeStatus] = useState('connecting');
+    const [activityFlash, setActivityFlash] = useState(false);
 
     const [transitionRate, setTransitionRate] = useState(null);
     const [transitionSelection, setTransitionSelection] = useState(null);
@@ -169,6 +138,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
     const [selectedOut, setSelectedOut] = useState(null);
     const [auxSources, setAuxSources] = useState([1, 2, 3, 4, 5, 6]);
+    const [tbarPosition, setTbarPosition] = useState(0);
 
     const storedTransRateRef = useRef(25);
     const storedDskRateRef = useRef(25);
@@ -178,13 +148,22 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     const dskCountdownTimer = useRef(null);
     const ftbCountdownTimer = useRef(null);
 
-    const optimisticLocks = useRef({ pgm: 0, pvw: 0, aux: {}, usk: {}, trans: 0, dskTie: 0, dskOnAir: 0 });
+    const optimisticLocks = useRef({ pgm: 0, pvw: 0, aux: {}, usk: {}, trans: 0, dskTie: 0, dskOnAir: 0, tbar: 0 });
+    const flashTimerRef = useRef(null);
 
     const wsRef = useRef(null);
     const reconnectTimerRef = useRef(null);
 
     const dispatchSysLog = (msg) => {
         window.dispatchEvent(new CustomEvent('atem:system-log', { detail: msg }));
+    };
+
+    const triggerActivityFlash = () => {
+        setActivityFlash(true);
+        if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+        flashTimerRef.current = setTimeout(() => {
+            setActivityFlash(false);
+        }, 120);
     };
 
     const initWebSocket = () => {
@@ -195,6 +174,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
             wsRef.current.onopen = () => {
                 setBridgeStatus('standby');
                 wsRef.current.send(JSON.stringify({ action: 'CONNECT', ip: LOCKED_ATEM_IP }));
+                wsRef.current.send(JSON.stringify({ action: 'GET_STATE', ip: LOCKED_ATEM_IP }));
             };
 
             wsRef.current.onmessage = (event) => {
@@ -204,6 +184,10 @@ const AtemConstellationBus = ({ connectedDevice }) => {
 
                     if (data.hardwareConnected !== undefined) setBridgeStatus(data.hardwareConnected ? 'linked' : 'standby');
                     
+                    if (data.pgm !== undefined || data.pvw !== undefined || data.auxSources) {
+                        triggerActivityFlash();
+                    }
+
                     if (data.pgm !== undefined && now > optimisticLocks.current.pgm) {
                         setPgmInput(Number(data.pgm));
                     }
@@ -211,6 +195,11 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         setPvwInput(Number(data.pvw));
                     }
                     if (data.inTransition !== undefined) setInTransition(Boolean(data.inTransition));
+                    
+                    if (data.transitionPosition !== undefined && now > optimisticLocks.current.tbar) {
+                        setTbarPosition(Number(data.transitionPosition));
+                    }
+
                     if (data.transitionRate !== undefined && !transCountdownTimer.current) {
                         setTransitionRate(Number(data.transitionRate));
                         storedTransRateRef.current = Number(data.transitionRate);
@@ -244,9 +233,14 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         }
                     }
                     if (data.auxSources && Array.isArray(data.auxSources)) {
+                        const incoming = data.auxSources.map(Number);
                         setAuxSources(prev => {
-                            const incoming = data.auxSources.map(Number);
-                            return prev.map((curr, idx) => (now < (optimisticLocks.current.aux[idx] || 0) ? curr : incoming[idx]));
+                            return incoming.map((val, idx) => {
+                                if (now < (optimisticLocks.current.aux[idx] || 0)) {
+                                    return prev[idx];
+                                }
+                                return val;
+                            });
                         });
                     }
                 } catch (err) {}
@@ -277,6 +271,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         initWebSocket();
         return () => {
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+            if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
             if (transCountdownTimer.current) clearInterval(transCountdownTimer.current);
             if (dskCountdownTimer.current) clearInterval(dskCountdownTimer.current);
             if (ftbCountdownTimer.current) clearInterval(ftbCountdownTimer.current);
@@ -539,17 +534,27 @@ const AtemConstellationBus = ({ connectedDevice }) => {
     const handleDskRateChange = (val) => {
         setLocalDskRate(val);
         storedDskRateRef.current = val;
-        setDsk(prev => ({ ...prev, rate: val }));
+        sendAtemCommand('SET_DSK_RATE', { rate: val });
     };
 
     const handleTransRateChange = (val) => {
         setLocalTransRate(val);
         storedTransRateRef.current = val;
+        sendAtemCommand('SET_TRANSITION_RATE', { rate: val });
     };
 
     const handleFtbRateChange = (val) => {
         setLocalFtbRate(val);
         storedFtbRateRef.current = val;
+        sendAtemCommand('SET_FTB_RATE', { rate: val });
+    };
+
+    const handleTbarChange = (e) => {
+        if (!isPanelActive || !isUnlocked) return;
+        const val = parseInt(e.target.value, 10);
+        setTbarPosition(val);
+        optimisticLocks.current.tbar = Date.now() + 250;
+        sendAtemCommand('SET_TRANS_POSITION', { position: val * 100 });
     };
 
     const inputSources = [
@@ -588,6 +593,12 @@ const AtemConstellationBus = ({ connectedDevice }) => {
         transition: 'opacity 0.25s ease'
     };
 
+    const mutedSectionStyle = {
+        opacity: (isPanelActive && selectedOut !== null) ? 0.35 : (!isUnlocked ? 0.45 : 1), 
+        pointerEvents: (selectedOut !== null || !isUnlocked) ? 'none' : 'auto',
+        transition: 'opacity 0.25s ease'
+    };
+
     return (
         <div className="quadrant-master-panel">
             <div 
@@ -606,8 +617,11 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                             {isPanelActive && selectedOut !== null ? ('OUTPUT ' + (selectedOut + 1)) : 'PROGRAM'}
                         </span>
                         <div className="atem-bus-status">
-                            <span className={'atem-bus-online-dot ' + (isPanelActive && bridgeStatus === 'linked' ? 'online' : 'offline')} />
-                            <span className="atem-bus-ip">{LOCKED_ATEM_IP}</span>
+                            <span 
+                                className={'atem-bus-online-dot ' + (isPanelActive && bridgeStatus === 'linked' ? 'online' : 'offline') + (activityFlash ? ' active-flash' : '')} 
+                                style={{ filter: !isPanelActive ? 'grayscale(1)' : 'none' }}
+                            />
+                            <span className="atem-bus-ip" style={{ filter: !isPanelActive ? 'grayscale(1)' : 'none' }}>{LOCKED_ATEM_IP}</span>
                             <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginLeft: '12px' }} title={isUnlocked ? 'Lock Panel' : 'Unlock Panel'}>
                                 <input 
                                     type="checkbox" 
@@ -618,6 +632,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                         setIsUnlocked(next);
                                         dispatchSysLog('Mixer Panel ' + (next ? 'UNLOCKED' : 'LOCKED'));
                                     }} 
+                                    style={{ filter: !isPanelActive ? 'grayscale(1) opacity(0.5)' : 'none' }}
                                 />
                             </label>
                         </div>
@@ -654,14 +669,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                 </div>
 
                 {/* ROW 2: PREVIEW */}
-                <div 
-                    className="atem-section-wrapper row-two" 
-                    style={{ 
-                        opacity: (isPanelActive && selectedOut !== null) ? 0.35 : (!isUnlocked ? 0.45 : 1), 
-                        pointerEvents: (selectedOut !== null || !isUnlocked) ? 'none' : 'auto',
-                        transition: 'opacity 0.25s ease'
-                    }}
-                >
+                <div className="atem-section-wrapper row-two" style={mutedSectionStyle}>
                     <div className="atem-section-header-row">
                         <span className="atem-section-title">PREVIEW</span>
                     </div>
@@ -697,7 +705,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                 </div>
 
                 {/* ROW 3: LOWER CONTROL MODULES */}
-                <div className="atem-flex-row row-three" style={activeLockStyle}>
+                <div className="atem-flex-row row-three" style={mutedSectionStyle}>
                     <div className="atem-section-wrapper next-trans-col">
                         <div className="atem-section-header-row">
                             <span className="atem-section-title">NEXT TRANSITION</span>
@@ -749,9 +757,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                     disabled={!isPanelActive || !isUnlocked}
                                     onChange={handleDskRateChange} 
                                     onCommit={(val) => sendAtemCommand('SET_DSK_RATE', { rate: val })} 
-                                    onDoubleClick={() => {
+                                    onReset={() => {
                                         handleDskRateChange(25);
-                                        sendAtemCommand('SET_DSK_RATE', { rate: 25 });
                                         dispatchSysLog('DSK 1 Rate reset to 25 frames');
                                     }}
                                 />
@@ -763,14 +770,15 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                 </button>
                                 <button 
                                     className={'atem-btn-standard ' + (isPanelActive && dsk.inTransition ? 'tally-orange' : '')} 
-                                    onClick={() => sendAtemCommand('EXECUTE_DSK_AUTO')}>
+                                    onClick={() => sendAtemCommand('EXECUTE_DSK_AUTO')}
+                                >
                                     <span className="btn-number">AUTO</span>
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    <div className="atem-section-wrapper ftb-col">
+                    <div className="atem-section-wrapper ftb-col" style={{ marginLeft: enableTBar ? '72px' : 'auto' }}>
                         <div className="atem-section-header-row">
                             <span className="atem-section-title">FTB</span>
                         </div>
@@ -781,9 +789,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                     disabled={!isPanelActive || !isUnlocked}
                                     onChange={handleFtbRateChange} 
                                     onCommit={(val) => sendAtemCommand('SET_FTB_RATE', { rate: val })} 
-                                    onDoubleClick={() => {
+                                    onReset={() => {
                                         handleFtbRateChange(25);
-                                        sendAtemCommand('SET_FTB_RATE', { rate: 25 });
                                         dispatchSysLog('FTB Rate reset to 25 frames');
                                     }}
                                 />
@@ -796,6 +803,36 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                             </div>
                         </div>
                     </div>
+
+                    {enableTBar && (
+                        <div className="atem-section-wrapper tbar-col" style={{ width: '152px', marginLeft: 'auto' }}>
+                            <div className="atem-section-header-row">
+                                <span className="atem-section-title" style={{ marginLeft: '4px' }}>TRANSITION</span>
+                            </div>
+                            <div className="atem-section-box" style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px' }}>
+                                <div className="tbar-container">
+                                    <div className="tbar-lcd-trail" style={{ width: `${tbarPosition}%` }}></div>
+                                    <input 
+                                        type="range" 
+                                        className="tbar-slider" 
+                                        min="0" 
+                                        max="100" 
+                                        value={tbarPosition} 
+                                        onChange={handleTbarChange}
+                                        onMouseDown={(e) => {
+                                            const p = e.target.closest('.panel');
+                                            if (p) p.draggable = false;
+                                        }}
+                                        onMouseUp={(e) => {
+                                            const p = e.target.closest('.panel');
+                                            if (p) p.draggable = true;
+                                        }}
+                                        disabled={!isPanelActive || !isUnlocked}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* ROW 4: BOTTOM ROW */}
@@ -823,7 +860,7 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                         </div>
                     </div>
 
-                    <div className="atem-section-wrapper transition-col">
+                    <div className="atem-section-wrapper transition-col" style={{ opacity: (isPanelActive && selectedOut !== null) ? 0.35 : 1, pointerEvents: (selectedOut !== null) ? 'none' : 'auto' }}>
                         <div className="atem-section-header-row">
                             <span className="atem-section-title">TRANSITION</span>
                         </div>
@@ -834,9 +871,8 @@ const AtemConstellationBus = ({ connectedDevice }) => {
                                     disabled={!isPanelActive || !isUnlocked}
                                     onChange={handleTransRateChange} 
                                     onCommit={(val) => sendAtemCommand('SET_TRANSITION_RATE', { rate: val })} 
-                                    onDoubleClick={() => {
+                                    onReset={() => {
                                         handleTransRateChange(25);
-                                        sendAtemCommand('SET_TRANSITION_RATE', { rate: 25 });
                                         dispatchSysLog('Transition Rate reset to 25 frames');
                                     }}
                                 />

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # =============================================================================
-# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS/Linux) (v3.81)
+# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS/Linux) (v3.87)
 # =============================================================================
 # This CLI manages the end-to-end development lifecycle:
 # 1. Self-contained Node.js runtime resolution and integrity verification.
@@ -106,18 +106,19 @@ check_dependencies() {
         echo "     DOWNLOADING EMBEDDED BROADCAST FONTS INTO PROJECT (OFFLINE)   "
         echo "-----------------------------------------------------------------"
         mkdir -p "$PROJECT_ROOT/public/fonts"
-        echo "  [*] Downloading broadcast fonts..."
-        curl -s -o "$PROJECT_ROOT/public/fonts/roboto-400.woff2" "https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.woff2"
-        curl -s -o "$PROJECT_ROOT/public/fonts/roboto-500.woff2" "https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmEU9fBBc4.woff2"
-        curl -s -o "$PROJECT_ROOT/public/fonts/roboto-700.woff2" "https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc4.woff2"
-        curl -s -o "$PROJECT_ROOT/public/fonts/roboto-900.woff2" "https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmYUtfBBc4.woff2"
-        curl -s -o "$PROJECT_ROOT/public/fonts/orbitron.woff2" "https://fonts.gstatic.com/s/orbitron/v31/yMJRMIlzdpvBhQQL_QG7dy0.woff2"
-        curl -s -o "$PROJECT_ROOT/public/fonts/oxanium.woff2" "https://fonts.gstatic.com/s/oxanium/v12/hxdaZD2xnNYWMvb2z7wW5j57.woff2"
-        curl -s -o "$PROJECT_ROOT/public/fonts/vt323.woff2" "https://fonts.gstatic.com/s/vt323/v17/pxiKyp0ihIEF2isfFJXUdVNF.woff2"
-        curl -s -o "$PROJECT_ROOT/public/fonts/rajdhani.woff2" "https://fonts.gstatic.com/s/rajdhani/v17/LDIbaom4pQcsXCBhoewKYAE.woff2"
-        curl -s -o "$PROJECT_ROOT/public/fonts/audiowide.woff2" "https://fonts.gstatic.com/s/audiowide/v18/kJExDXgbU4jZUGSuJcsMwtWq0A.woff2"
-        curl -s -o "$PROJECT_ROOT/public/fonts/share-tech-mono.woff2" "https://fonts.gstatic.com/s/sharetechmono/v15/J7aJnpd8ZZYN2qXezLD-OG4t6KTB.woff2"
-        curl -s -o "$PROJECT_ROOT/public/fonts/black-ops-one.woff2" "https://fonts.gstatic.com/s/blackopsone/v18/qWcqB6NLVVDr2x8d9XUuodU0.woff2"
+        echo "  [*] Downloading broadcast fonts from immutable jsDelivr CDN..."
+        curl -s -L -o "$PROJECT_ROOT/public/fonts/roboto-400.woff2" "https://cdn.jsdelivr.net/npm/@fontsource/roboto@5.0.13/files/roboto-latin-400-normal.woff2"
+        curl -s -L -o "$PROJECT_ROOT/public/fonts/roboto-500.woff2" "https://cdn.jsdelivr.net/npm/@fontsource/roboto@5.0.13/files/roboto-latin-500-normal.woff2"
+        curl -s -L -o "$PROJECT_ROOT/public/fonts/roboto-700.woff2" "https://cdn.jsdelivr.net/npm/@fontsource/roboto@5.0.13/files/roboto-latin-700-normal.woff2"
+        curl -s -L -o "$PROJECT_ROOT/public/fonts/roboto-900.woff2" "https://cdn.jsdelivr.net/npm/@fontsource/roboto@5.0.13/files/roboto-latin-900-normal.woff2"
+        curl -s -L -o "$PROJECT_ROOT/public/fonts/pandorum.woff2" "https://cdn.jsdelivr.net/npm/@fontsource/orbitron@5.0.12/files/orbitron-latin-700-normal.woff2"
+        curl -s -L -o "$PROJECT_ROOT/public/fonts/orbitron.woff2" "https://cdn.jsdelivr.net/npm/@fontsource/orbitron@5.0.12/files/orbitron-latin-400-normal.woff2"
+        curl -s -L -o "$PROJECT_ROOT/public/fonts/oxanium.woff2" "https://cdn.jsdelivr.net/npm/@fontsource/oxanium@5.0.8/files/oxanium-latin-400-normal.woff2"
+        curl -s -L -o "$PROJECT_ROOT/public/fonts/vt323.woff2" "https://cdn.jsdelivr.net/npm/@fontsource/vt323@5.0.8/files/vt323-latin-400-normal.woff2"
+        curl -s -L -o "$PROJECT_ROOT/public/fonts/rajdhani.woff2" "https://cdn.jsdelivr.net/npm/@fontsource/rajdhani@5.0.8/files/rajdhani-latin-400-normal.woff2"
+        curl -s -L -o "$PROJECT_ROOT/public/fonts/audiowide.woff2" "https://cdn.jsdelivr.net/npm/@fontsource/audiowide@5.0.8/files/audiowide-latin-400-normal.woff2"
+        curl -s -L -o "$PROJECT_ROOT/public/fonts/share-tech-mono.woff2" "https://cdn.jsdelivr.net/npm/@fontsource/share-tech-mono@5.0.8/files/share-tech-mono-latin-400-normal.woff2"
+        curl -s -L -o "$PROJECT_ROOT/public/fonts/black-ops-one.woff2" "https://cdn.jsdelivr.net/npm/@fontsource/black-ops-one@5.0.8/files/black-ops-one-latin-400-normal.woff2"
         echo "  [DONE] Broadcast fonts bootstrapped successfully."
     fi
 }
@@ -185,7 +186,7 @@ resolve_commit_msg() {
     
     DETECTED_VER=$(grep -oE 'v[0-9]+\.[0-9]+' src/version.js | head -n 1)
     if [ -z "$DETECTED_VER" ]; then
-        DETECTED_VER="v3.81"
+        DETECTED_VER="v3.87"
     fi
 
     if [ ! -f "$DESC_FILE" ]; then
@@ -467,7 +468,7 @@ EOF
 while true; do
     clear
     echo "-----------------------------------------------------------------"
-    echo "           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.81)       "
+    echo "           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.87)       "
     echo "-----------------------------------------------------------------"
     echo "  [1] RUN & EVALUATE     (Vite + Daemon, Auto-Export & Evaluation)"
     echo "  [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)"

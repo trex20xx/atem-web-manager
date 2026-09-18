@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ColorDropdown from './ColorDropdown';
 
 // =========================================================================
-// ATEM WEB MANAGER - DEVICE ROW (v2.08)
+// ATEM WEB MANAGER - DEVICE ROW (v3.87)
 // =========================================================================
 
 const DeviceRow = ({ 
@@ -136,6 +136,8 @@ const DeviceRow = ({
     let dispName = (!device.name || device.name === device.ip) ? device.ip : device.name;
     if (forceUppercase) dispName = dispName.toUpperCase();
 
+    const isConnected = device.status === 'online';
+
     return (
         <div 
             className={`device-wrapper ${isSelected ? 'selected' : ''}`}
@@ -151,7 +153,7 @@ const DeviceRow = ({
             data-description={device.description}
         >
             <div className="device-accent" style={{ backgroundColor: device.colorTag || 'transparent' }}></div>
-            <div className={`device-inner ${device.status === 'online' ? 'connected-row' : ''}`}>
+            <div className={`device-inner ${isConnected ? 'connected-row' : ''}`}>
                 <div className={`status ${device.status}`}></div>
                 <div className="device-text">
                     <div className="device-name">{dispName}</div>
@@ -160,7 +162,20 @@ const DeviceRow = ({
                     className="edit-btn" 
                     title="Edit"
                     onClick={(e) => { e.stopPropagation(); onEditStart(device.id); }}
-                >✎</button>
+                >&#9998;</button>
+                
+                <label 
+                    className={`device-connect-toggle ${isConnected ? 'connected-active' : 'inactive-hover'}`} 
+                    title={isConnected ? "Disconnect" : "Connect"}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <input 
+                        type="checkbox" 
+                        className="toggle-switch-small" 
+                        checked={isConnected} 
+                        onChange={() => onConnect(device.id)} 
+                    />
+                </label>
             </div>
         </div>
     );

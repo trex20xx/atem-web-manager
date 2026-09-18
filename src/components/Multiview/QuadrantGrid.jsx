@@ -2,14 +2,13 @@ import React from 'react';
 import Panel from './Panel';
 
 // =========================================================================
-// ATEM WEB MANAGER - QUADRANT GRID (v3.79)
+// ATEM WEB MANAGER - QUADRANT GRID (v3.85)
 // =========================================================================
-// Enforces panel exclusivity across multiview quadrants and forwards
-// activeDeviceIp to child panels for localized telemetry filtration.
 
 const QuadrantGrid = ({ 
     quadrantOrder, currentVideoSource, isConnected, connectedDevice, activeDeviceIp, isLoading, enableQuadrantDrag,
-    handleQuadrantDragStart, handleQuadrantDragOver, handleQuadrantDragLeave, handleQuadrantDrop, setQuadrantOrder
+    handleQuadrantDragStart, handleQuadrantDragOver, handleQuadrantDragLeave, handleQuadrantDrop, setQuadrantOrder,
+    consoleFont, consoleLcdEffect, enableTBar
 }) => {
     const handleSwapCallback = (sourceIndex, targetIndex) => {
         const newOrder = [...quadrantOrder];
@@ -52,6 +51,10 @@ const QuadrantGrid = ({
                     handleDragLeave={handleQuadrantDragLeave}
                     handleDrop={(e, targetIndex) => handleQuadrantDrop(e, targetIndex, handleSwapCallback)}
                     onReorderQuadrant={handleReorderQuadrant}
+                    
+                    consoleFont={consoleFont}
+                    consoleLcdEffect={consoleLcdEffect}
+                    enableTBar={enableTBar}
                 />
             ))}
         </>

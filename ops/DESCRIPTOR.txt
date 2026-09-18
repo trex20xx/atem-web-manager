@@ -1,2 +1,2 @@
-v3.83
-[OPS] Incremented master application version to v3.83. Synchronized version metadata across src/version.js and ops/HANDOVER.MD. Added modular changelog entry for v3.83.
+v3.87
+[OPS] Repaired OPS.bat version detection parser and commit file syntax ($COMMIT_TMP -> %COMMIT_TMP%). Switched font bootstrapper to immutable jsDelivr mirrors to resolve 404 download errors. Synchronized Trunk-Based Git release pipeline for v3.87.

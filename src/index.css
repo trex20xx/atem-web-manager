@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.81)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.87)
  * =========================================================================
  */
 
@@ -231,7 +231,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 /* Separator dots */
 .app-title-dot {
     display: inline-block;
-    font-size: 18px;
+    font-size: 14px;
     font-weight: 700;
     line-height: 1;
     margin: 0 6px;
@@ -353,7 +353,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     transform: translateX(0);
 }
 
-.search-container{ padding: 8px 8px 4px 8px; }
+.search-container{ padding: 12px 10px 10px 10px; } /* Pushed down with equal balanced margins */
 .device-list{ flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
 .action-container{ max-height:0; overflow:visible; opacity:0; transform:translateY(10px); transition:max-height .28s ease, opacity .2s ease, transform .28s ease, padding .28s ease; padding:0 12px; display:flex; flex-direction:column; gap:6px; position:relative; }
 .action-container.visible { max-height:60px; opacity:1; transform:translateY(0); padding:12px; }
@@ -386,6 +386,31 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .group-header-wrapper:hover .group-edit-btn, .device-wrapper:hover .edit-btn { opacity:1; }
 .group-edit-btn:hover, .edit-btn:hover { background:rgba(150,150,150,0.15); color:var(--text); }
 
+/* Sidebar device connection toggle switch */
+.device-connect-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 4px 0 2px;
+    cursor: pointer;
+    flex-shrink: 0;
+    line-height: 1;
+    align-self: center;
+}
+.device-connect-toggle.inactive-hover {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+.device-wrapper:hover .device-connect-toggle.inactive-hover {
+    opacity: 1;
+    pointer-events: auto;
+}
+.device-connect-toggle.connected-active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 .group-editing-inner, .device-editing-inner { background:var(--panel2); border-radius:var(--ui-radius); padding:10px 14px; display:flex; flex-direction:column; gap:8px; margin-top:2px; }
 
 .device-wrapper { position:relative; width:100%; padding:1px 8px; cursor:pointer; }
@@ -395,11 +420,12 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .device-wrapper:not(.editing):hover .device-inner { background:var(--panel2); }
 .device-wrapper.selected .device-inner { background:var(--panel2); }
 
-/* Ensured absolute font-size lock and 600 weight for active sidebar device */
+/* Ensured absolute font-size lock without shrinking and bright coloration for active device */
 .device-inner.connected-row .device-name { 
-    color: var(--text) !important; 
-    font-weight: 600 !important; 
-    font-size: var(--le-font-size) !important;
+    color: #ffffff !important; 
+    font-weight: var(--device-font-weight) !important; 
+    font-size: var(--device-font-size) !important;
+    opacity: 1 !important;
 }
 
 .status{ width:7px; height:7px; min-width:7px; border-radius:50%; flex-shrink: 0; }
@@ -1056,24 +1082,29 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     border-color: var(--red) !important;
 }
 
+/* Header action labels: strictly text-colored, no button block background/borders */
 .mp1-header-btn {
     color: var(--muted) !important;
     font-weight: 500 !important;
+    background: transparent !important;
+    border: none !important;
 }
 .mp1-header-btn.active {
-    background: rgba(52, 168, 83, 0.15) !important;
-    border-color: var(--green) !important;
     color: var(--green) !important;
+    background: transparent !important;
+    border: none !important;
 }
 
 .mp2-header-btn {
     color: var(--muted) !important;
     font-weight: 500 !important;
+    background: transparent !important;
+    border: none !important;
 }
 .mp2-header-btn.active {
-    background: rgba(234, 67, 53, 0.15) !important;
-    border-color: var(--red) !important;
     color: var(--red) !important;
+    background: transparent !important;
+    border: none !important;
 }
 
 .mp-thumb-container {
@@ -1120,6 +1151,15 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 /* =========================================================================
    ATEM SWITCHER BUS CSS (QUADRANT 3)
    ========================================================================= */
+
+@keyframes atemPulse {
+    0% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.4); filter: brightness(1.5); box-shadow: 0 0 6px var(--green); }
+    100% { transform: scale(1); filter: brightness(1); box-shadow: none; }
+}
+.atem-bus-online-dot.active-flash {
+    animation: atemPulse 0.15s ease-out;
+}
 
 .atem-bus-status { 
     display: flex; 
@@ -1266,7 +1306,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 .row-three .ftb-col {
     width: 84px;
-    margin-left: auto;
 }
 
 .row-four .outputs-col {
@@ -1276,6 +1315,93 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .row-four .transition-col {
     width: 240px;
     margin-left: auto;
+}
+
+/* Custom Horizontal T-Bar Component */
+.tbar-col {
+    display: flex;
+    flex-direction: column;
+}
+.tbar-container {
+    position: relative;
+    width: 100%;
+    height: 14px;
+    background: #111111;
+    border-radius: var(--ui-radius);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.tbar-lcd-trail {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+        -45deg,
+        #d32f2f,
+        #d32f2f 4px,
+        #b71c1c 4px,
+        #b71c1c 8px
+    );
+    border-radius: var(--ui-radius) 0 0 var(--ui-radius);
+    pointer-events: none;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+    transition: width 0.1s linear;
+}
+.tbar-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    position: relative;
+    z-index: 10;
+    margin: 0;
+    outline: none;
+    cursor: grab;
+}
+.tbar-slider:active {
+    cursor: grabbing;
+}
+.tbar-slider::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+}
+.tbar-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 36px;
+    width: 24px;
+    background: var(--panel2);
+    border: 1px solid var(--atem-border);
+    border-radius: 4px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    margin-top: -11px;
+    position: relative;
+    transition: box-shadow 0.2s ease;
+}
+.tbar-slider:hover::-webkit-slider-thumb {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5), 0 0 0 8px rgba(255,255,255,0.1);
+}
+.tbar-slider::-moz-range-track {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+}
+.tbar-slider::-moz-range-thumb {
+    height: 36px;
+    width: 24px;
+    background: var(--panel2);
+    border: 1px solid var(--atem-border);
+    border-radius: 4px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    transition: box-shadow 0.2s ease;
+}
+.tbar-slider:hover::-moz-range-thumb {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5), 0 0 0 8px rgba(255,255,255,0.1);
 }
 
 .atem-section-wrapper {
@@ -1337,13 +1463,10 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     cursor: ns-resize;
     flex-shrink: 0;
     user-select: none;
+    -webkit-user-select: none;
 }
 .rate-box-button:hover {
     border-color: var(--muted);
-}
-.rate-box-button.editing {
-    cursor: text;
-    border-color: var(--orange-hl);
 }
 .rate-display-value {
     color: var(--orange-hl);
@@ -1351,24 +1474,8 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     font-weight: var(--device-font-weight);
     font-family: var(--le-font-family);
     line-height: 1;
-}
-.rate-input-field { 
-    width: 100%; 
-    background: transparent; 
-    border: none; 
-    color: var(--orange-hl); 
-    text-align: center; 
-    font-size: var(--le-font-size); 
-    font-weight: var(--device-font-weight); 
-    font-family: var(--le-font-family);
-    line-height: 1;
-    outline: none; 
-    -moz-appearance: textfield; 
-    padding: 0; 
-}
-.rate-input-field::-webkit-outer-spin-button, .rate-input-field::-webkit-inner-spin-button { 
-    -webkit-appearance: none; 
-    margin: 0; 
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .out-active { 
@@ -1493,18 +1600,31 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 .console-box {
     overflow: hidden;
-}
-
-.console-lcd-effect {
     position: relative;
 }
+
+/* Genuine CRT Scanline Shader Overlay */
 .console-lcd-effect::after {
     content: '';
     position: absolute;
     inset: 0;
-    background: repeating-linear-gradient(45deg, rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 2px, transparent 2px, transparent 4px);
-    pointer-events: none;
+    background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.04) 0px,
+        rgba(255, 255, 255, 0.04) 1px,
+        transparent 1px,
+        transparent 3px
+    ),
+    repeating-linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0.35) 0px,
+        rgba(0, 0, 0, 0.35) 2px,
+        transparent 2px,
+        transparent 4px
+    );
+    pointer-events: none !important;
     z-index: 50;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
 .console-standby-container {
@@ -1519,14 +1639,11 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 .console-standby-title {
     font-size: 38px;
-    color: var(--text);
     letter-spacing: 4px;
-    opacity: 0.9;
 }
 
 .console-standby-version {
     font-size: 13px;
-    color: var(--muted);
     margin-top: 12px;
     font-family: var(--le-font-family);
     letter-spacing: 1px;
@@ -1534,7 +1651,8 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 .console-body { 
     height: 100%; 
-    overflow-y: auto; 
+    overflow-y: scroll; /* Locked stable gutter to eliminate horizontal reflow jitter */
+    scrollbar-gutter: stable;
     padding: 8px; 
     font-family: monospace; 
     font-size: 11px; 
@@ -1542,22 +1660,33 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     display: flex; 
     flex-direction: column; 
     gap: 2px; 
+    user-select: text !important;
+    -webkit-user-select: text !important;
 }
 
-/* macOS Slim Overlay Scrollbar */
+/* Apple-style thin overlay scrollbar (No jitter, 10%-30% thumb boundary) */
 .console-body::-webkit-scrollbar {
-    width: 5px;
+    width: 8px;
 }
 .console-body::-webkit-scrollbar-track {
     background: transparent;
 }
 .console-body::-webkit-scrollbar-thumb {
-    background: transparent;
+    background-color: transparent;
     border-radius: 10px;
-    transition: background-color 0.3s ease;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    min-height: 24px;
+    max-height: 72px;
+    transition: background-color 0.25s ease;
 }
-.console-body:hover::-webkit-scrollbar-thumb {
-    background: rgba(150, 150, 150, 0.35);
+.console-box:hover .console-body::-webkit-scrollbar-thumb,
+.console-body:focus-within::-webkit-scrollbar-thumb,
+.console-body:active::-webkit-scrollbar-thumb {
+    background-color: rgba(160, 160, 160, 0.35);
+}
+.console-body::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(160, 160, 160, 0.6);
 }
 
 /* Color Coding for Console Log Sources */
@@ -1570,7 +1699,6 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 .log-time { 
     color: #5c6370; 
     flex-shrink: 0; 
-    user-select: none; 
 }
 .log-source {
     font-weight: 700;
@@ -1665,8 +1793,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     color: #ffffff;
 }
 
-[data-enhanced-text="true"] .rate-display-value,
-[data-enhanced-text="true"] .rate-input-field {
+[data-enhanced-text="true"] .rate-display-value {
     font-size: 15px !important;
     font-weight: 700 !important;
     color: var(--orange-hl) !important;

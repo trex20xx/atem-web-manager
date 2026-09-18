@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - SETTINGS MODAL (v3.82)
+// ATEM WEB MANAGER - SETTINGS MODAL (v3.84)
 // =========================================================================
 
 const QUAD_SELECT_OPTIONS = [
@@ -22,7 +22,8 @@ const SettingsModal = ({
     currentVideoSource, setCurrentVideoSource, quadrantOrder, setQuadrantOrder, 
     sidebarVariant, setSidebarVariant, useDeviceCsv, setUseDeviceCsv,
     deviceCsvContent, setDeviceCsvContent,
-    consoleFont, setConsoleFont, consoleLcdEffect, setConsoleLcdEffect
+    consoleFont, setConsoleFont, consoleLcdEffect, setConsoleLcdEffect,
+    enableTBar, setEnableTBar
 }) => {
     const modalRef = useRef(null);
     const [activeTab, setActiveTab] = useState('general');
@@ -157,6 +158,17 @@ const SettingsModal = ({
                                 </div>
                                 <div style={{ margin: '24px 0', borderTop: '1px solid var(--atem-border)' }}></div>
 
+                                <div className="setting-group">
+                                    <label>Enable T-Bar (Mixer Panel):</label>
+                                    <div className="setting-group-control">
+                                        <input 
+                                            type="checkbox" 
+                                            className="toggle-switch" 
+                                            checked={enableTBar} 
+                                            onChange={e => setEnableTBar(e.target.checked)} 
+                                        />
+                                    </div>
+                                </div>
                                 <div className="setting-group">
                                     <label>Console Display Font:</label>
                                     <div className="setting-group-control">

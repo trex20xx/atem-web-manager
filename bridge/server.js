@@ -1,9 +1,6 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.80)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.87)
 // =========================================================================
-// High-performance, zero-latency switcher bus bridge.
-// Translates raw input/aux IDs into friendly labels, logs rate values on execution,
-// and routes device-tagged telemetry (USER, ATEM, BRIDGE, SYSTEM) to the Console.
 
 const { Atem } = require('atem-connection');
 const WebSocket = require('ws');
@@ -19,7 +16,6 @@ let isAtemConnected = false;
 let reconnectTimer = null;
 let broadcastTimeout = null;
 
-// Authoritative switcher state cache
 let currentPgm = 1;
 let currentPvw = 2;
 let currentInTransition = false;
@@ -38,18 +34,32 @@ let mediaPlayers = [
 
 function getFriendlySourceName(id) {
     const num = parseInt(id, 10);
-    if (num >= 1 && num <= 10) return 'Input ' + num;
-    switch (num) {
-        case 0: return 'Black (BLK)';
-        case 1000: return 'Color Bars (BARS)';
-        case 2001: return 'Color 1';
-        case 2002: return 'Color 2';
-        case 3010: return 'Media Player 1 (MP1)';
-        case 3020: return 'Media Player 2 (MP2)';
-        case 10010: return 'Program (PGM)';
-        case 10011: return 'Preview (PVW)';
-        default: return 'Source ' + id;
+    let customName = '';
+    if (atem && atem.state && atem.state.inputs && atem.state.inputs[num]) {
+        const inp = atem.state.inputs[num];
+        customName = inp.longName || inp.shortName || '';
     }
+    
+    let base = '';
+    if (num >= 1 && num <= 10) base = 'Input ' + num;
+    else {
+        switch (num) {
+            case 0: base = 'Black (BLK)'; break;
+            case 1000: base = 'Color Bars (BARS)'; break;
+            case 2001: base = 'Color 1'; break;
+            case 2002: base = 'Color 2'; break;
+            case 3010: base = 'Media Player 1 (MP1)'; break;
+            case 3020: base = 'Media Player 2 (MP2)'; break;
+            case 10010: base = 'Program (PGM)'; break;
+            case 10011: base = 'Preview (PVW)'; break;
+            default: base = 'Source ' + id;
+        }
+    }
+    
+    if (customName && customName !== base && !base.includes(customName)) {
+        return `${base} (${customName})`;
+    }
+    return base;
 }
 
 const wss = new WebSocket.Server({ port: BRIDGE_PORT }, () => {
@@ -81,8 +91,8 @@ console.log = function() { originalLog.apply(console, arguments); broadcastLog('
 console.warn = function() { originalWarn.apply(console, arguments); broadcastLog('warn', 'BRIDGE', arguments); };
 console.error = function() { originalError.apply(console, arguments); broadcastLog('error', 'BRIDGE', arguments); };
 
-console.log('[ATEM Bridge v3.80] Starting bridge service...');
-console.log('[ATEM Bridge v3.80] Target ATEM Switcher IP: ' + ATEM_IP);
+console.log('[ATEM Bridge v3.87] Starting bridge service...');
+console.log('[ATEM Bridge v3.87] Target ATEM Switcher IP: ' + ATEM_IP);
 
 function setupAtemListeners() {
     atem.on('receivedCommands', (commands) => {
@@ -90,8 +100,6 @@ function setupAtemListeners() {
             let changed = false;
             for (const cmd of commands) {
                 if (handleHardwareCommand(cmd)) {
-                    const name = cmd.constructor ? cmd.constructor.name : (cmd.rawName || 'Command');
-                    broadcastLog('info', 'ATEM', ['Hardware State Updated: ' + name]);
                     changed = true;
                 }
             }
@@ -201,12 +209,11 @@ function sendStatePayload(targetWs = null) {
 
         if (atem && atem.state && atem.state.video && atem.state.video.auxiliaries) {
             const auxObj = atem.state.video.auxiliaries;
-            currentAux = [0, 1, 2, 3, 4, 5].map(idx => {
-                if (typeof auxObj[idx] === 'number') return auxObj[idx];
-                const keys = Object.keys(auxObj).map(Number).sort((a, b) => a - b);
-                if (keys[idx] !== undefined && typeof auxObj[keys[idx]] === 'number') return auxObj[keys[idx]];
-                return currentAux[idx] || 1;
-            });
+            for (let i = 0; i < 6; i++) {
+                if (auxObj[i] !== undefined && auxObj[i] !== null) {
+                    currentAux[i] = typeof auxObj[i] === 'object' ? (auxObj[i].source || 1) : Number(auxObj[i]);
+                }
+            }
         }
 
         if (atem && atem.state && atem.state.video && atem.state.video.downstreamKeyers) {
@@ -268,7 +275,30 @@ function sendStatePayload(targetWs = null) {
 function handleHardwareCommand(cmd) {
     if (!cmd) return false;
     const raw = cmd.rawName || (cmd.constructor ? cmd.constructor.name : '');
-    if (raw === 'PrgI' || raw.includes('ProgramInput') || raw === 'PrvI' || raw.includes('PreviewInput') || raw === 'TrPr' || raw === 'TrPs' || raw.includes('TransitionPosition') || raw === 'TMxr' || raw.includes('TransitionMix') || raw.includes('TransitionProperties') || raw === 'AuxS' || raw.includes('AuxSource') || raw.includes('Upstream') || raw === 'KeOn' || raw.includes('MixEffectKeyOnAir') || raw.includes('Downstream') || raw.includes('FadeToBlack') || raw.includes('Ftb') || raw === 'MRPr' || raw.includes('Macro') || raw.includes('MediaPool') || raw.includes('MediaPlayer')) {
+    const props = cmd.properties || cmd;
+
+    if (raw === 'PrgI' || raw.includes('ProgramInput')) {
+        if (props.source !== undefined && props.source !== currentPgm) {
+            currentPgm = props.source;
+            broadcastLog('info', 'ATEM', ['Program set to ' + getFriendlySourceName(props.source)]);
+        }
+        return true;
+    }
+    if (raw === 'PrvI' || raw.includes('PreviewInput')) {
+        if (props.source !== undefined && props.source !== currentPvw) {
+            currentPvw = props.source;
+            broadcastLog('info', 'ATEM', ['Preview set to ' + getFriendlySourceName(props.source)]);
+        }
+        return true;
+    }
+    if (raw === 'AuxS' || raw.includes('AuxSource')) {
+        if (props.auxBus !== undefined && props.source !== undefined) {
+            currentAux[props.auxBus] = props.source;
+            broadcastLog('info', 'ATEM', ['Aux ' + (props.auxBus + 1) + ' set to ' + getFriendlySourceName(props.source)]);
+        }
+        return true;
+    }
+    if (raw === 'TrPr' || raw === 'TrPs' || raw.includes('TransitionPosition') || raw === 'TMxr' || raw.includes('TransitionMix') || raw.includes('TransitionProperties') || raw.includes('Upstream') || raw === 'KeOn' || raw.includes('MixEffectKeyOnAir') || raw.includes('Downstream') || raw.includes('FadeToBlack') || raw.includes('Ftb') || raw === 'MRPr' || raw.includes('Macro') || raw.includes('MediaPool') || raw.includes('MediaPlayer')) {
         return true;
     }
     return false;
@@ -293,19 +323,19 @@ wss.on('connection', (ws) => {
                 broadcastState(ws, true);
             } else if (data.action === 'SET_PGM' && data.input !== undefined) {
                 currentPgm = parseInt(data.input, 10);
-                broadcastLog('info', 'USER', ['Set Program Input to ' + getFriendlySourceName(data.input)], targetIp);
+                broadcastLog('info', 'USER', ['Program set to ' + getFriendlySourceName(data.input)], targetIp);
                 atem.changeProgramInput(parseInt(data.input, 10), 0).catch(e => {});
                 broadcastState(null, true);
             } else if (data.action === 'SET_PVW' && data.input !== undefined) {
                 currentPvw = parseInt(data.input, 10);
-                broadcastLog('info', 'USER', ['Set Preview Input to ' + getFriendlySourceName(data.input)], targetIp);
+                broadcastLog('info', 'USER', ['Preview set to ' + getFriendlySourceName(data.input)], targetIp);
                 atem.changePreviewInput(parseInt(data.input, 10), 0).catch(e => {});
                 broadcastState(null, true);
             } else if (data.action === 'SET_AUX' && data.aux !== undefined && data.source !== undefined) {
                 const auxIdx = parseInt(data.aux, 10);
                 const srcId = parseInt(data.source, 10);
                 currentAux[auxIdx] = srcId;
-                broadcastLog('info', 'USER', ['Set Aux ' + (auxIdx + 1) + ' to ' + getFriendlySourceName(srcId)], targetIp);
+                broadcastLog('info', 'USER', ['Aux ' + (auxIdx + 1) + ' set to ' + getFriendlySourceName(srcId)], targetIp);
                 if (typeof atem.setAuxSource === 'function') {
                     atem.setAuxSource(srcId, auxIdx).catch(e => {});
                 }
@@ -321,6 +351,10 @@ wss.on('connection', (ws) => {
                 broadcastLog('info', 'USER', ['Set Transition Rate to ' + currentTransitionRate + ' frames'], targetIp);
                 atem.setMixTransitionSettings({ rate: currentTransitionRate }, 0).catch(e => {});
                 broadcastState(null, true);
+            } else if (data.action === 'SET_TRANS_POSITION' && data.position !== undefined) {
+                if (typeof atem.setTransitionPosition === 'function') {
+                    atem.setTransitionPosition(data.position, 0).catch(e => {});
+                }
             } else if (data.action === 'TOGGLE_USK_ONAIR' && data.usk !== undefined) {
                 const uskIdx = parseInt(data.usk, 10);
                 const targetState = !currentUskOnAir[uskIdx];
@@ -328,6 +362,8 @@ wss.on('connection', (ws) => {
                 broadcastLog('info', 'USER', ['Toggled Upstream Keyer ' + (uskIdx + 1) + ' On Air: ' + targetState], targetIp);
                 if (typeof atem.setUpstreamKeyerOnAir === 'function') {
                     atem.setUpstreamKeyerOnAir(targetState, 0, uskIdx).catch(e => {});
+                } else if (typeof atem.setUpstreamKeyOnAir === 'function') {
+                    atem.setUpstreamKeyOnAir(targetState, 0, uskIdx).catch(e => {});
                 }
                 broadcastState(null, true);
             } else if (data.action === 'TOGGLE_TRANS_SELECTION' && data.bit !== undefined) {
@@ -350,14 +386,18 @@ wss.on('connection', (ws) => {
             } else if (data.action === 'TOGGLE_DSK_TIE') {
                 dsk.tie = Boolean(data.tie);
                 broadcastLog('info', 'USER', ['Toggled DSK Tie: ' + dsk.tie], targetIp);
-                if (typeof atem.setDownstreamKeyerTie === 'function') {
+                if (typeof atem.setDownstreamKeyTie === 'function') {
+                    atem.setDownstreamKeyTie(Boolean(data.tie), 0).catch(e => {});
+                } else if (typeof atem.setDownstreamKeyerTie === 'function') {
                     atem.setDownstreamKeyerTie(Boolean(data.tie), 0).catch(e => {});
                 }
                 broadcastState(null, true);
             } else if (data.action === 'TOGGLE_DSK_ONAIR') {
                 dsk.onAir = Boolean(data.onAir);
                 broadcastLog('info', 'USER', ['Toggled DSK On Air: ' + dsk.onAir], targetIp);
-                if (typeof atem.setDownstreamKeyerOnAir === 'function') {
+                if (typeof atem.setDownstreamKeyOnAir === 'function') {
+                    atem.setDownstreamKeyOnAir(Boolean(data.onAir), 0).catch(e => {});
+                } else if (typeof atem.setDownstreamKeyerOnAir === 'function') {
                     atem.setDownstreamKeyerOnAir(Boolean(data.onAir), 0).catch(e => {});
                 }
                 broadcastState(null, true);
@@ -365,11 +405,15 @@ wss.on('connection', (ws) => {
                 broadcastLog('info', 'USER', ['Executed DSK AUTO transition (Rate: ' + dsk.rate + ' frames)'], targetIp);
                 if (typeof atem.autoDownstreamKey === 'function') {
                     atem.autoDownstreamKey(0).catch(e => {});
+                } else if (typeof atem.autoDownstreamKeyer === 'function') {
+                    atem.autoDownstreamKeyer(0).catch(e => {});
                 }
             } else if (data.action === 'SET_DSK_RATE' && data.rate !== undefined) {
                 dsk.rate = parseInt(data.rate, 10) || 30;
                 broadcastLog('info', 'USER', ['Set DSK Rate to ' + dsk.rate + ' frames'], targetIp);
-                if (typeof atem.setDownstreamKeyerRate === 'function') {
+                if (typeof atem.setDownstreamKeyRate === 'function') {
+                    atem.setDownstreamKeyRate(dsk.rate, 0).catch(e => {});
+                } else if (typeof atem.setDownstreamKeyerRate === 'function') {
                     atem.setDownstreamKeyerRate(dsk.rate, 0).catch(e => {});
                 }
                 broadcastState(null, true);
@@ -388,7 +432,7 @@ wss.on('connection', (ws) => {
             } else if (data.action === 'CLEAR_STILL' && data.index !== undefined) {
                 broadcastLog('info', 'USER', ['Cleared Media Pool Still ' + (parseInt(data.index, 10) + 1)], targetIp);
                 if (typeof atem.clearMediaPoolStill === 'function') {
-                    atem.clearMediaPoolStill(data.index).catch(e => console.error('[ATEM Bridge] clearMediaPoolStill error:', e.message || e));
+                    atem.clearMediaPoolStill(data.index).catch(e => {});
                 }
             } else if (data.action === 'SET_MEDIA_PLAYER_SOURCE' && data.player !== undefined) {
                 const playerIdx = parseInt(data.player, 10);
@@ -401,7 +445,7 @@ wss.on('connection', (ws) => {
                 if (typeof atem.setMediaPlayerSource === 'function') {
                     atem.setMediaPlayerSource(props, playerIdx)
                         .then(() => broadcastState(null, true))
-                        .catch(e => console.error('[ATEM Bridge] setMediaPlayerSource error:', e.message || e));
+                        .catch(e => {});
                 }
             } else if (data.action === 'MACRO_LOOP' && data.loop !== undefined) {
                 broadcastLog('info', 'USER', ['Toggled Macro Loop: ' + Boolean(data.loop)], targetIp);
