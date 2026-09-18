@@ -440,7 +440,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .device-wrapper:not(.editing):hover .device-inner { background:var(--panel2); }
 .device-wrapper.selected .device-inner { background:var(--panel2); }
 
-/* Connected device name: bright white without shrinking */
+/* Ensured absolute font-size lock without shrinking and bright coloration for active device */
 .device-inner.connected-row .device-name { 
     color: #ffffff !important; 
     font-weight: var(--device-font-weight) !important; 
@@ -1104,7 +1104,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     border-color: var(--red) !important;
 }
 
-/* Header action labels: strictly text-colored, no button block background/borders */
+/* Header action labels: text-colored only, no button block background or borders */
 .mp1-header-btn {
     color: var(--muted) !important;
     font-weight: 500 !important;
@@ -1328,12 +1328,11 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 .row-three .ftb-col {
     width: 84px;
-    margin-left: auto;
 }
 
 /* Vertical T-Bar Component inside Column 9 (stretched vertically between Preview row and CUT button) */
 .row-three .tbar-col-slot {
-    width: 64px;
+    width: 74px;
     margin-left: 4px;
     height: 98px;
     display: flex;

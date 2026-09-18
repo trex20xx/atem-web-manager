@@ -1,5 +1,5 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.89)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.90)
 // =========================================================================
 
 const { Atem } = require('atem-connection');
@@ -91,8 +91,8 @@ console.log = function() { originalLog.apply(console, arguments); broadcastLog('
 console.warn = function() { originalWarn.apply(console, arguments); broadcastLog('warn', 'BRIDGE', arguments); };
 console.error = function() { originalError.apply(console, arguments); broadcastLog('error', 'BRIDGE', arguments); };
 
-console.log('[ATEM Bridge v3.89] Starting bridge service...');
-console.log('[ATEM Bridge v3.89] Target ATEM Switcher IP: ' + ATEM_IP);
+console.log('[ATEM Bridge v3.90] Starting bridge service...');
+console.log('[ATEM Bridge v3.90] Target ATEM Switcher IP: ' + ATEM_IP);
 
 function setupAtemListeners() {
     atem.on('receivedCommands', (commands) => {
@@ -339,14 +339,8 @@ wss.on('connection', (ws) => {
                 const srcId = parseInt(data.source, 10);
                 currentAux[auxIdx] = srcId;
                 broadcastLog('info', 'USER', ['Aux ' + (auxIdx + 1) + ' set to ' + getFriendlySourceName(srcId)], targetIp);
-                
-                // Bidirectional parameter fallback to support all atem-connection version variants
                 if (typeof atem.setAuxSource === 'function') {
-                    atem.setAuxSource(auxIdx, srcId).catch(() => {
-                        atem.setAuxSource(srcId, auxIdx).catch(err => {
-                            broadcastLog('error', 'BRIDGE', ['setAuxSource failed: ' + (err.message || err)], targetIp);
-                        });
-                    });
+                    atem.setAuxSource(srcId, auxIdx).catch(e => {});
                 }
                 broadcastState(null, true);
             } else if (data.action === 'CUT') {
@@ -369,36 +363,18 @@ wss.on('connection', (ws) => {
                 const targetState = !currentUskOnAir[uskIdx];
                 currentUskOnAir[uskIdx] = targetState;
                 broadcastLog('info', 'USER', ['Toggled Upstream Keyer ' + (uskIdx + 1) + ' On Air: ' + targetState], targetIp);
-                if (typeof atem.setUpstreamKeyerOnAir === 'function') {
-                    atem.setUpstreamKeyerOnAir(targetState, 0, uskIdx).catch(e => {});
-                } else if (typeof atem.setUpstreamKeyOnAir === 'function') {
+                if (typeof atem.setUpstreamKeyOnAir === 'function') {
                     atem.setUpstreamKeyOnAir(targetState, 0, uskIdx).catch(e => {});
                 }
                 broadcastState(null, true);
-            } else if (data.action === 'TOGGLE_TRANS_SELECTION' && data.bit !== undefined) {
-                const bit = parseInt(data.bit, 10);
-                const newSelection = currentTransitionSelection ^ bit;
-                currentTransitionSelection = newSelection || 1;
-                broadcastLog('info', 'USER', ['Toggled Next Transition Selection bit: ' + bit], targetIp);
-                
-                const selArray = [];
-                if (currentTransitionSelection & 1) selArray.push(1);
-                if (currentTransitionSelection & 2) selArray.push(2);
-                if (currentTransitionSelection & 4) selArray.push(4);
-                if (currentTransitionSelection & 8) selArray.push(8);
-                if (currentTransitionSelection & 16) selArray.push(16);
-
+            } else if (data.action === 'SET_TRANS_SELECTION' && data.selection !== undefined) {
+                currentTransitionSelection = parseInt(data.selection, 10);
+                broadcastLog('info', 'USER', ['Toggled Next Transition Selection mask: ' + currentTransitionSelection], targetIp);
                 try {
-                    // Physical Blackmagic switchers evaluate nextSelection (array of enum keys)
-                    if (typeof atem.setTransitionProperties === 'function') {
-                        atem.setTransitionProperties({ nextSelection: selArray }, 0).catch(() => {
-                            atem.setTransitionProperties({ nextSelection: currentTransitionSelection }, 0).catch(err => {
-                                broadcastLog('error', 'BRIDGE', ['setTransitionProperties failed: ' + (err.message || err)], targetIp);
-                            });
-                        });
-                    }
                     if (typeof atem.changeTransitionSelection === 'function') {
-                        atem.changeTransitionSelection(currentTransitionSelection, 0).catch(() => {});
+                        atem.changeTransitionSelection(currentTransitionSelection, 0).catch(e => {
+                            broadcastLog('error', 'BRIDGE', ['changeTransitionSelection failed: ' + (e.message || e)]);
+                        });
                     }
                 } catch(e) {}
                 broadcastState(null, true);
@@ -408,10 +384,8 @@ wss.on('connection', (ws) => {
                 try {
                     if (typeof atem.setDownstreamKeyTie === 'function') {
                         atem.setDownstreamKeyTie(Boolean(data.tie), 0).catch(e => {
-                            broadcastLog('error', 'BRIDGE', ['setDownstreamKeyTie failed: ' + (e.message || e)], targetIp);
+                            broadcastLog('error', 'BRIDGE', ['setDownstreamKeyTie failed: ' + (e.message || e)]);
                         });
-                    } else if (typeof atem.setDownstreamKeyerTie === 'function') {
-                        atem.setDownstreamKeyerTie(Boolean(data.tie), 0).catch(() => {});
                     }
                 } catch(e) {}
                 broadcastState(null, true);
@@ -421,10 +395,8 @@ wss.on('connection', (ws) => {
                 try {
                     if (typeof atem.setDownstreamKeyOnAir === 'function') {
                         atem.setDownstreamKeyOnAir(Boolean(data.onAir), 0).catch(e => {
-                            broadcastLog('error', 'BRIDGE', ['setDownstreamKeyOnAir failed: ' + (e.message || e)], targetIp);
+                            broadcastLog('error', 'BRIDGE', ['setDownstreamKeyOnAir failed: ' + (e.message || e)]);
                         });
-                    } else if (typeof atem.setDownstreamKeyerOnAir === 'function') {
-                        atem.setDownstreamKeyerOnAir(Boolean(data.onAir), 0).catch(() => {});
                     }
                 } catch(e) {}
                 broadcastState(null, true);
@@ -433,8 +405,6 @@ wss.on('connection', (ws) => {
                 try {
                     if (typeof atem.autoDownstreamKey === 'function') {
                         atem.autoDownstreamKey(0).catch(e => {});
-                    } else if (typeof atem.autoDownstreamKeyer === 'function') {
-                        atem.autoDownstreamKeyer(0).catch(e => {});
                     }
                 } catch(e) {}
             } else if (data.action === 'SET_DSK_RATE' && data.rate !== undefined) {
@@ -443,8 +413,6 @@ wss.on('connection', (ws) => {
                 try {
                     if (typeof atem.setDownstreamKeyRate === 'function') {
                         atem.setDownstreamKeyRate(dsk.rate, 0).catch(e => {});
-                    } else if (typeof atem.setDownstreamKeyerRate === 'function') {
-                        atem.setDownstreamKeyerRate(dsk.rate, 0).catch(e => {});
                     }
                 } catch(e) {}
                 broadcastState(null, true);
@@ -467,20 +435,11 @@ wss.on('connection', (ws) => {
                 }
             } else if (data.action === 'SET_MEDIA_PLAYER_SOURCE' && data.player !== undefined) {
                 const playerIdx = parseInt(data.player, 10);
-                const pNum = playerIdx + 1;
                 const props = {};
                 if (data.sourceType !== undefined) props.sourceType = data.sourceType;
                 if (data.stillIndex !== undefined) props.stillIndex = data.stillIndex;
                 if (data.clipIndex !== undefined) props.clipIndex = data.clipIndex;
 
-                let desc = '';
-                if (props.sourceType === 1 || props.stillIndex !== undefined) {
-                    desc = `Still ${(parseInt(props.stillIndex, 10) || 0) + 1}`;
-                } else {
-                    desc = `Clip ${(parseInt(props.clipIndex, 10) || 0) + 1}`;
-                }
-                broadcastLog('info', 'USER', [`MP${pNum} source set to ${desc}`], targetIp);
-                
                 if (typeof atem.setMediaPlayerSource === 'function') {
                     atem.setMediaPlayerSource(props, playerIdx)
                         .then(() => broadcastState(null, true))

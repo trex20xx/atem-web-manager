@@ -35,6 +35,7 @@ const SettingsModal = ({
     sidebarVariant, setSidebarVariant, useDeviceCsv, setUseDeviceCsv,
     deviceCsvContent, setDeviceCsvContent,
     consoleFont, setConsoleFont, consoleLcdEffect, setConsoleLcdEffect,
+    consoleLcdSheen, setConsoleLcdSheen,
     enableTBar, setEnableTBar
 }) => {
     const modalRef = useRef(null);
@@ -43,7 +44,6 @@ const SettingsModal = ({
     const [pos, setPos] = useState({ x: 0, y: 0 });
     const dragOffset = useRef({ x: 0, y: 0 });
 
-    const [consoleLcdSheen, setConsoleLcdSheen] = useLocalStorage('atem_consoleLcdSheen', false);
     const [customTheme, setCustomTheme] = useLocalStorage('atem_custom_theme', DEFAULT_THEME_VARS);
 
     const applyThemeVars = (vars) => {

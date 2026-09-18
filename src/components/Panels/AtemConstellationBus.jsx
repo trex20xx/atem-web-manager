@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.89)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.90)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -30,7 +30,6 @@ const DragRateInput = ({ value, onChange, onCommit, title, disabled, onReset }) 
         e.preventDefault();
         e.stopPropagation();
 
-        // Middle Click Reset
         if (e.button === 1) {
             if (onReset) onReset();
             return;
@@ -38,7 +37,6 @@ const DragRateInput = ({ value, onChange, onCommit, title, disabled, onReset }) 
 
         if (e.button !== 0) return;
 
-        // Double Click Reset (within 350ms)
         const now = Date.now();
         if (now - lastClickTimeRef.current < 350) {
             if (onReset) onReset();
@@ -128,9 +126,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
     const [selectedOut, setSelectedOut] = useState(null);
     const [auxSources, setAuxSources] = useState([1, 2, 3, 4, 5, 6]);
     
-    // T-Bar state & bidirectional LED progress
     const [tbarPosition, setTbarPosition] = useState(0);
-    const [tbarStartEnd, setTbarStartEnd] = useState('top'); // 'top' (starts 0%) or 'bottom' (starts 100%)
 
     const storedTransRateRef = useRef(25);
     const storedDskRateRef = useRef(25);
@@ -194,7 +190,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                     
                     if (data.transitionPosition !== undefined && now > optimisticLocks.current.tbar) {
                         const newPos = Math.round(Number(data.transitionPosition) / 100);
-                        updateTbarPosition(newPos);
+                        setTbarPosition(newPos);
                     }
 
                     if (data.transitionRate !== undefined && !transCountdownTimer.current) {
@@ -312,15 +308,6 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
         }
     };
 
-    const updateTbarPosition = (newPos) => {
-        setTbarPosition(newPos);
-        if (newPos >= 100) {
-            setTbarStartEnd('bottom');
-        } else if (newPos <= 0) {
-            setTbarStartEnd('top');
-        }
-    };
-
     const triggerRateCountdown = (type) => {
         if (type === 'TRANS') {
             if (transCountdownTimer.current) clearInterval(transCountdownTimer.current);
@@ -329,11 +316,10 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
             const totalFrames = storedTransRateRef.current || 25;
             let current = totalFrames;
             setInTransition(true);
-            dispatchSysLog('Auto transition started at rate ' + totalFrames + ' frames');
 
-            // Synchronized T-Bar movement during AUTO
-            const targetPos = tbarStartEnd === 'top' ? 100 : 0;
+            // Synchronize T-Bar movement during AUTO based on current position
             const startPos = tbarPosition;
+            const targetPos = startPos > 50 ? 0 : 100;
             const totalSteps = totalFrames;
             let currentStep = 0;
 
@@ -341,7 +327,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                 currentStep += 1;
                 const ratio = Math.min(1, currentStep / totalSteps);
                 const interp = Math.round(startPos + (targetPos - startPos) * ratio);
-                updateTbarPosition(interp);
+                setTbarPosition(interp);
                 if (currentStep >= totalSteps) {
                     clearInterval(tbarAutoTimer.current);
                     tbarAutoTimer.current = null;
@@ -355,7 +341,6 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                     transCountdownTimer.current = null;
                     setLocalTransRate(totalFrames);
                     setInTransition(false);
-                    dispatchSysLog('Auto transition completed');
                 } else {
                     setLocalTransRate(current);
                 }
@@ -365,7 +350,6 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
             const total = storedDskRateRef.current || 25;
             let current = total;
             setDsk(prev => ({ ...prev, inTransition: true }));
-            dispatchSysLog('DSK 1 Auto transition started at rate ' + total + ' frames');
 
             dskCountdownTimer.current = setInterval(() => {
                 current -= 1;
@@ -374,7 +358,6 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                     dskCountdownTimer.current = null;
                     setLocalDskRate(total);
                     setDsk(prev => ({ ...prev, inTransition: false }));
-                    dispatchSysLog('DSK 1 Auto transition completed');
                 } else {
                     setLocalDskRate(current);
                 }
@@ -384,7 +367,6 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
             const total = storedFtbRateRef.current || 25;
             let current = total;
             setFtb(prev => ({ ...prev, inTransition: true }));
-            dispatchSysLog('Fade to Black started at rate ' + total + ' frames');
 
             ftbCountdownTimer.current = setInterval(() => {
                 current -= 1;
@@ -393,7 +375,6 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                     ftbCountdownTimer.current = null;
                     setLocalFtbRate(total);
                     setFtb(prev => ({ ...prev, inTransition: false, isFullyBlack: !prev.isFullyBlack }));
-                    dispatchSysLog('Fade to Black completed');
                 } else {
                     setLocalFtbRate(current);
                 }
@@ -528,8 +509,9 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
         optimisticLocks.current.trans = Date.now() + 450;
         const current = transitionSelection !== null ? transitionSelection : 1;
         const next = current ^ bit;
-        setTransitionSelection(next || 1);
-        sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit });
+        const finalSelection = next || 1;
+        setTransitionSelection(finalSelection);
+        sendAtemCommand('SET_TRANS_SELECTION', { selection: finalSelection });
     };
 
     const handleUskToggle = (usk) => {
@@ -580,7 +562,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
     const handleTbarChange = (e) => {
         if (!isPanelActive || !isUnlocked) return;
         const val = parseInt(e.target.value, 10);
-        updateTbarPosition(val);
+        setTbarPosition(val);
         optimisticLocks.current.tbar = Date.now() + 250;
         sendAtemCommand('SET_TRANS_POSITION', { position: val * 100 });
     };
@@ -627,17 +609,17 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
         transition: 'opacity 0.25s ease'
     };
 
-    // Calculate LCD strip fill height & direction
+    // Calculate LCD strip fill height based on proximity to 0 or 100
     let lcdFillPercent = 0;
     let isFillFromBottom = false;
 
     if (tbarPosition > 0 && tbarPosition < 100) {
-        if (tbarStartEnd === 'top') {
+        if (tbarPosition < 50) {
             lcdFillPercent = tbarPosition;
-            isFillFromBottom = false; // fills from top downwards
+            isFillFromBottom = false; // sticks to top, grows down
         } else {
             lcdFillPercent = 100 - tbarPosition;
-            isFillFromBottom = true; // fills from bottom upwards
+            isFillFromBottom = true; // sticks to bottom, grows up
         }
     }
 
@@ -801,6 +783,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                                     onCommit={(val) => sendAtemCommand('SET_DSK_RATE', { rate: val })} 
                                     onReset={() => {
                                         handleDskRateChange(25);
+                                        sendAtemCommand('SET_DSK_RATE', { rate: 25 });
                                         dispatchSysLog('DSK 1 Rate reset to 25 frames');
                                     }}
                                 />
@@ -820,7 +803,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                         </div>
                     </div>
 
-                    {/* Column 9: T-BAR (Directly under Input 9 in the 72px interstitial space) */}
+                    {/* Column 9: T-BAR (Directly under Input 9 in the 72px gap between DSK and FTB) */}
                     {enableTBar && (
                         <div className="atem-section-wrapper tbar-col-slot">
                             <div className="atem-section-box tbar-stretched-box">
@@ -870,6 +853,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                                     onCommit={(val) => sendAtemCommand('SET_FTB_RATE', { rate: val })} 
                                     onReset={() => {
                                         handleFtbRateChange(25);
+                                        sendAtemCommand('SET_FTB_RATE', { rate: 25 });
                                         dispatchSysLog('FTB Rate reset to 25 frames');
                                     }}
                                 />
@@ -922,6 +906,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                                     onCommit={(val) => sendAtemCommand('SET_TRANSITION_RATE', { rate: val })} 
                                     onReset={() => {
                                         handleTransRateChange(25);
+                                        sendAtemCommand('SET_TRANSITION_RATE', { rate: 25 });
                                         dispatchSysLog('Transition Rate reset to 25 frames');
                                     }}
                                 />
