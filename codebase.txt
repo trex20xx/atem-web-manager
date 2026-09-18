@@ -176,7 +176,7 @@ server.bind(ATEM_PORT, EMULATOR_IP, () => {
  
 === FILE: bridge/server.js === 
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.87)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.88)
 // =========================================================================
 
 const { Atem } = require('atem-connection');
@@ -268,8 +268,8 @@ console.log = function() { originalLog.apply(console, arguments); broadcastLog('
 console.warn = function() { originalWarn.apply(console, arguments); broadcastLog('warn', 'BRIDGE', arguments); };
 console.error = function() { originalError.apply(console, arguments); broadcastLog('error', 'BRIDGE', arguments); };
 
-console.log('[ATEM Bridge v3.87] Starting bridge service...');
-console.log('[ATEM Bridge v3.87] Target ATEM Switcher IP: ' + ATEM_IP);
+console.log('[ATEM Bridge v3.88] Starting bridge service...');
+console.log('[ATEM Bridge v3.88] Target ATEM Switcher IP: ' + ATEM_IP);
 
 function setupAtemListeners() {
     atem.on('receivedCommands', (commands) => {
@@ -388,7 +388,7 @@ function sendStatePayload(targetWs = null) {
             const auxObj = atem.state.video.auxiliaries;
             for (let i = 0; i < 6; i++) {
                 if (auxObj[i] !== undefined && auxObj[i] !== null) {
-                    currentAux[i] = typeof auxObj[i] === 'object' ? (auxObj[i].source || 1) : Number(auxObj[i]);
+                    currentAux[i] = typeof auxObj[i] === 'object' ? (auxObj[i].source !== undefined ? auxObj[i].source : 1) : Number(auxObj[i]);
                 }
             }
         }
@@ -469,12 +469,15 @@ function handleHardwareCommand(cmd) {
         return true;
     }
     if (raw === 'AuxS' || raw.includes('AuxSource')) {
-        if (props.auxBus !== undefined && props.source !== undefined) {
-            currentAux[props.auxBus] = props.source;
-            broadcastLog('info', 'ATEM', ['Aux ' + (props.auxBus + 1) + ' set to ' + getFriendlySourceName(props.source)]);
+        const auxIdx = props.id !== undefined ? props.id : (props.auxBus !== undefined ? props.auxBus : props.auxBusId);
+        const auxSrc = props.source !== undefined ? props.source : props.input;
+        if (auxIdx !== undefined && auxSrc !== undefined) {
+            currentAux[auxIdx] = auxSrc;
+            broadcastLog('info', 'ATEM', ['Aux ' + (Number(auxIdx) + 1) + ' set to ' + getFriendlySourceName(auxSrc)]);
         }
         return true;
     }
+
     if (raw === 'TrPr' || raw === 'TrPs' || raw.includes('TransitionPosition') || raw === 'TMxr' || raw.includes('TransitionMix') || raw.includes('TransitionProperties') || raw.includes('Upstream') || raw === 'KeOn' || raw.includes('MixEffectKeyOnAir') || raw.includes('Downstream') || raw.includes('FadeToBlack') || raw.includes('Ftb') || raw === 'MRPr' || raw.includes('Macro') || raw.includes('MediaPool') || raw.includes('MediaPlayer')) {
         return true;
     }
@@ -548,51 +551,66 @@ wss.on('connection', (ws) => {
                 const newSelection = currentTransitionSelection ^ bit;
                 currentTransitionSelection = newSelection || 1;
                 broadcastLog('info', 'USER', ['Toggled Next Transition Selection bit: ' + bit], targetIp);
-                if (typeof atem.setTransitionProperties === 'function') {
-                    atem.setTransitionProperties({ selection: currentTransitionSelection, nextSelection: currentTransitionSelection }, 0).catch(e => {
-                        const selArray = [];
-                        if (currentTransitionSelection & 1) selArray.push(1);
-                        if (currentTransitionSelection & 2) selArray.push(2);
-                        if (currentTransitionSelection & 4) selArray.push(4);
-                        if (currentTransitionSelection & 8) selArray.push(8);
-                        if (currentTransitionSelection & 16) selArray.push(16);
-                        atem.setTransitionProperties({ selection: selArray.length ? selArray : [1] }, 0).catch(() => {});
-                    });
-                }
+                
+                const selArray = [];
+                if (currentTransitionSelection & 1) selArray.push(1);
+                if (currentTransitionSelection & 2) selArray.push(2);
+                if (currentTransitionSelection & 4) selArray.push(4);
+                if (currentTransitionSelection & 8) selArray.push(8);
+                if (currentTransitionSelection & 16) selArray.push(16);
+
+                try {
+                    if (typeof atem.setTransitionProperties === 'function') {
+                        atem.setTransitionProperties({ nextSelection: selArray }, 0).catch(() => {
+                            atem.setTransitionProperties({ nextSelection: currentTransitionSelection }, 0).catch(() => {});
+                        });
+                    }
+                    if (typeof atem.changeTransitionSelection === 'function') {
+                        atem.changeTransitionSelection(currentTransitionSelection, 0).catch(() => {});
+                    }
+                } catch(e) {}
                 broadcastState(null, true);
             } else if (data.action === 'TOGGLE_DSK_TIE') {
                 dsk.tie = Boolean(data.tie);
                 broadcastLog('info', 'USER', ['Toggled DSK Tie: ' + dsk.tie], targetIp);
-                if (typeof atem.setDownstreamKeyTie === 'function') {
-                    atem.setDownstreamKeyTie(Boolean(data.tie), 0).catch(e => {});
-                } else if (typeof atem.setDownstreamKeyerTie === 'function') {
-                    atem.setDownstreamKeyerTie(Boolean(data.tie), 0).catch(e => {});
-                }
+                try {
+                    if (typeof atem.setDownstreamKeyTie === 'function') {
+                        atem.setDownstreamKeyTie(Boolean(data.tie), 0).catch(() => {});
+                    } else if (typeof atem.setDownstreamKeyerTie === 'function') {
+                        atem.setDownstreamKeyerTie(Boolean(data.tie), 0).catch(() => {});
+                    }
+                } catch(e) {}
                 broadcastState(null, true);
             } else if (data.action === 'TOGGLE_DSK_ONAIR') {
                 dsk.onAir = Boolean(data.onAir);
                 broadcastLog('info', 'USER', ['Toggled DSK On Air: ' + dsk.onAir], targetIp);
-                if (typeof atem.setDownstreamKeyOnAir === 'function') {
-                    atem.setDownstreamKeyOnAir(Boolean(data.onAir), 0).catch(e => {});
-                } else if (typeof atem.setDownstreamKeyerOnAir === 'function') {
-                    atem.setDownstreamKeyerOnAir(Boolean(data.onAir), 0).catch(e => {});
-                }
+                try {
+                    if (typeof atem.setDownstreamKeyOnAir === 'function') {
+                        atem.setDownstreamKeyOnAir(Boolean(data.onAir), 0).catch(() => {});
+                    } else if (typeof atem.setDownstreamKeyerOnAir === 'function') {
+                        atem.setDownstreamKeyerOnAir(Boolean(data.onAir), 0).catch(() => {});
+                    }
+                } catch(e) {}
                 broadcastState(null, true);
             } else if (data.action === 'EXECUTE_DSK_AUTO') {
                 broadcastLog('info', 'USER', ['Executed DSK AUTO transition (Rate: ' + dsk.rate + ' frames)'], targetIp);
-                if (typeof atem.autoDownstreamKey === 'function') {
-                    atem.autoDownstreamKey(0).catch(e => {});
-                } else if (typeof atem.autoDownstreamKeyer === 'function') {
-                    atem.autoDownstreamKeyer(0).catch(e => {});
-                }
+                try {
+                    if (typeof atem.autoDownstreamKey === 'function') {
+                        atem.autoDownstreamKey(0).catch(e => {});
+                    } else if (typeof atem.autoDownstreamKeyer === 'function') {
+                        atem.autoDownstreamKeyer(0).catch(e => {});
+                    }
+                } catch(e) {}
             } else if (data.action === 'SET_DSK_RATE' && data.rate !== undefined) {
                 dsk.rate = parseInt(data.rate, 10) || 30;
                 broadcastLog('info', 'USER', ['Set DSK Rate to ' + dsk.rate + ' frames'], targetIp);
-                if (typeof atem.setDownstreamKeyRate === 'function') {
-                    atem.setDownstreamKeyRate(dsk.rate, 0).catch(e => {});
-                } else if (typeof atem.setDownstreamKeyerRate === 'function') {
-                    atem.setDownstreamKeyerRate(dsk.rate, 0).catch(e => {});
-                }
+                try {
+                    if (typeof atem.setDownstreamKeyRate === 'function') {
+                        atem.setDownstreamKeyRate(dsk.rate, 0).catch(e => {});
+                    } else if (typeof atem.setDownstreamKeyerRate === 'function') {
+                        atem.setDownstreamKeyerRate(dsk.rate, 0).catch(e => {});
+                    }
+                } catch(e) {}
                 broadcastState(null, true);
             } else if (data.action === 'EXECUTE_FTB') {
                 broadcastLog('info', 'USER', ['Executed Fade to Black (FTB) (Rate: ' + ftb.rate + ' frames)'], targetIp);
@@ -613,11 +631,19 @@ wss.on('connection', (ws) => {
                 }
             } else if (data.action === 'SET_MEDIA_PLAYER_SOURCE' && data.player !== undefined) {
                 const playerIdx = parseInt(data.player, 10);
+                const pNum = playerIdx + 1;
                 const props = {};
                 if (data.sourceType !== undefined) props.sourceType = data.sourceType;
                 if (data.stillIndex !== undefined) props.stillIndex = data.stillIndex;
                 if (data.clipIndex !== undefined) props.clipIndex = data.clipIndex;
-                broadcastLog('info', 'USER', ['Routed Media Player ' + (playerIdx + 1) + ' source: ' + JSON.stringify(props)], targetIp);
+
+                let desc = '';
+                if (props.sourceType === 1 || props.stillIndex !== undefined) {
+                    desc = `Still ${(parseInt(props.stillIndex, 10) || 0) + 1}`;
+                } else {
+                    desc = `Clip ${(parseInt(props.clipIndex, 10) || 0) + 1}`;
+                }
+                broadcastLog('info', 'USER', [`MP${pNum} source set to ${desc}`], targetIp);
                 
                 if (typeof atem.setMediaPlayerSource === 'function') {
                     atem.setMediaPlayerSource(props, playerIdx)
@@ -1120,7 +1146,7 @@ export default App;
 === FILE: src/index.css === 
 /*
  * =========================================================================
- * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.87)
+ * ARCHITECTURAL SPECIFICATION & TECHNICAL DOCUMENTATION (v3.88)
  * =========================================================================
  */
 
@@ -1166,6 +1192,18 @@ export default App;
   font-weight: 900;
   font-display: swap;
   src: url('/fonts/roboto-900.woff2') format('woff2');
+}
+
+/* Locally Sourced Display Fonts */
+@font-face {
+  font-family: 'Pandorum Light';
+  src: url('/fonts/Pandorum Light.otf') format('opentype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Pandorum Bold';
+  src: url('/fonts/Pandorum Bold.otf') format('opentype');
+  font-display: swap;
 }
 
 /* Console Standby Fonts (Bootstrapped by OPS) */
@@ -1273,6 +1311,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     padding: 0 16px; 
     background: transparent; 
     z-index: 1000; 
+    font-family: 'Roboto', sans-serif !important;
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s ease;
 }
 
@@ -1302,8 +1341,9 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .top-bar-left { display: flex; align-items: center; gap: 12px; }
 .top-bar-right { display: flex; align-items: center; gap: 10px; height: 100%; }
 
-/* Top-of-page header title typography */
+/* Top-of-page header title typography strictly locked to Roboto */
 .app-title { 
+    font-family: 'Roboto', sans-serif !important;
     font-size: 13px; 
     font-weight: 500; 
     color: var(--muted); 
@@ -1348,10 +1388,12 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     color: #5c6370;
 }
 
-/* Separator dots */
+/* Bullet Separator: centered and vertically aligned */
 .app-title-dot {
-    display: inline-block;
-    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
     font-weight: 700;
     line-height: 1;
     margin: 0 6px;
@@ -1473,7 +1515,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
     transform: translateX(0);
 }
 
-.search-container{ padding: 12px 10px 10px 10px; } /* Pushed down with equal balanced margins */
+.search-container{ padding: 10px 10px 8px 10px; } /* Balanced equal margins */
 .device-list{ flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
 .action-container{ max-height:0; overflow:visible; opacity:0; transform:translateY(10px); transition:max-height .28s ease, opacity .2s ease, transform .28s ease, padding .28s ease; padding:0 12px; display:flex; flex-direction:column; gap:6px; position:relative; }
 .action-container.visible { max-height:60px; opacity:1; transform:translateY(0); padding:12px; }
@@ -1506,7 +1548,7 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .group-header-wrapper:hover .group-edit-btn, .device-wrapper:hover .edit-btn { opacity:1; }
 .group-edit-btn:hover, .edit-btn:hover { background:rgba(150,150,150,0.15); color:var(--text); }
 
-/* Sidebar device connection toggle switch */
+/* Sidebar device connection toggle switch: vertically aligned and hidden unless hovered or active */
 .device-connect-toggle {
     display: flex;
     align-items: center;
@@ -1540,12 +1582,14 @@ button:focus, input:focus, select:focus { outline: none !important; box-shadow: 
 .device-wrapper:not(.editing):hover .device-inner { background:var(--panel2); }
 .device-wrapper.selected .device-inner { background:var(--panel2); }
 
-/* Ensured absolute font-size lock without shrinking and bright coloration for active device */
+/* Connected device name: bright white without shrinking */
 .device-inner.connected-row .device-name { 
     color: #ffffff !important; 
     font-weight: var(--device-font-weight) !important; 
     font-size: var(--device-font-size) !important;
     opacity: 1 !important;
+    letter-spacing: 0.2px;
+    filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.4));
 }
 
 .status{ width:7px; height:7px; min-width:7px; border-radius:50%; flex-shrink: 0; }
@@ -2202,7 +2246,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     border-color: var(--red) !important;
 }
 
-/* Header action labels: strictly text-colored, no button block background/borders */
+/* Header action labels: text-colored only, no button block background or borders */
 .mp1-header-btn {
     color: var(--muted) !important;
     font-weight: 500 !important;
@@ -2428,6 +2472,10 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     width: 84px;
 }
 
+.row-three .tbar-col {
+    width: 64px;
+}
+
 .row-four .outputs-col {
     width: 474px;
 }
@@ -2437,91 +2485,114 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     margin-left: auto;
 }
 
-/* Custom Horizontal T-Bar Component */
-.tbar-col {
-    display: flex;
-    flex-direction: column;
-}
-.tbar-container {
-    position: relative;
-    width: 100%;
-    height: 14px;
-    background: #111111;
-    border-radius: var(--ui-radius);
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
+/* Vertical T-Bar Component in Row 3 (taking 80px height slot) */
+.tbar-box-wrapper {
+    height: 80px;
     display: flex;
     align-items: center;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    justify-content: center;
+    padding: 0 !important;
+    box-sizing: border-box;
 }
-.tbar-lcd-trail {
+.tbar-vertical-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    height: 72px;
+    position: relative;
+}
+.tbar-lcd-track {
+    width: 6px;
+    height: 64px;
+    background: #0d0d0d;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+}
+.tbar-lcd-trail-v {
     position: absolute;
-    left: 0;
-    top: 0;
     bottom: 0;
+    left: 0;
+    right: 0;
     background: repeating-linear-gradient(
-        -45deg,
+        to top,
         #d32f2f,
-        #d32f2f 4px,
-        #b71c1c 4px,
-        #b71c1c 8px
+        #d32f2f 3px,
+        #8a1a1a 3px,
+        #8a1a1a 5px
     );
-    border-radius: var(--ui-radius) 0 0 var(--ui-radius);
-    pointer-events: none;
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
-    transition: width 0.1s linear;
+    border-radius: 2px;
+    transition: height 0.08s linear;
+    box-shadow: 0 0 6px rgba(211, 47, 47, 0.6);
 }
-.tbar-slider {
+.tbar-slider-axis {
+    position: relative;
+    width: 24px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.tbar-slider-v {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 64px;
+    height: 24px;
+    transform-origin: 0 0;
+    transform: rotate(-90deg);
     -webkit-appearance: none;
     appearance: none;
-    width: 100%;
-    height: 100%;
     background: transparent;
-    position: relative;
-    z-index: 10;
-    margin: 0;
     outline: none;
-    cursor: grab;
+    margin: 0;
+    cursor: ns-resize;
 }
-.tbar-slider:active {
-    cursor: grabbing;
-}
-.tbar-slider::-webkit-slider-runnable-track {
+.tbar-slider-v::-webkit-slider-runnable-track {
     width: 100%;
-    height: 100%;
-    background: transparent;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
 }
-.tbar-slider::-webkit-slider-thumb {
+.tbar-slider-v::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    height: 36px;
-    width: 24px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
     background: var(--panel2);
     border: 1px solid var(--atem-border);
-    border-radius: 4px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-    margin-top: -11px;
-    position: relative;
-    transition: box-shadow 0.2s ease;
+    margin-top: -7px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
+    transition: box-shadow 0.15s ease, background 0.15s ease;
+    cursor: ns-resize;
 }
-.tbar-slider:hover::-webkit-slider-thumb {
-    box-shadow: 0 2px 6px rgba(0,0,0,0.5), 0 0 0 8px rgba(255,255,255,0.1);
+.tbar-slider-v:hover::-webkit-slider-thumb {
+    background: #3f3f3f;
+    box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.15);
 }
-.tbar-slider::-moz-range-track {
+.tbar-slider-v::-moz-range-track {
     width: 100%;
-    height: 100%;
-    background: transparent;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
 }
-.tbar-slider::-moz-range-thumb {
-    height: 36px;
-    width: 24px;
+.tbar-slider-v::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
     background: var(--panel2);
     border: 1px solid var(--atem-border);
-    border-radius: 4px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-    transition: box-shadow 0.2s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
+    transition: box-shadow 0.15s ease, background 0.15s ease;
+    cursor: ns-resize;
 }
-.tbar-slider:hover::-moz-range-thumb {
-    box-shadow: 0 2px 6px rgba(0,0,0,0.5), 0 0 0 8px rgba(255,255,255,0.1);
+.tbar-slider-v:hover::-moz-range-thumb {
+    background: #3f3f3f;
+    box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.15);
 }
 
 .atem-section-wrapper {
@@ -2747,6 +2818,27 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
+/* Diagonal Phone-Style Specular Glass Sheen Reflection */
+.console-lcd-reflection {
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0) 30%,
+        rgba(255, 255, 255, 0.02) 42%,
+        rgba(255, 255, 255, 0.07) 48%,
+        rgba(255, 255, 255, 0.07) 50%,
+        rgba(255, 255, 255, 0.02) 56%,
+        rgba(255, 255, 255, 0) 68%
+    );
+    transform: rotate(25deg);
+    pointer-events: none !important;
+    z-index: 48;
+}
+
 .console-standby-container {
     width: 100%;
     height: 100%;
@@ -2771,7 +2863,7 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
 
 .console-body { 
     height: 100%; 
-    overflow-y: scroll; /* Locked stable gutter to eliminate horizontal reflow jitter */
+    overflow-y: scroll;
     scrollbar-gutter: stable;
     padding: 8px; 
     font-family: monospace; 
@@ -2784,7 +2876,14 @@ input[type="range"]::-moz-range-thumb { width: 14px !important; height: 14px !im
     -webkit-user-select: text !important;
 }
 
-/* Apple-style thin overlay scrollbar (No jitter, 10%-30% thumb boundary) */
+/* Subtle, non-neon monochrome text selection in console */
+.console-body::selection,
+.console-body *::selection {
+    background: rgba(255, 255, 255, 0.22) !important;
+    color: #ffffff !important;
+}
+
+/* Apple-style thin overlay scrollbar (No jitter, 10%-30% bounds) */
 .console-body::-webkit-scrollbar {
     width: 8px;
 }
@@ -2969,10 +3068,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
  
 === FILE: src/version.js === 
 // =========================================================================
-// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.87)
+// ATEM WEB MANAGER - APPLICATION VERSION DECLARATION (v3.88)
 // =========================================================================
 
-export const APP_VERSION = 'v3.87';
+export const APP_VERSION = 'v3.88';
  
 === FILE: src/components/Multiview/Panel.jsx === 
 import React, { useState } from 'react';
@@ -3136,7 +3235,7 @@ export default QuadrantGrid;
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.87)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.88)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -3148,17 +3247,6 @@ const formatFrames = (frames) => {
     const s = Math.floor(validFrames / 25);
     const f = validFrames % 25;
     return s + ':' + f.toString().padStart(2, '0');
-};
-
-const parseFrames = (str) => {
-    const s = str.toString().trim();
-    if (s.includes(':') || s.includes('.')) {
-        const parts = s.split(/[:.]/);
-        const sec = parseInt(parts[0], 10) || 0;
-        const frm = parseInt(parts[1], 10) || 0;
-        return (sec * 25) + frm;
-    }
-    return parseInt(s, 10) || 0;
 };
 
 const DragRateInput = ({ value, onChange, onCommit, title, disabled, onReset }) => {
@@ -3184,7 +3272,7 @@ const DragRateInput = ({ value, onChange, onCommit, title, disabled, onReset }) 
 
         if (e.button !== 0) return;
 
-        // Double Click Detection (Instant Timestamp Diff)
+        // Double Click Detection
         const now = Date.now();
         if (now - lastClickTimeRef.current < 350) {
             if (onReset) onReset();
@@ -3294,6 +3382,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
     };
 
     const triggerActivityFlash = () => {
+        if (!isPanelActive) return;
         setActivityFlash(true);
         if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
         flashTimerRef.current = setTimeout(() => {
@@ -3753,7 +3842,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                         </span>
                         <div className="atem-bus-status">
                             <span 
-                                className={'atem-bus-online-dot ' + (isPanelActive && bridgeStatus === 'linked' ? 'online' : 'offline') + (activityFlash ? ' active-flash' : '')} 
+                                className={'atem-bus-online-dot ' + (isPanelActive && bridgeStatus === 'linked' ? 'online' : 'offline') + (isPanelActive && activityFlash ? ' active-flash' : '')} 
                                 style={{ filter: !isPanelActive ? 'grayscale(1)' : 'none' }}
                             />
                             <span className="atem-bus-ip" style={{ filter: !isPanelActive ? 'grayscale(1)' : 'none' }}>{LOCKED_ATEM_IP}</span>
@@ -3913,7 +4002,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                         </div>
                     </div>
 
-                    <div className="atem-section-wrapper ftb-col" style={{ marginLeft: enableTBar ? '72px' : 'auto' }}>
+                    <div className="atem-section-wrapper ftb-col" style={{ marginLeft: enableTBar ? '4px' : 'auto' }}>
                         <div className="atem-section-header-row">
                             <span className="atem-section-title">FTB</span>
                         </div>
@@ -3940,30 +4029,34 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                     </div>
 
                     {enableTBar && (
-                        <div className="atem-section-wrapper tbar-col" style={{ width: '152px', marginLeft: 'auto' }}>
+                        <div className="atem-section-wrapper tbar-col" style={{ width: '64px', marginLeft: 'auto' }}>
                             <div className="atem-section-header-row">
-                                <span className="atem-section-title" style={{ marginLeft: '4px' }}>TRANSITION</span>
+                                <span className="atem-section-title" style={{ paddingLeft: '4px' }}>T-BAR</span>
                             </div>
-                            <div className="atem-section-box" style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px' }}>
-                                <div className="tbar-container">
-                                    <div className="tbar-lcd-trail" style={{ width: `${tbarPosition}%` }}></div>
-                                    <input 
-                                        type="range" 
-                                        className="tbar-slider" 
-                                        min="0" 
-                                        max="100" 
-                                        value={tbarPosition} 
-                                        onChange={handleTbarChange}
-                                        onMouseDown={(e) => {
-                                            const p = e.target.closest('.panel');
-                                            if (p) p.draggable = false;
-                                        }}
-                                        onMouseUp={(e) => {
-                                            const p = e.target.closest('.panel');
-                                            if (p) p.draggable = true;
-                                        }}
-                                        disabled={!isPanelActive || !isUnlocked}
-                                    />
+                            <div className="atem-section-box tbar-box-wrapper">
+                                <div className="tbar-vertical-container">
+                                    <div className="tbar-lcd-track">
+                                        <div className="tbar-lcd-trail-v" style={{ height: `${tbarPosition}%` }}></div>
+                                    </div>
+                                    <div className="tbar-slider-axis">
+                                        <input 
+                                            type="range" 
+                                            className="tbar-slider-v" 
+                                            min="0" 
+                                            max="100" 
+                                            value={tbarPosition} 
+                                            onChange={handleTbarChange}
+                                            onMouseDown={(e) => {
+                                                const p = e.target.closest('.panel');
+                                                if (p) p.draggable = false;
+                                            }}
+                                            onMouseUp={(e) => {
+                                                const p = e.target.closest('.panel');
+                                                if (p) p.draggable = true;
+                                            }}
+                                            disabled={!isPanelActive || !isUnlocked}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -4631,11 +4724,45 @@ import React, { useState, useEffect, useRef } from 'react';
 import { APP_VERSION } from '../../version';
 
 // =========================================================================
-// ATEM WEB MANAGER - CONSOLE PANEL (v3.87)
+// ATEM WEB MANAGER - CONSOLE PANEL (v3.88)
 // =========================================================================
 
 let globalBridgeLogs = [];
 const MAX_LOG_HISTORY = 400;
+
+const formatLocalTime = (ts, mode) => {
+    if (mode === 'none') return '';
+    const d = new Date(ts);
+    const pad = (n, len = 2) => String(n).padStart(len, '0');
+    const hh = pad(d.getHours());
+    const mm = pad(d.getMinutes());
+    const ss = pad(d.getSeconds());
+    if (mode === 'no-ms') {
+        return `[${hh}:${mm}:${ss}]`;
+    }
+    const ms = pad(d.getMilliseconds(), 3);
+    return `[${hh}:${mm}:${ss}.${ms}]`;
+};
+
+const formatPrettyMessage = (msg) => {
+    if (typeof msg !== 'string') return String(msg);
+    if (msg.includes('source set to') || msg.includes('Set ') || msg.includes('routed to')) {
+        return msg;
+    }
+    if (msg.includes('Routed Media Player') && msg.includes('{')) {
+        try {
+            const match = msg.match(/Routed Media Player (\d+) source: (\{.*\})/);
+            if (match) {
+                const pNum = match[1];
+                const obj = JSON.parse(match[2]);
+                const isStill = obj.sourceType === 1 || obj.stillIndex !== undefined;
+                const idx = isStill ? ((obj.stillIndex || 0) + 1) : ((obj.clipIndex || 0) + 1);
+                return `MP${pNum} source set to ${isStill ? 'Still' : 'Clip'} ${idx}`;
+            }
+        } catch(e) {}
+    }
+    return msg;
+};
 
 const ConsolePanel = ({ 
     activeDeviceIp = '192.168.10.240', 
@@ -4647,6 +4774,7 @@ const ConsolePanel = ({
     const [showAllDevices, setShowAllDevices] = useState(false);
     const [isCleared, setIsCleared] = useState(false);
     const [clearTimestamp, setClearTimestamp] = useState(0);
+    const [timeMode, setTimeMode] = useState('full'); // 'full' -> 'no-ms' -> 'none'
     const [filters, setFilters] = useState({ 
         USER: true, 
         ATEM: true, 
@@ -4728,6 +4856,12 @@ const ConsolePanel = ({
         }
     };
 
+    const handleTimeCycle = () => {
+        if (timeMode === 'full') setTimeMode('no-ms');
+        else if (timeMode === 'no-ms') setTimeMode('none');
+        else setTimeMode('full');
+    };
+
     const areAllSourcesActive = filters.USER && filters.ATEM && filters.BRIDGE && filters.SYSTEM;
     const currentIp = activeDeviceIp || '192.168.10.240';
     
@@ -4747,8 +4881,8 @@ const ConsolePanel = ({
             if (!showAllDevices && log.source !== 'SYSTEM' && log.ip !== 'SYSTEM' && log.ip !== currentIp) return false;
             return filters[log.source];
         }).map(log => {
-            const timeStr = new Date(log.timestamp).toISOString().split('T')[1].slice(0, -1);
-            return '[' + timeStr + '] [' + log.source + '] ' + log.message;
+            const timeStr = formatLocalTime(log.timestamp, 'full');
+            return timeStr + ' [' + log.source + '] ' + formatPrettyMessage(log.message);
         }).join('\r\n');
 
         const pad = (n) => String(n).padStart(2, '0');
@@ -4778,6 +4912,7 @@ const ConsolePanel = ({
                         <span className="atem-section-title">CONSOLE</span>
                     </div>
                     <div className={'macro-section-box console-box ' + (consoleLcdEffect ? 'console-lcd-effect' : '')} style={{ flex: 1, minHeight: 0, padding: '12px' }}>
+                        {consoleLcdEffect && <div className="console-lcd-reflection" />}
                         <div className="console-standby-container">
                             <div className="console-standby-title" style={{ fontFamily: `"${consoleFont}", Orbitron, Oxanium, sans-serif`, color: 'var(--muted)', opacity: 0.35 }}>
                                 ATEM WEB MANAGER
@@ -4833,7 +4968,15 @@ const ConsolePanel = ({
                         >
                             SYSTEM
                         </button>
-                        <span style={{ color: 'var(--atem-border)', margin: '0 4px', display: 'inline-flex', alignItems: 'center', lineHeight: '14px', height: '14px' }}>|</span>
+                        <button 
+                            className={'macro-action-text-btn ' + (timeMode !== 'full' ? 'active-orange' : '')}
+                            style={{ color: timeMode === 'full' ? '#5c6370' : undefined }}
+                            onClick={handleTimeCycle}
+                            title="Cycle timestamps: Full [HH:MM:SS.mmm] -> Seconds [HH:MM:SS] -> Hidden"
+                        >
+                            TIME
+                        </button>
+                        <span style={{ color: 'var(--atem-border)', margin: '0 4px', display: 'inline-flex', alignItems: 'center', height: '14px', lineHeight: '14px' }}>|</span>
                         <button 
                             className={'macro-action-text-btn ' + (showAllDevices ? 'active-white' : '')} 
                             onClick={() => setShowAllDevices(prev => !prev)}
@@ -4850,15 +4993,17 @@ const ConsolePanel = ({
                     </div>
                 </div>
                 <div className={'macro-section-box console-box ' + (consoleLcdEffect ? 'console-lcd-effect' : '')} style={{ flex: 1, minHeight: 0, padding: '8px' }}>
-                    <div className="console-body selectable" ref={bodyRef} style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>
+                    {consoleLcdEffect && <div className="console-lcd-reflection" />}
+                    <div className="console-body selectable" ref={bodyRef}>
                         {visibleLogs.map((log, i) => {
-                            const time = new Date(log.timestamp).toISOString().split('T')[1].slice(0, -1);
+                            const timeStr = formatLocalTime(log.timestamp, timeMode);
                             const srcClass = 'src-' + log.source.toLowerCase();
+                            const prettyMsg = formatPrettyMessage(log.message);
                             return (
-                                <div key={i} className="log-line" style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>
-                                    <span className="log-time" style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>{'[' + time + ']'}</span>
-                                    <span className={'log-source ' + srcClass} style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>{'[' + log.source + ']'}</span>
-                                    <span className="log-msg" style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>{log.message}</span>
+                                <div key={i} className="log-line">
+                                    {timeMode !== 'none' && <span className="log-time">{timeStr}</span>}
+                                    <span className={'log-source ' + srcClass}>{'[' + log.source + ']'}</span>
+                                    <span className="log-msg">{prettyMsg}</span>
                                 </div>
                             );
                         })}
@@ -5170,9 +5315,10 @@ export default MediaPool;
  
 === FILE: src/components/Settings/SettingsModal.jsx === 
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - SETTINGS MODAL (v3.84)
+// ATEM WEB MANAGER - SETTINGS MODAL (v3.88)
 // =========================================================================
 
 const QUAD_SELECT_OPTIONS = [
@@ -5183,6 +5329,17 @@ const QUAD_SELECT_OPTIONS = [
     { id: 6, name: '5. CONSOLE' },
     { id: 0, name: 'NONE' }
 ];
+
+const DEFAULT_THEME_VARS = {
+    fontSize: 13,
+    fontWeight: 400,
+    bgColor: '#121212',
+    panelColor: '#1f1f1f',
+    panel2Color: '#2b2b2b',
+    textColor: '#e1e1e1',
+    mutedColor: '#858585',
+    borderColor: '#111111'
+};
 
 const SettingsModal = ({ 
     isOpen, onClose, theme, setTheme, panelRadius, setPanelRadius, tallyOpacity, setTallyOpacity,
@@ -5201,6 +5358,39 @@ const SettingsModal = ({
     const [isDragging, setIsDragging] = useState(false);
     const [pos, setPos] = useState({ x: 0, y: 0 });
     const dragOffset = useRef({ x: 0, y: 0 });
+
+    const [customTheme, setCustomTheme] = useLocalStorage('atem_custom_theme', DEFAULT_THEME_VARS);
+
+    const applyThemeVars = (vars) => {
+        const root = document.documentElement;
+        root.style.setProperty('--device-font-size', vars.fontSize + 'px');
+        root.style.setProperty('--le-font-size', vars.fontSize + 'px');
+        root.style.setProperty('--device-font-weight', vars.fontWeight);
+        root.style.setProperty('--bg', vars.bgColor);
+        root.style.setProperty('--panel', vars.panelColor);
+        root.style.setProperty('--panel2', vars.panel2Color);
+        root.style.setProperty('--text', vars.textColor);
+        root.style.setProperty('--muted', vars.mutedColor);
+        root.style.setProperty('--atem-border', vars.borderColor);
+    };
+
+    useEffect(() => {
+        if (customTheme) {
+            applyThemeVars(customTheme);
+        }
+    }, [customTheme]);
+
+    const handleThemeVarChange = (key, val) => {
+        setCustomTheme(prev => ({
+            ...(prev || DEFAULT_THEME_VARS),
+            [key]: val
+        }));
+    };
+
+    const handleResetThemeToDefault = () => {
+        setCustomTheme(DEFAULT_THEME_VARS);
+        applyThemeVars(DEFAULT_THEME_VARS);
+    };
 
     const handleMouseDown = (e) => {
         if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('textarea')) return;
@@ -5239,7 +5429,6 @@ const SettingsModal = ({
         const newVal = Number(value);
         const newOrder = [...quadrantOrder];
         
-        // Enforce exclusivity: if selecting an active panel, clear it from any other quadrant
         if (newVal !== 0) {
             for (let i = 0; i < newOrder.length; i++) {
                 if (i !== index && newOrder[i] === newVal) {
@@ -5279,6 +5468,7 @@ const SettingsModal = ({
                 <div className="davinci-body-layout">
                     <div className="davinci-sidebar-tabs">
                         <button className={`davinci-tab ${activeTab === 'general' ? 'active' : ''}`} onClick={() => setActiveTab('general')}>General</button>
+                        <button className={`davinci-tab ${activeTab === 'theme-editor' ? 'active' : ''}`} onClick={() => setActiveTab('theme-editor')}>Theme Editor</button>
                         <button className={`davinci-tab ${activeTab === 'streams' ? 'active' : ''}`} onClick={() => setActiveTab('streams')}>Streams (CSV)</button>
                         <button className={`davinci-tab ${activeTab === 'multiview' ? 'active' : ''}`} onClick={() => setActiveTab('multiview')}>Multiview</button>
                     </div>
@@ -5345,6 +5535,8 @@ const SettingsModal = ({
                                     <div className="setting-group-control">
                                         <select value={consoleFont} onChange={e => setConsoleFont(e.target.value)}>
                                             <option value="Pandorum">Pandorum (Default)</option>
+                                            <option value="Pandorum Light">Pandorum Light</option>
+                                            <option value="Pandorum Bold">Pandorum Bold</option>
                                             <option value="Orbitron">Orbitron</option>
                                             <option value="Oxanium">Oxanium</option>
                                             <option value="VT323">VT323</option>
@@ -5356,7 +5548,7 @@ const SettingsModal = ({
                                     </div>
                                 </div>
                                 <div className="setting-group">
-                                    <label>Console LCD Shader Effect:</label>
+                                    <label>Console LCD Shader & Sheen:</label>
                                     <div className="setting-group-control">
                                         <input 
                                             type="checkbox" 
@@ -5398,6 +5590,157 @@ const SettingsModal = ({
                                     </div>
                                 </div>
                             </>
+                        )}
+
+                        {activeTab === 'theme-editor' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--atem-border)', paddingBottom: '8px' }}>
+                                    <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Customize UI typography and color palette variables in real-time.</span>
+                                    <button 
+                                        type="button" 
+                                        className="tool-text-btn" 
+                                        style={{ fontSize: '11px', padding: '4px 10px' }} 
+                                        onClick={handleResetThemeToDefault}
+                                    >
+                                        Reset to Default Look
+                                    </button>
+                                </div>
+
+                                <div className="setting-group">
+                                    <label>Base Font Size ({customTheme?.fontSize || 13}px):</label>
+                                    <div className="setting-group-control">
+                                        <input 
+                                            type="range" min="11" max="16" step="1" 
+                                            value={customTheme?.fontSize || 13} 
+                                            onChange={e => handleThemeVarChange('fontSize', parseInt(e.target.value, 10))} 
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="setting-group">
+                                    <label>Base Font Weight ({customTheme?.fontWeight || 400}):</label>
+                                    <div className="setting-group-control">
+                                        <select 
+                                            value={customTheme?.fontWeight || 400} 
+                                            onChange={e => handleThemeVarChange('fontWeight', parseInt(e.target.value, 10))}
+                                        >
+                                            <option value={300}>300 (Light)</option>
+                                            <option value={400}>400 (Regular)</option>
+                                            <option value={500}>500 (Medium)</option>
+                                            <option value={600}>600 (Semi-Bold)</option>
+                                            <option value={700}>700 (Bold)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="setting-group">
+                                    <label>Primary Text Color:</label>
+                                    <div className="setting-group-control" style={{ gap: '8px' }}>
+                                        <input 
+                                            type="color" 
+                                            value={customTheme?.textColor || '#e1e1e1'} 
+                                            onChange={e => handleThemeVarChange('textColor', e.target.value)}
+                                            style={{ width: '32px', height: '28px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                        />
+                                        <input 
+                                            type="text" 
+                                            value={customTheme?.textColor || '#e1e1e1'} 
+                                            onChange={e => handleThemeVarChange('textColor', e.target.value)}
+                                            style={{ width: '120px' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="setting-group">
+                                    <label>Muted Text Color:</label>
+                                    <div className="setting-group-control" style={{ gap: '8px' }}>
+                                        <input 
+                                            type="color" 
+                                            value={customTheme?.mutedColor || '#858585'} 
+                                            onChange={e => handleThemeVarChange('mutedColor', e.target.value)}
+                                            style={{ width: '32px', height: '28px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                        />
+                                        <input 
+                                            type="text" 
+                                            value={customTheme?.mutedColor || '#858585'} 
+                                            onChange={e => handleThemeVarChange('mutedColor', e.target.value)}
+                                            style={{ width: '120px' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="setting-group">
+                                    <label>App Background Color:</label>
+                                    <div className="setting-group-control" style={{ gap: '8px' }}>
+                                        <input 
+                                            type="color" 
+                                            value={customTheme?.bgColor || '#121212'} 
+                                            onChange={e => handleThemeVarChange('bgColor', e.target.value)}
+                                            style={{ width: '32px', height: '28px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                        />
+                                        <input 
+                                            type="text" 
+                                            value={customTheme?.bgColor || '#121212'} 
+                                            onChange={e => handleThemeVarChange('bgColor', e.target.value)}
+                                            style={{ width: '120px' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="setting-group">
+                                    <label>Panel Background Color:</label>
+                                    <div className="setting-group-control" style={{ gap: '8px' }}>
+                                        <input 
+                                            type="color" 
+                                            value={customTheme?.panelColor || '#1f1f1f'} 
+                                            onChange={e => handleThemeVarChange('panelColor', e.target.value)}
+                                            style={{ width: '32px', height: '28px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                        />
+                                        <input 
+                                            type="text" 
+                                            value={customTheme?.panelColor || '#1f1f1f'} 
+                                            onChange={e => handleThemeVarChange('panelColor', e.target.value)}
+                                            style={{ width: '120px' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="setting-group">
+                                    <label>Button / Slot Fill Color:</label>
+                                    <div className="setting-group-control" style={{ gap: '8px' }}>
+                                        <input 
+                                            type="color" 
+                                            value={customTheme?.panel2Color || '#2b2b2b'} 
+                                            onChange={e => handleThemeVarChange('panel2Color', e.target.value)}
+                                            style={{ width: '32px', height: '28px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                        />
+                                        <input 
+                                            type="text" 
+                                            value={customTheme?.panel2Color || '#2b2b2b'} 
+                                            onChange={e => handleThemeVarChange('panel2Color', e.target.value)}
+                                            style={{ width: '120px' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="setting-group">
+                                    <label>Border Line Color:</label>
+                                    <div className="setting-group-control" style={{ gap: '8px' }}>
+                                        <input 
+                                            type="color" 
+                                            value={customTheme?.borderColor || '#111111'} 
+                                            onChange={e => handleThemeVarChange('borderColor', e.target.value)}
+                                            style={{ width: '32px', height: '28px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                        />
+                                        <input 
+                                            type="text" 
+                                            value={customTheme?.borderColor || '#111111'} 
+                                            onChange={e => handleThemeVarChange('borderColor', e.target.value)}
+                                            style={{ width: '120px' }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
                         )}
 
                         {activeTab === 'streams' && (

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - SETTINGS MODAL (v3.84)
+// ATEM WEB MANAGER - SETTINGS MODAL (v3.88)
 // =========================================================================
 
 const QUAD_SELECT_OPTIONS = [
@@ -12,6 +13,17 @@ const QUAD_SELECT_OPTIONS = [
     { id: 6, name: '5. CONSOLE' },
     { id: 0, name: 'NONE' }
 ];
+
+const DEFAULT_THEME_VARS = {
+    fontSize: 13,
+    fontWeight: 400,
+    bgColor: '#121212',
+    panelColor: '#1f1f1f',
+    panel2Color: '#2b2b2b',
+    textColor: '#e1e1e1',
+    mutedColor: '#858585',
+    borderColor: '#111111'
+};
 
 const SettingsModal = ({ 
     isOpen, onClose, theme, setTheme, panelRadius, setPanelRadius, tallyOpacity, setTallyOpacity,
@@ -30,6 +42,39 @@ const SettingsModal = ({
     const [isDragging, setIsDragging] = useState(false);
     const [pos, setPos] = useState({ x: 0, y: 0 });
     const dragOffset = useRef({ x: 0, y: 0 });
+
+    const [customTheme, setCustomTheme] = useLocalStorage('atem_custom_theme', DEFAULT_THEME_VARS);
+
+    const applyThemeVars = (vars) => {
+        const root = document.documentElement;
+        root.style.setProperty('--device-font-size', vars.fontSize + 'px');
+        root.style.setProperty('--le-font-size', vars.fontSize + 'px');
+        root.style.setProperty('--device-font-weight', vars.fontWeight);
+        root.style.setProperty('--bg', vars.bgColor);
+        root.style.setProperty('--panel', vars.panelColor);
+        root.style.setProperty('--panel2', vars.panel2Color);
+        root.style.setProperty('--text', vars.textColor);
+        root.style.setProperty('--muted', vars.mutedColor);
+        root.style.setProperty('--atem-border', vars.borderColor);
+    };
+
+    useEffect(() => {
+        if (customTheme) {
+            applyThemeVars(customTheme);
+        }
+    }, [customTheme]);
+
+    const handleThemeVarChange = (key, val) => {
+        setCustomTheme(prev => ({
+            ...(prev || DEFAULT_THEME_VARS),
+            [key]: val
+        }));
+    };
+
+    const handleResetThemeToDefault = () => {
+        setCustomTheme(DEFAULT_THEME_VARS);
+        applyThemeVars(DEFAULT_THEME_VARS);
+    };
 
     const handleMouseDown = (e) => {
         if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('textarea')) return;
@@ -68,7 +113,6 @@ const SettingsModal = ({
         const newVal = Number(value);
         const newOrder = [...quadrantOrder];
         
-        // Enforce exclusivity: if selecting an active panel, clear it from any other quadrant
         if (newVal !== 0) {
             for (let i = 0; i < newOrder.length; i++) {
                 if (i !== index && newOrder[i] === newVal) {
@@ -108,6 +152,7 @@ const SettingsModal = ({
                 <div className="davinci-body-layout">
                     <div className="davinci-sidebar-tabs">
                         <button className={`davinci-tab ${activeTab === 'general' ? 'active' : ''}`} onClick={() => setActiveTab('general')}>General</button>
+                        <button className={`davinci-tab ${activeTab === 'theme-editor' ? 'active' : ''}`} onClick={() => setActiveTab('theme-editor')}>Theme Editor</button>
                         <button className={`davinci-tab ${activeTab === 'streams' ? 'active' : ''}`} onClick={() => setActiveTab('streams')}>Streams (CSV)</button>
                         <button className={`davinci-tab ${activeTab === 'multiview' ? 'active' : ''}`} onClick={() => setActiveTab('multiview')}>Multiview</button>
                     </div>
@@ -174,6 +219,8 @@ const SettingsModal = ({
                                     <div className="setting-group-control">
                                         <select value={consoleFont} onChange={e => setConsoleFont(e.target.value)}>
                                             <option value="Pandorum">Pandorum (Default)</option>
+                                            <option value="Pandorum Light">Pandorum Light</option>
+                                            <option value="Pandorum Bold">Pandorum Bold</option>
                                             <option value="Orbitron">Orbitron</option>
                                             <option value="Oxanium">Oxanium</option>
                                             <option value="VT323">VT323</option>
@@ -185,7 +232,7 @@ const SettingsModal = ({
                                     </div>
                                 </div>
                                 <div className="setting-group">
-                                    <label>Console LCD Shader Effect:</label>
+                                    <label>Console LCD Shader & Sheen:</label>
                                     <div className="setting-group-control">
                                         <input 
                                             type="checkbox" 
@@ -227,6 +274,157 @@ const SettingsModal = ({
                                     </div>
                                 </div>
                             </>
+                        )}
+
+                        {activeTab === 'theme-editor' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--atem-border)', paddingBottom: '8px' }}>
+                                    <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Customize UI typography and color palette variables in real-time.</span>
+                                    <button 
+                                        type="button" 
+                                        className="tool-text-btn" 
+                                        style={{ fontSize: '11px', padding: '4px 10px' }} 
+                                        onClick={handleResetThemeToDefault}
+                                    >
+                                        Reset to Default Look
+                                    </button>
+                                </div>
+
+                                <div className="setting-group">
+                                    <label>Base Font Size ({customTheme?.fontSize || 13}px):</label>
+                                    <div className="setting-group-control">
+                                        <input 
+                                            type="range" min="11" max="16" step="1" 
+                                            value={customTheme?.fontSize || 13} 
+                                            onChange={e => handleThemeVarChange('fontSize', parseInt(e.target.value, 10))} 
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="setting-group">
+                                    <label>Base Font Weight ({customTheme?.fontWeight || 400}):</label>
+                                    <div className="setting-group-control">
+                                        <select 
+                                            value={customTheme?.fontWeight || 400} 
+                                            onChange={e => handleThemeVarChange('fontWeight', parseInt(e.target.value, 10))}
+                                        >
+                                            <option value={300}>300 (Light)</option>
+                                            <option value={400}>400 (Regular)</option>
+                                            <option value={500}>500 (Medium)</option>
+                                            <option value={600}>600 (Semi-Bold)</option>
+                                            <option value={700}>700 (Bold)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="setting-group">
+                                    <label>Primary Text Color:</label>
+                                    <div className="setting-group-control" style={{ gap: '8px' }}>
+                                        <input 
+                                            type="color" 
+                                            value={customTheme?.textColor || '#e1e1e1'} 
+                                            onChange={e => handleThemeVarChange('textColor', e.target.value)}
+                                            style={{ width: '32px', height: '28px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                        />
+                                        <input 
+                                            type="text" 
+                                            value={customTheme?.textColor || '#e1e1e1'} 
+                                            onChange={e => handleThemeVarChange('textColor', e.target.value)}
+                                            style={{ width: '120px' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="setting-group">
+                                    <label>Muted Text Color:</label>
+                                    <div className="setting-group-control" style={{ gap: '8px' }}>
+                                        <input 
+                                            type="color" 
+                                            value={customTheme?.mutedColor || '#858585'} 
+                                            onChange={e => handleThemeVarChange('mutedColor', e.target.value)}
+                                            style={{ width: '32px', height: '28px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                        />
+                                        <input 
+                                            type="text" 
+                                            value={customTheme?.mutedColor || '#858585'} 
+                                            onChange={e => handleThemeVarChange('mutedColor', e.target.value)}
+                                            style={{ width: '120px' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="setting-group">
+                                    <label>App Background Color:</label>
+                                    <div className="setting-group-control" style={{ gap: '8px' }}>
+                                        <input 
+                                            type="color" 
+                                            value={customTheme?.bgColor || '#121212'} 
+                                            onChange={e => handleThemeVarChange('bgColor', e.target.value)}
+                                            style={{ width: '32px', height: '28px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                        />
+                                        <input 
+                                            type="text" 
+                                            value={customTheme?.bgColor || '#121212'} 
+                                            onChange={e => handleThemeVarChange('bgColor', e.target.value)}
+                                            style={{ width: '120px' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="setting-group">
+                                    <label>Panel Background Color:</label>
+                                    <div className="setting-group-control" style={{ gap: '8px' }}>
+                                        <input 
+                                            type="color" 
+                                            value={customTheme?.panelColor || '#1f1f1f'} 
+                                            onChange={e => handleThemeVarChange('panelColor', e.target.value)}
+                                            style={{ width: '32px', height: '28px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                        />
+                                        <input 
+                                            type="text" 
+                                            value={customTheme?.panelColor || '#1f1f1f'} 
+                                            onChange={e => handleThemeVarChange('panelColor', e.target.value)}
+                                            style={{ width: '120px' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="setting-group">
+                                    <label>Button / Slot Fill Color:</label>
+                                    <div className="setting-group-control" style={{ gap: '8px' }}>
+                                        <input 
+                                            type="color" 
+                                            value={customTheme?.panel2Color || '#2b2b2b'} 
+                                            onChange={e => handleThemeVarChange('panel2Color', e.target.value)}
+                                            style={{ width: '32px', height: '28px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                        />
+                                        <input 
+                                            type="text" 
+                                            value={customTheme?.panel2Color || '#2b2b2b'} 
+                                            onChange={e => handleThemeVarChange('panel2Color', e.target.value)}
+                                            style={{ width: '120px' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="setting-group">
+                                    <label>Border Line Color:</label>
+                                    <div className="setting-group-control" style={{ gap: '8px' }}>
+                                        <input 
+                                            type="color" 
+                                            value={customTheme?.borderColor || '#111111'} 
+                                            onChange={e => handleThemeVarChange('borderColor', e.target.value)}
+                                            style={{ width: '32px', height: '28px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                        />
+                                        <input 
+                                            type="text" 
+                                            value={customTheme?.borderColor || '#111111'} 
+                                            onChange={e => handleThemeVarChange('borderColor', e.target.value)}
+                                            style={{ width: '120px' }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
                         )}
 
                         {activeTab === 'streams' && (

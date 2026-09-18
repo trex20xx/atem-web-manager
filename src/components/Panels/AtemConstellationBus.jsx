@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // =========================================================================
-// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.87)
+// ATEM WEB MANAGER - ATEM 1 M/E CONSTELLATION HD BUS (v3.88)
 // =========================================================================
 
 const LOCKED_ATEM_IP = '192.168.10.240';
@@ -13,17 +13,6 @@ const formatFrames = (frames) => {
     const s = Math.floor(validFrames / 25);
     const f = validFrames % 25;
     return s + ':' + f.toString().padStart(2, '0');
-};
-
-const parseFrames = (str) => {
-    const s = str.toString().trim();
-    if (s.includes(':') || s.includes('.')) {
-        const parts = s.split(/[:.]/);
-        const sec = parseInt(parts[0], 10) || 0;
-        const frm = parseInt(parts[1], 10) || 0;
-        return (sec * 25) + frm;
-    }
-    return parseInt(s, 10) || 0;
 };
 
 const DragRateInput = ({ value, onChange, onCommit, title, disabled, onReset }) => {
@@ -49,7 +38,7 @@ const DragRateInput = ({ value, onChange, onCommit, title, disabled, onReset }) 
 
         if (e.button !== 0) return;
 
-        // Double Click Detection (Instant Timestamp Diff)
+        // Double Click Detection
         const now = Date.now();
         if (now - lastClickTimeRef.current < 350) {
             if (onReset) onReset();
@@ -159,6 +148,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
     };
 
     const triggerActivityFlash = () => {
+        if (!isPanelActive) return;
         setActivityFlash(true);
         if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
         flashTimerRef.current = setTimeout(() => {
@@ -618,7 +608,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                         </span>
                         <div className="atem-bus-status">
                             <span 
-                                className={'atem-bus-online-dot ' + (isPanelActive && bridgeStatus === 'linked' ? 'online' : 'offline') + (activityFlash ? ' active-flash' : '')} 
+                                className={'atem-bus-online-dot ' + (isPanelActive && bridgeStatus === 'linked' ? 'online' : 'offline') + (isPanelActive && activityFlash ? ' active-flash' : '')} 
                                 style={{ filter: !isPanelActive ? 'grayscale(1)' : 'none' }}
                             />
                             <span className="atem-bus-ip" style={{ filter: !isPanelActive ? 'grayscale(1)' : 'none' }}>{LOCKED_ATEM_IP}</span>
@@ -778,7 +768,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                         </div>
                     </div>
 
-                    <div className="atem-section-wrapper ftb-col" style={{ marginLeft: enableTBar ? '72px' : 'auto' }}>
+                    <div className="atem-section-wrapper ftb-col" style={{ marginLeft: enableTBar ? '4px' : 'auto' }}>
                         <div className="atem-section-header-row">
                             <span className="atem-section-title">FTB</span>
                         </div>
@@ -805,30 +795,34 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                     </div>
 
                     {enableTBar && (
-                        <div className="atem-section-wrapper tbar-col" style={{ width: '152px', marginLeft: 'auto' }}>
+                        <div className="atem-section-wrapper tbar-col" style={{ width: '64px', marginLeft: 'auto' }}>
                             <div className="atem-section-header-row">
-                                <span className="atem-section-title" style={{ marginLeft: '4px' }}>TRANSITION</span>
+                                <span className="atem-section-title" style={{ paddingLeft: '4px' }}>T-BAR</span>
                             </div>
-                            <div className="atem-section-box" style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px' }}>
-                                <div className="tbar-container">
-                                    <div className="tbar-lcd-trail" style={{ width: `${tbarPosition}%` }}></div>
-                                    <input 
-                                        type="range" 
-                                        className="tbar-slider" 
-                                        min="0" 
-                                        max="100" 
-                                        value={tbarPosition} 
-                                        onChange={handleTbarChange}
-                                        onMouseDown={(e) => {
-                                            const p = e.target.closest('.panel');
-                                            if (p) p.draggable = false;
-                                        }}
-                                        onMouseUp={(e) => {
-                                            const p = e.target.closest('.panel');
-                                            if (p) p.draggable = true;
-                                        }}
-                                        disabled={!isPanelActive || !isUnlocked}
-                                    />
+                            <div className="atem-section-box tbar-box-wrapper">
+                                <div className="tbar-vertical-container">
+                                    <div className="tbar-lcd-track">
+                                        <div className="tbar-lcd-trail-v" style={{ height: `${tbarPosition}%` }}></div>
+                                    </div>
+                                    <div className="tbar-slider-axis">
+                                        <input 
+                                            type="range" 
+                                            className="tbar-slider-v" 
+                                            min="0" 
+                                            max="100" 
+                                            value={tbarPosition} 
+                                            onChange={handleTbarChange}
+                                            onMouseDown={(e) => {
+                                                const p = e.target.closest('.panel');
+                                                if (p) p.draggable = false;
+                                            }}
+                                            onMouseUp={(e) => {
+                                                const p = e.target.closest('.panel');
+                                                if (p) p.draggable = true;
+                                            }}
+                                            disabled={!isPanelActive || !isUnlocked}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>

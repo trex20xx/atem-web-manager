@@ -1,5 +1,17 @@
 ﻿# ATEM WEB MANAGER - Complete Version History
 
+## [v3.88] - Theme Editor Tab, Phone-Style LCD Sheen, Rate Drag-Only & Local Clock Logs
+- Added comprehensive Theme / Style Editor tab to `SettingsModal.jsx`: provides real-time controls for base font size, weights, text/muted colors, panel fills, and borders with a single-click "Reset to Default Look" button.
+- Added `Pandorum Light` and `Pandorum Bold` font definitions in `index.css` and injected them into the settings modal selection menu.
+- Integrated phone-style diagonal specular glass sheen reflection overlay across the Console LCD panel.
+- Switched console timestamps from UTC Greenwich (`.toISOString()`) to the local desktop OS clock.
+- Added 3-state `TIME` button in the console header cycling between full time with milliseconds, seconds-only, and hidden timestamp modes.
+- Pretty-printed Media Player log entries (e.g., `MP2 source set to Still 3`).
+- Aligned toolbar bullet points with text baseline and reverted toolbar typography strictly to Roboto.
+- Removed background and border fills from Media Pool MP1/MP2 active buttons, preserving text-only tally illumination.
+- Converted rate fields to drag-only scrubbers, eliminating text selection interference and supporting instantaneous double-click and middle-click resets.
+
+
 ## [v3.87] - DSK API Resolution, Drag-Only Rate Scrubbers, Media Pool Tally Fix & Console Selection
 - Repaired physical ATEM DSK command signatures in `bridge/server.js`: mapped `setDownstreamKeyTie` and `setDownstreamKeyOnAir` with backwards-compatible fallbacks, restoring real-world switcher keyer execution.
 - Removed text selection and typing interference from `DragRateInput`: rate adjustments are now purely frame-dragged, while double-click and middle-click triggers instantaneously reset rates to 25 frames (1:00) and dispatch commands to the ATEM.

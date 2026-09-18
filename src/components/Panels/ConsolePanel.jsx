@@ -2,11 +2,45 @@ import React, { useState, useEffect, useRef } from 'react';
 import { APP_VERSION } from '../../version';
 
 // =========================================================================
-// ATEM WEB MANAGER - CONSOLE PANEL (v3.87)
+// ATEM WEB MANAGER - CONSOLE PANEL (v3.88)
 // =========================================================================
 
 let globalBridgeLogs = [];
 const MAX_LOG_HISTORY = 400;
+
+const formatLocalTime = (ts, mode) => {
+    if (mode === 'none') return '';
+    const d = new Date(ts);
+    const pad = (n, len = 2) => String(n).padStart(len, '0');
+    const hh = pad(d.getHours());
+    const mm = pad(d.getMinutes());
+    const ss = pad(d.getSeconds());
+    if (mode === 'no-ms') {
+        return `[${hh}:${mm}:${ss}]`;
+    }
+    const ms = pad(d.getMilliseconds(), 3);
+    return `[${hh}:${mm}:${ss}.${ms}]`;
+};
+
+const formatPrettyMessage = (msg) => {
+    if (typeof msg !== 'string') return String(msg);
+    if (msg.includes('source set to') || msg.includes('Set ') || msg.includes('routed to')) {
+        return msg;
+    }
+    if (msg.includes('Routed Media Player') && msg.includes('{')) {
+        try {
+            const match = msg.match(/Routed Media Player (\d+) source: (\{.*\})/);
+            if (match) {
+                const pNum = match[1];
+                const obj = JSON.parse(match[2]);
+                const isStill = obj.sourceType === 1 || obj.stillIndex !== undefined;
+                const idx = isStill ? ((obj.stillIndex || 0) + 1) : ((obj.clipIndex || 0) + 1);
+                return `MP${pNum} source set to ${isStill ? 'Still' : 'Clip'} ${idx}`;
+            }
+        } catch(e) {}
+    }
+    return msg;
+};
 
 const ConsolePanel = ({ 
     activeDeviceIp = '192.168.10.240', 
@@ -18,6 +52,7 @@ const ConsolePanel = ({
     const [showAllDevices, setShowAllDevices] = useState(false);
     const [isCleared, setIsCleared] = useState(false);
     const [clearTimestamp, setClearTimestamp] = useState(0);
+    const [timeMode, setTimeMode] = useState('full'); // 'full' -> 'no-ms' -> 'none'
     const [filters, setFilters] = useState({ 
         USER: true, 
         ATEM: true, 
@@ -99,6 +134,12 @@ const ConsolePanel = ({
         }
     };
 
+    const handleTimeCycle = () => {
+        if (timeMode === 'full') setTimeMode('no-ms');
+        else if (timeMode === 'no-ms') setTimeMode('none');
+        else setTimeMode('full');
+    };
+
     const areAllSourcesActive = filters.USER && filters.ATEM && filters.BRIDGE && filters.SYSTEM;
     const currentIp = activeDeviceIp || '192.168.10.240';
     
@@ -118,8 +159,8 @@ const ConsolePanel = ({
             if (!showAllDevices && log.source !== 'SYSTEM' && log.ip !== 'SYSTEM' && log.ip !== currentIp) return false;
             return filters[log.source];
         }).map(log => {
-            const timeStr = new Date(log.timestamp).toISOString().split('T')[1].slice(0, -1);
-            return '[' + timeStr + '] [' + log.source + '] ' + log.message;
+            const timeStr = formatLocalTime(log.timestamp, 'full');
+            return timeStr + ' [' + log.source + '] ' + formatPrettyMessage(log.message);
         }).join('\r\n');
 
         const pad = (n) => String(n).padStart(2, '0');
@@ -149,6 +190,7 @@ const ConsolePanel = ({
                         <span className="atem-section-title">CONSOLE</span>
                     </div>
                     <div className={'macro-section-box console-box ' + (consoleLcdEffect ? 'console-lcd-effect' : '')} style={{ flex: 1, minHeight: 0, padding: '12px' }}>
+                        {consoleLcdEffect && <div className="console-lcd-reflection" />}
                         <div className="console-standby-container">
                             <div className="console-standby-title" style={{ fontFamily: `"${consoleFont}", Orbitron, Oxanium, sans-serif`, color: 'var(--muted)', opacity: 0.35 }}>
                                 ATEM WEB MANAGER
@@ -204,7 +246,15 @@ const ConsolePanel = ({
                         >
                             SYSTEM
                         </button>
-                        <span style={{ color: 'var(--atem-border)', margin: '0 4px', display: 'inline-flex', alignItems: 'center', lineHeight: '14px', height: '14px' }}>|</span>
+                        <button 
+                            className={'macro-action-text-btn ' + (timeMode !== 'full' ? 'active-orange' : '')}
+                            style={{ color: timeMode === 'full' ? '#5c6370' : undefined }}
+                            onClick={handleTimeCycle}
+                            title="Cycle timestamps: Full [HH:MM:SS.mmm] -> Seconds [HH:MM:SS] -> Hidden"
+                        >
+                            TIME
+                        </button>
+                        <span style={{ color: 'var(--atem-border)', margin: '0 4px', display: 'inline-flex', alignItems: 'center', height: '14px', lineHeight: '14px' }}>|</span>
                         <button 
                             className={'macro-action-text-btn ' + (showAllDevices ? 'active-white' : '')} 
                             onClick={() => setShowAllDevices(prev => !prev)}
@@ -221,15 +271,17 @@ const ConsolePanel = ({
                     </div>
                 </div>
                 <div className={'macro-section-box console-box ' + (consoleLcdEffect ? 'console-lcd-effect' : '')} style={{ flex: 1, minHeight: 0, padding: '8px' }}>
-                    <div className="console-body selectable" ref={bodyRef} style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>
+                    {consoleLcdEffect && <div className="console-lcd-reflection" />}
+                    <div className="console-body selectable" ref={bodyRef}>
                         {visibleLogs.map((log, i) => {
-                            const time = new Date(log.timestamp).toISOString().split('T')[1].slice(0, -1);
+                            const timeStr = formatLocalTime(log.timestamp, timeMode);
                             const srcClass = 'src-' + log.source.toLowerCase();
+                            const prettyMsg = formatPrettyMessage(log.message);
                             return (
-                                <div key={i} className="log-line" style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>
-                                    <span className="log-time" style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>{'[' + time + ']'}</span>
-                                    <span className={'log-source ' + srcClass} style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>{'[' + log.source + ']'}</span>
-                                    <span className="log-msg" style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>{log.message}</span>
+                                <div key={i} className="log-line">
+                                    {timeMode !== 'none' && <span className="log-time">{timeStr}</span>}
+                                    <span className={'log-source ' + srcClass}>{'[' + log.source + ']'}</span>
+                                    <span className="log-msg">{prettyMsg}</span>
                                 </div>
                             );
                         })}

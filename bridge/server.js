@@ -1,5 +1,5 @@
 // =========================================================================
-// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.87)
+// ATEM LOCAL HARDWARE BRIDGE SERVER (v3.88)
 // =========================================================================
 
 const { Atem } = require('atem-connection');
@@ -91,8 +91,8 @@ console.log = function() { originalLog.apply(console, arguments); broadcastLog('
 console.warn = function() { originalWarn.apply(console, arguments); broadcastLog('warn', 'BRIDGE', arguments); };
 console.error = function() { originalError.apply(console, arguments); broadcastLog('error', 'BRIDGE', arguments); };
 
-console.log('[ATEM Bridge v3.87] Starting bridge service...');
-console.log('[ATEM Bridge v3.87] Target ATEM Switcher IP: ' + ATEM_IP);
+console.log('[ATEM Bridge v3.88] Starting bridge service...');
+console.log('[ATEM Bridge v3.88] Target ATEM Switcher IP: ' + ATEM_IP);
 
 function setupAtemListeners() {
     atem.on('receivedCommands', (commands) => {
@@ -211,7 +211,7 @@ function sendStatePayload(targetWs = null) {
             const auxObj = atem.state.video.auxiliaries;
             for (let i = 0; i < 6; i++) {
                 if (auxObj[i] !== undefined && auxObj[i] !== null) {
-                    currentAux[i] = typeof auxObj[i] === 'object' ? (auxObj[i].source || 1) : Number(auxObj[i]);
+                    currentAux[i] = typeof auxObj[i] === 'object' ? (auxObj[i].source !== undefined ? auxObj[i].source : 1) : Number(auxObj[i]);
                 }
             }
         }
@@ -292,12 +292,15 @@ function handleHardwareCommand(cmd) {
         return true;
     }
     if (raw === 'AuxS' || raw.includes('AuxSource')) {
-        if (props.auxBus !== undefined && props.source !== undefined) {
-            currentAux[props.auxBus] = props.source;
-            broadcastLog('info', 'ATEM', ['Aux ' + (props.auxBus + 1) + ' set to ' + getFriendlySourceName(props.source)]);
+        const auxIdx = props.id !== undefined ? props.id : (props.auxBus !== undefined ? props.auxBus : props.auxBusId);
+        const auxSrc = props.source !== undefined ? props.source : props.input;
+        if (auxIdx !== undefined && auxSrc !== undefined) {
+            currentAux[auxIdx] = auxSrc;
+            broadcastLog('info', 'ATEM', ['Aux ' + (Number(auxIdx) + 1) + ' set to ' + getFriendlySourceName(auxSrc)]);
         }
         return true;
     }
+
     if (raw === 'TrPr' || raw === 'TrPs' || raw.includes('TransitionPosition') || raw === 'TMxr' || raw.includes('TransitionMix') || raw.includes('TransitionProperties') || raw.includes('Upstream') || raw === 'KeOn' || raw.includes('MixEffectKeyOnAir') || raw.includes('Downstream') || raw.includes('FadeToBlack') || raw.includes('Ftb') || raw === 'MRPr' || raw.includes('Macro') || raw.includes('MediaPool') || raw.includes('MediaPlayer')) {
         return true;
     }
@@ -371,51 +374,66 @@ wss.on('connection', (ws) => {
                 const newSelection = currentTransitionSelection ^ bit;
                 currentTransitionSelection = newSelection || 1;
                 broadcastLog('info', 'USER', ['Toggled Next Transition Selection bit: ' + bit], targetIp);
-                if (typeof atem.setTransitionProperties === 'function') {
-                    atem.setTransitionProperties({ selection: currentTransitionSelection, nextSelection: currentTransitionSelection }, 0).catch(e => {
-                        const selArray = [];
-                        if (currentTransitionSelection & 1) selArray.push(1);
-                        if (currentTransitionSelection & 2) selArray.push(2);
-                        if (currentTransitionSelection & 4) selArray.push(4);
-                        if (currentTransitionSelection & 8) selArray.push(8);
-                        if (currentTransitionSelection & 16) selArray.push(16);
-                        atem.setTransitionProperties({ selection: selArray.length ? selArray : [1] }, 0).catch(() => {});
-                    });
-                }
+                
+                const selArray = [];
+                if (currentTransitionSelection & 1) selArray.push(1);
+                if (currentTransitionSelection & 2) selArray.push(2);
+                if (currentTransitionSelection & 4) selArray.push(4);
+                if (currentTransitionSelection & 8) selArray.push(8);
+                if (currentTransitionSelection & 16) selArray.push(16);
+
+                try {
+                    if (typeof atem.setTransitionProperties === 'function') {
+                        atem.setTransitionProperties({ nextSelection: selArray }, 0).catch(() => {
+                            atem.setTransitionProperties({ nextSelection: currentTransitionSelection }, 0).catch(() => {});
+                        });
+                    }
+                    if (typeof atem.changeTransitionSelection === 'function') {
+                        atem.changeTransitionSelection(currentTransitionSelection, 0).catch(() => {});
+                    }
+                } catch(e) {}
                 broadcastState(null, true);
             } else if (data.action === 'TOGGLE_DSK_TIE') {
                 dsk.tie = Boolean(data.tie);
                 broadcastLog('info', 'USER', ['Toggled DSK Tie: ' + dsk.tie], targetIp);
-                if (typeof atem.setDownstreamKeyTie === 'function') {
-                    atem.setDownstreamKeyTie(Boolean(data.tie), 0).catch(e => {});
-                } else if (typeof atem.setDownstreamKeyerTie === 'function') {
-                    atem.setDownstreamKeyerTie(Boolean(data.tie), 0).catch(e => {});
-                }
+                try {
+                    if (typeof atem.setDownstreamKeyTie === 'function') {
+                        atem.setDownstreamKeyTie(Boolean(data.tie), 0).catch(() => {});
+                    } else if (typeof atem.setDownstreamKeyerTie === 'function') {
+                        atem.setDownstreamKeyerTie(Boolean(data.tie), 0).catch(() => {});
+                    }
+                } catch(e) {}
                 broadcastState(null, true);
             } else if (data.action === 'TOGGLE_DSK_ONAIR') {
                 dsk.onAir = Boolean(data.onAir);
                 broadcastLog('info', 'USER', ['Toggled DSK On Air: ' + dsk.onAir], targetIp);
-                if (typeof atem.setDownstreamKeyOnAir === 'function') {
-                    atem.setDownstreamKeyOnAir(Boolean(data.onAir), 0).catch(e => {});
-                } else if (typeof atem.setDownstreamKeyerOnAir === 'function') {
-                    atem.setDownstreamKeyerOnAir(Boolean(data.onAir), 0).catch(e => {});
-                }
+                try {
+                    if (typeof atem.setDownstreamKeyOnAir === 'function') {
+                        atem.setDownstreamKeyOnAir(Boolean(data.onAir), 0).catch(() => {});
+                    } else if (typeof atem.setDownstreamKeyerOnAir === 'function') {
+                        atem.setDownstreamKeyerOnAir(Boolean(data.onAir), 0).catch(() => {});
+                    }
+                } catch(e) {}
                 broadcastState(null, true);
             } else if (data.action === 'EXECUTE_DSK_AUTO') {
                 broadcastLog('info', 'USER', ['Executed DSK AUTO transition (Rate: ' + dsk.rate + ' frames)'], targetIp);
-                if (typeof atem.autoDownstreamKey === 'function') {
-                    atem.autoDownstreamKey(0).catch(e => {});
-                } else if (typeof atem.autoDownstreamKeyer === 'function') {
-                    atem.autoDownstreamKeyer(0).catch(e => {});
-                }
+                try {
+                    if (typeof atem.autoDownstreamKey === 'function') {
+                        atem.autoDownstreamKey(0).catch(e => {});
+                    } else if (typeof atem.autoDownstreamKeyer === 'function') {
+                        atem.autoDownstreamKeyer(0).catch(e => {});
+                    }
+                } catch(e) {}
             } else if (data.action === 'SET_DSK_RATE' && data.rate !== undefined) {
                 dsk.rate = parseInt(data.rate, 10) || 30;
                 broadcastLog('info', 'USER', ['Set DSK Rate to ' + dsk.rate + ' frames'], targetIp);
-                if (typeof atem.setDownstreamKeyRate === 'function') {
-                    atem.setDownstreamKeyRate(dsk.rate, 0).catch(e => {});
-                } else if (typeof atem.setDownstreamKeyerRate === 'function') {
-                    atem.setDownstreamKeyerRate(dsk.rate, 0).catch(e => {});
-                }
+                try {
+                    if (typeof atem.setDownstreamKeyRate === 'function') {
+                        atem.setDownstreamKeyRate(dsk.rate, 0).catch(e => {});
+                    } else if (typeof atem.setDownstreamKeyerRate === 'function') {
+                        atem.setDownstreamKeyerRate(dsk.rate, 0).catch(e => {});
+                    }
+                } catch(e) {}
                 broadcastState(null, true);
             } else if (data.action === 'EXECUTE_FTB') {
                 broadcastLog('info', 'USER', ['Executed Fade to Black (FTB) (Rate: ' + ftb.rate + ' frames)'], targetIp);
@@ -436,11 +454,19 @@ wss.on('connection', (ws) => {
                 }
             } else if (data.action === 'SET_MEDIA_PLAYER_SOURCE' && data.player !== undefined) {
                 const playerIdx = parseInt(data.player, 10);
+                const pNum = playerIdx + 1;
                 const props = {};
                 if (data.sourceType !== undefined) props.sourceType = data.sourceType;
                 if (data.stillIndex !== undefined) props.stillIndex = data.stillIndex;
                 if (data.clipIndex !== undefined) props.clipIndex = data.clipIndex;
-                broadcastLog('info', 'USER', ['Routed Media Player ' + (playerIdx + 1) + ' source: ' + JSON.stringify(props)], targetIp);
+
+                let desc = '';
+                if (props.sourceType === 1 || props.stillIndex !== undefined) {
+                    desc = `Still ${(parseInt(props.stillIndex, 10) || 0) + 1}`;
+                } else {
+                    desc = `Clip ${(parseInt(props.clipIndex, 10) || 0) + 1}`;
+                }
+                broadcastLog('info', 'USER', [`MP${pNum} source set to ${desc}`], targetIp);
                 
                 if (typeof atem.setMediaPlayerSource === 'function') {
                     atem.setMediaPlayerSource(props, playerIdx)
