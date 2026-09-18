@@ -30,6 +30,7 @@ const DragRateInput = ({ value, onChange, onCommit, title, disabled, onReset }) 
         e.preventDefault();
         e.stopPropagation();
 
+        // Middle Click (Button 1) Reset
         if (e.button === 1) {
             if (onReset) onReset();
             return;
@@ -37,6 +38,7 @@ const DragRateInput = ({ value, onChange, onCommit, title, disabled, onReset }) 
 
         if (e.button !== 0) return;
 
+        // Double Click Detection
         const now = Date.now();
         if (now - lastClickTimeRef.current < 350) {
             if (onReset) onReset();
@@ -126,7 +128,9 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
     const [selectedOut, setSelectedOut] = useState(null);
     const [auxSources, setAuxSources] = useState([1, 2, 3, 4, 5, 6]);
     
-    const [tbarPosition, setTbarPosition] = useState(0);
+    // T-Bar visual state
+    const [tbarVal, setTbarVal] = useState(0); // 0 to 100 percentage
+    const tbarDirectionRef = useRef(1); // 1 = down, -1 = up
 
     const storedTransRateRef = useRef(25);
     const storedDskRateRef = useRef(25);
@@ -135,7 +139,6 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
     const transCountdownTimer = useRef(null);
     const dskCountdownTimer = useRef(null);
     const ftbCountdownTimer = useRef(null);
-    const tbarAutoTimer = useRef(null);
 
     const optimisticLocks = useRef({ pgm: 0, pvw: 0, aux: {}, usk: {}, trans: 0, dskTie: 0, dskOnAir: 0, tbar: 0 });
     const flashTimerRef = useRef(null);
@@ -184,13 +187,24 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                     if (data.pvw !== undefined && now > optimisticLocks.current.pvw) {
                         setPvwInput(Number(data.pvw));
                     }
+                    
+                    // Hardware T-Bar tracking
                     if (data.inTransition !== undefined) {
+                        if (data.inTransition === false && data.transitionPosition === 0) {
+                            if (tbarVal > 50) {
+                                setTbarVal(100);
+                                tbarDirectionRef.current = -1;
+                            } else {
+                                setTbarVal(0);
+                                tbarDirectionRef.current = 1;
+                            }
+                        }
                         setInTransition(Boolean(data.inTransition));
                     }
-                    
-                    if (data.transitionPosition !== undefined && now > optimisticLocks.current.tbar) {
-                        const newPos = Math.round(Number(data.transitionPosition) / 100);
-                        setTbarPosition(newPos);
+
+                    if (data.transitionPosition !== undefined && data.inTransition && now > optimisticLocks.current.tbar) {
+                        const atemPos = Number(data.transitionPosition) / 100;
+                        setTbarVal(tbarDirectionRef.current === 1 ? atemPos : 100 - atemPos);
                     }
 
                     if (data.transitionRate !== undefined && !transCountdownTimer.current) {
@@ -268,7 +282,6 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
             if (transCountdownTimer.current) clearInterval(transCountdownTimer.current);
             if (dskCountdownTimer.current) clearInterval(dskCountdownTimer.current);
             if (ftbCountdownTimer.current) clearInterval(ftbCountdownTimer.current);
-            if (tbarAutoTimer.current) clearInterval(tbarAutoTimer.current);
             if (wsRef.current) {
                 try { wsRef.current.close(); } catch(err) {}
             }
@@ -311,28 +324,10 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
     const triggerRateCountdown = (type) => {
         if (type === 'TRANS') {
             if (transCountdownTimer.current) clearInterval(transCountdownTimer.current);
-            if (tbarAutoTimer.current) clearInterval(tbarAutoTimer.current);
-
             const totalFrames = storedTransRateRef.current || 25;
             let current = totalFrames;
             setInTransition(true);
-
-            // Synchronize T-Bar movement during AUTO based on current position
-            const startPos = tbarPosition;
-            const targetPos = startPos > 50 ? 0 : 100;
-            const totalSteps = totalFrames;
-            let currentStep = 0;
-
-            tbarAutoTimer.current = setInterval(() => {
-                currentStep += 1;
-                const ratio = Math.min(1, currentStep / totalSteps);
-                const interp = Math.round(startPos + (targetPos - startPos) * ratio);
-                setTbarPosition(interp);
-                if (currentStep >= totalSteps) {
-                    clearInterval(tbarAutoTimer.current);
-                    tbarAutoTimer.current = null;
-                }
-            }, 40);
+            dispatchSysLog('Auto transition started at rate ' + totalFrames + ' frames');
 
             transCountdownTimer.current = setInterval(() => {
                 current -= 1;
@@ -341,6 +336,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                     transCountdownTimer.current = null;
                     setLocalTransRate(totalFrames);
                     setInTransition(false);
+                    dispatchSysLog('Auto transition completed');
                 } else {
                     setLocalTransRate(current);
                 }
@@ -350,6 +346,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
             const total = storedDskRateRef.current || 25;
             let current = total;
             setDsk(prev => ({ ...prev, inTransition: true }));
+            dispatchSysLog('DSK 1 Auto transition started at rate ' + total + ' frames');
 
             dskCountdownTimer.current = setInterval(() => {
                 current -= 1;
@@ -358,6 +355,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                     dskCountdownTimer.current = null;
                     setLocalDskRate(total);
                     setDsk(prev => ({ ...prev, inTransition: false }));
+                    dispatchSysLog('DSK 1 Auto transition completed');
                 } else {
                     setLocalDskRate(current);
                 }
@@ -367,6 +365,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
             const total = storedFtbRateRef.current || 25;
             let current = total;
             setFtb(prev => ({ ...prev, inTransition: true }));
+            dispatchSysLog('Fade to Black started at rate ' + total + ' frames');
 
             ftbCountdownTimer.current = setInterval(() => {
                 current -= 1;
@@ -375,6 +374,7 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                     ftbCountdownTimer.current = null;
                     setLocalFtbRate(total);
                     setFtb(prev => ({ ...prev, inTransition: false, isFullyBlack: !prev.isFullyBlack }));
+                    dispatchSysLog('Fade to Black completed');
                 } else {
                     setLocalFtbRate(current);
                 }
@@ -509,9 +509,8 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
         optimisticLocks.current.trans = Date.now() + 450;
         const current = transitionSelection !== null ? transitionSelection : 1;
         const next = current ^ bit;
-        const finalSelection = next || 1;
-        setTransitionSelection(finalSelection);
-        sendAtemCommand('SET_TRANS_SELECTION', { selection: finalSelection });
+        setTransitionSelection(next || 1);
+        sendAtemCommand('TOGGLE_TRANS_SELECTION', { bit });
     };
 
     const handleUskToggle = (usk) => {
@@ -562,9 +561,10 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
     const handleTbarChange = (e) => {
         if (!isPanelActive || !isUnlocked) return;
         const val = parseInt(e.target.value, 10);
-        setTbarPosition(val);
-        optimisticLocks.current.tbar = Date.now() + 250;
-        sendAtemCommand('SET_TRANS_POSITION', { position: val * 100 });
+        setTbarVal(val);
+        optimisticLocks.current.tbar = Date.now() + 400;
+        let atemPos = tbarDirectionRef.current === 1 ? val : 100 - val;
+        sendCommand('SET_TRANS_POSITION', { position: atemPos * 100 });
     };
 
     const inputSources = [
@@ -608,20 +608,6 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
         pointerEvents: (selectedOut !== null || !isUnlocked) ? 'none' : 'auto',
         transition: 'opacity 0.25s ease'
     };
-
-    // Calculate LCD strip fill height based on proximity to 0 or 100
-    let lcdFillPercent = 0;
-    let isFillFromBottom = false;
-
-    if (tbarPosition > 0 && tbarPosition < 100) {
-        if (tbarPosition < 50) {
-            lcdFillPercent = tbarPosition;
-            isFillFromBottom = false; // sticks to top, grows down
-        } else {
-            lcdFillPercent = 100 - tbarPosition;
-            isFillFromBottom = true; // sticks to bottom, grows up
-        }
-    }
 
     return (
         <div className="quadrant-master-panel">
@@ -803,44 +789,42 @@ const AtemConstellationBus = ({ connectedDevice, enableTBar }) => {
                         </div>
                     </div>
 
-                    {/* Column 9: T-BAR (Directly under Input 9 in the 72px gap between DSK and FTB) */}
+                    {/* Column 9: T-BAR */}
                     {enableTBar && (
                         <div className="atem-section-wrapper tbar-col-slot">
                             <div className="atem-section-box tbar-stretched-box">
                                 <div className="tbar-track-layout">
-                                    <div className="tbar-lcd-meter">
-                                        {isFillFromBottom ? (
-                                            <div className="tbar-lcd-active-trail" style={{ bottom: 0, height: `${lcdFillPercent}%` }} />
-                                        ) : (
-                                            <div className="tbar-lcd-active-trail" style={{ top: 0, height: `${lcdFillPercent}%` }} />
-                                        )}
+                                    <div className="tbar-slider-track">
+                                        <div className="tbar-slider-active-trail" style={{
+                                            top: tbarDirectionRef.current === 1 ? 0 : 'auto',
+                                            bottom: tbarDirectionRef.current === -1 ? 0 : 'auto',
+                                            height: `${tbarDirectionRef.current === 1 ? tbarVal : (100 - tbarVal)}%`
+                                        }} />
                                     </div>
-                                    <div className="tbar-fader-axis">
-                                        <input 
-                                            type="range" 
-                                            className="tbar-range-fader" 
-                                            min="0" 
-                                            max="100" 
-                                            value={tbarPosition} 
-                                            onChange={handleTbarChange}
-                                            onMouseDown={(e) => {
-                                                const p = e.target.closest('.panel');
-                                                if (p) p.draggable = false;
-                                            }}
-                                            onMouseUp={(e) => {
-                                                const p = e.target.closest('.panel');
-                                                if (p) p.draggable = true;
-                                            }}
-                                            disabled={!isPanelActive || !isUnlocked}
-                                        />
-                                    </div>
+                                    <input 
+                                        type="range" 
+                                        className="tbar-range-fader" 
+                                        min="0" 
+                                        max="100" 
+                                        value={tbarVal} 
+                                        onChange={handleTbarChange}
+                                        onMouseDown={(e) => {
+                                            const p = e.target.closest('.panel');
+                                            if (p) p.draggable = false;
+                                        }}
+                                        onMouseUp={(e) => {
+                                            const p = e.target.closest('.panel');
+                                            if (p) p.draggable = true;
+                                        }}
+                                        disabled={!isPanelActive || !isUnlocked}
+                                    />
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* Column 10: FTB (Permanently anchored at initial right boundary) */}
-                    <div className="atem-section-wrapper ftb-col">
+                    {/* Column 10: FTB */}
+                    <div className="atem-section-wrapper ftb-col" style={{ marginLeft: 'auto' }}>
                         <div className="atem-section-header-row">
                             <span className="atem-section-title">FTB</span>
                         </div>

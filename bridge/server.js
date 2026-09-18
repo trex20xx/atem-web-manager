@@ -261,7 +261,10 @@ function sendStatePayload(targetWs = null) {
         }
 
         const payload = JSON.stringify({
-            type: 'STATE', hardwareConnected, pgm: currentPgm, pvw: currentPvw, inTransition: currentInTransition, transitionRate: currentTransitionRate,
+            type: 'STATE', hardwareConnected, pgm: currentPgm, pvw: currentPvw, 
+            inTransition: (atem && atem.state && atem.state.video && atem.state.video.mixEffects && atem.state.video.mixEffects[0] && atem.state.video.mixEffects[0].transitionPosition) ? atem.state.video.mixEffects[0].transitionPosition.inTransition : currentInTransition,
+            transitionPosition: (atem && atem.state && atem.state.video && atem.state.video.mixEffects && atem.state.video.mixEffects[0] && atem.state.video.mixEffects[0].transitionPosition) ? atem.state.video.mixEffects[0].transitionPosition.handlePosition : 0,
+            transitionRate: currentTransitionRate,
             transitionSelection: currentTransitionSelection, uskOnAir: currentUskOnAir, auxSources: currentAux, dsk, ftb, macroPlayer, macroProperties, mediaPool, mediaPlayers
         });
 
@@ -339,8 +342,13 @@ wss.on('connection', (ws) => {
                 const srcId = parseInt(data.source, 10);
                 currentAux[auxIdx] = srcId;
                 broadcastLog('info', 'USER', ['Aux ' + (auxIdx + 1) + ' set to ' + getFriendlySourceName(srcId)], targetIp);
+                
                 if (typeof atem.setAuxSource === 'function') {
-                    atem.setAuxSource(srcId, auxIdx).catch(e => {});
+                    atem.setAuxSource(auxIdx, srcId).catch(() => {
+                        atem.setAuxSource(srcId, auxIdx).catch(err => {
+                            broadcastLog('error', 'BRIDGE', ['setAuxSource failed: ' + (err.message || err)], targetIp);
+                        });
+                    });
                 }
                 broadcastState(null, true);
             } else if (data.action === 'CUT') {
@@ -363,17 +371,35 @@ wss.on('connection', (ws) => {
                 const targetState = !currentUskOnAir[uskIdx];
                 currentUskOnAir[uskIdx] = targetState;
                 broadcastLog('info', 'USER', ['Toggled Upstream Keyer ' + (uskIdx + 1) + ' On Air: ' + targetState], targetIp);
-                if (typeof atem.setUpstreamKeyOnAir === 'function') {
+                if (typeof atem.setUpstreamKeyerOnAir === 'function') {
+                    atem.setUpstreamKeyerOnAir(targetState, 0, uskIdx).catch(e => {});
+                } else if (typeof atem.setUpstreamKeyOnAir === 'function') {
                     atem.setUpstreamKeyOnAir(targetState, 0, uskIdx).catch(e => {});
                 }
                 broadcastState(null, true);
-            } else if (data.action === 'SET_TRANS_SELECTION' && data.selection !== undefined) {
-                currentTransitionSelection = parseInt(data.selection, 10);
-                broadcastLog('info', 'USER', ['Toggled Next Transition Selection mask: ' + currentTransitionSelection], targetIp);
+            } else if (data.action === 'TOGGLE_TRANS_SELECTION' && data.bit !== undefined) {
+                const bit = parseInt(data.bit, 10);
+                const newSelection = currentTransitionSelection ^ bit;
+                currentTransitionSelection = newSelection || 1;
+                broadcastLog('info', 'USER', ['Toggled Next Transition Selection bit: ' + bit], targetIp);
+                
+                const selArray = [];
+                if (currentTransitionSelection & 1) selArray.push(1);
+                if (currentTransitionSelection & 2) selArray.push(2);
+                if (currentTransitionSelection & 4) selArray.push(4);
+                if (currentTransitionSelection & 8) selArray.push(8);
+                if (currentTransitionSelection & 16) selArray.push(16);
+
                 try {
+                    if (typeof atem.setTransitionSelection === 'function') {
+                        atem.setTransitionSelection(currentTransitionSelection, 0).catch(()=>{});
+                    }
                     if (typeof atem.changeTransitionSelection === 'function') {
-                        atem.changeTransitionSelection(currentTransitionSelection, 0).catch(e => {
-                            broadcastLog('error', 'BRIDGE', ['changeTransitionSelection failed: ' + (e.message || e)]);
+                        atem.changeTransitionSelection(currentTransitionSelection, 0).catch(()=>{});
+                    }
+                    if (typeof atem.setTransitionProperties === 'function') {
+                        atem.setTransitionProperties({ nextSelection: selArray }, 0).catch(() => {
+                            atem.setTransitionProperties({ selection: currentTransitionSelection }, 0).catch(()=>{});
                         });
                     }
                 } catch(e) {}
@@ -382,10 +408,12 @@ wss.on('connection', (ws) => {
                 dsk.tie = Boolean(data.tie);
                 broadcastLog('info', 'USER', ['Toggled DSK Tie: ' + dsk.tie], targetIp);
                 try {
+                    let success = false;
                     if (typeof atem.setDownstreamKeyTie === 'function') {
-                        atem.setDownstreamKeyTie(Boolean(data.tie), 0).catch(e => {
-                            broadcastLog('error', 'BRIDGE', ['setDownstreamKeyTie failed: ' + (e.message || e)]);
-                        });
+                        atem.setDownstreamKeyTie(Boolean(data.tie), 0).then(()=>success=true).catch(()=>{});
+                    }
+                    if (!success && typeof atem.setDownstreamKeyerTie === 'function') {
+                        atem.setDownstreamKeyerTie(Boolean(data.tie), 0).catch(()=>{});
                     }
                 } catch(e) {}
                 broadcastState(null, true);
@@ -393,18 +421,24 @@ wss.on('connection', (ws) => {
                 dsk.onAir = Boolean(data.onAir);
                 broadcastLog('info', 'USER', ['Toggled DSK On Air: ' + dsk.onAir], targetIp);
                 try {
+                    let success = false;
                     if (typeof atem.setDownstreamKeyOnAir === 'function') {
-                        atem.setDownstreamKeyOnAir(Boolean(data.onAir), 0).catch(e => {
-                            broadcastLog('error', 'BRIDGE', ['setDownstreamKeyOnAir failed: ' + (e.message || e)]);
-                        });
+                        atem.setDownstreamKeyOnAir(Boolean(data.onAir), 0).then(()=>success=true).catch(()=>{});
+                    }
+                    if (!success && typeof atem.setDownstreamKeyerOnAir === 'function') {
+                        atem.setDownstreamKeyerOnAir(Boolean(data.onAir), 0).catch(()=>{});
                     }
                 } catch(e) {}
                 broadcastState(null, true);
             } else if (data.action === 'EXECUTE_DSK_AUTO') {
                 broadcastLog('info', 'USER', ['Executed DSK AUTO transition (Rate: ' + dsk.rate + ' frames)'], targetIp);
                 try {
+                    let success = false;
                     if (typeof atem.autoDownstreamKey === 'function') {
-                        atem.autoDownstreamKey(0).catch(e => {});
+                        atem.autoDownstreamKey(0).then(()=>success=true).catch(()=>{});
+                    }
+                    if (!success && typeof atem.autoDownstreamKeyer === 'function') {
+                        atem.autoDownstreamKeyer(0).catch(()=>{});
                     }
                 } catch(e) {}
             } else if (data.action === 'SET_DSK_RATE' && data.rate !== undefined) {
@@ -413,6 +447,8 @@ wss.on('connection', (ws) => {
                 try {
                     if (typeof atem.setDownstreamKeyRate === 'function') {
                         atem.setDownstreamKeyRate(dsk.rate, 0).catch(e => {});
+                    } else if (typeof atem.setDownstreamKeyerRate === 'function') {
+                        atem.setDownstreamKeyerRate(dsk.rate, 0).catch(e => {});
                     }
                 } catch(e) {}
                 broadcastState(null, true);
@@ -435,11 +471,20 @@ wss.on('connection', (ws) => {
                 }
             } else if (data.action === 'SET_MEDIA_PLAYER_SOURCE' && data.player !== undefined) {
                 const playerIdx = parseInt(data.player, 10);
+                const pNum = playerIdx + 1;
                 const props = {};
                 if (data.sourceType !== undefined) props.sourceType = data.sourceType;
                 if (data.stillIndex !== undefined) props.stillIndex = data.stillIndex;
                 if (data.clipIndex !== undefined) props.clipIndex = data.clipIndex;
 
+                let desc = '';
+                if (props.sourceType === 1 || props.stillIndex !== undefined) {
+                    desc = `Still ${(parseInt(props.stillIndex, 10) || 0) + 1}`;
+                } else {
+                    desc = `Clip ${(parseInt(props.clipIndex, 10) || 0) + 1}`;
+                }
+                broadcastLog('info', 'USER', [`MP${pNum} source set to ${desc}`], targetIp);
+                
                 if (typeof atem.setMediaPlayerSource === 'function') {
                     atem.setMediaPlayerSource(props, playerIdx)
                         .then(() => broadcastState(null, true))

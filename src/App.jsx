@@ -31,7 +31,6 @@ function App() {
   
   const [consoleFont, setConsoleFont] = useLocalStorage('atem_consoleFont', 'Pandorum');
   const [consoleLcdEffect, setConsoleLcdEffect] = useLocalStorage('atem_consoleLcdEffect', false);
-  const [consoleLcdSheen, setConsoleLcdSheen] = useLocalStorage('atem_consoleLcdSheen', false);
   const [enableTBar, setEnableTBar] = useLocalStorage('atem_enableTBar', false);
 
   const [currentVideoSource, setCurrentVideoSource] = useLocalStorage('atem_currentVideoSource', 'https://stream.mux.com/BV3YZtogl89mg9VcNBhhnHm02Y34zI1nlMuMQfAbl3dM/highest.mp4');
@@ -427,7 +426,6 @@ function App() {
             
             consoleFont={consoleFont}
             consoleLcdEffect={consoleLcdEffect}
-            consoleLcdSheen={consoleLcdSheen}
             enableTBar={enableTBar}
           />
         </main>
@@ -452,7 +450,6 @@ function App() {
         sidebarVariant={sidebarVariant} setSidebarVariant={setSidebarVariant}
         consoleFont={consoleFont} setConsoleFont={setConsoleFont}
         consoleLcdEffect={consoleLcdEffect} setConsoleLcdEffect={setConsoleLcdEffect}
-        consoleLcdSheen={consoleLcdSheen} setConsoleLcdSheen={setConsoleLcdSheen}
         enableTBar={enableTBar} setEnableTBar={setEnableTBar}
       /> 
     </div>
