@@ -30,12 +30,9 @@ function App() {
   const [deviceCsvContent, setDeviceCsvContent] = useLocalStorage('atem_deviceCsvContent', '');
   
   const [consoleFont, setConsoleFont] = useLocalStorage('atem_consoleFont', 'Pandorum');
-  const [consoleLcdEffect, setConsoleLcdEffect] = useLocalStorage('atem_consoleLcdEffect', false);
-  const [enableTBar, setEnableTBar] = useLocalStorage('atem_enableTBar', false);
 
   const [currentVideoSource, setCurrentVideoSource] = useLocalStorage('atem_currentVideoSource', 'https://stream.mux.com/BV3YZtogl89mg9VcNBhhnHm02Y34zI1nlMuMQfAbl3dM/highest.mp4');
   
-  // Default routing mapping to STREAM (1), MEDIA POOL (2), MIXER (3), and MACROS (5)
   const [quadrantOrder, setQuadrantOrder] = useLocalStorage('atem_quadrantOrder', [1, 2, 3, 5]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -66,39 +63,6 @@ function App() {
           dispatchSysLog('Application mounted. UI initialized.');
       }
   }, []);
-
-  // System telemetry watchers for user preferences
-  const prevRadius = useRef(panelRadius);
-  useEffect(() => {
-      if (prevRadius.current !== panelRadius) {
-          dispatchSysLog('Panel Corner Radius adjusted to ' + panelRadius + 'px');
-          prevRadius.current = panelRadius;
-      }
-  }, [panelRadius]);
-
-  const prevTally = useRef(tallyOpacity);
-  useEffect(() => {
-      if (prevTally.current !== tallyOpacity) {
-          dispatchSysLog('Tally LED Brightness adjusted to ' + tallyOpacity + '%');
-          prevTally.current = tallyOpacity;
-      }
-  }, [tallyOpacity]);
-
-  const prevSidebarVariant = useRef(sidebarVariant);
-  useEffect(() => {
-      if (prevSidebarVariant.current !== sidebarVariant) {
-          dispatchSysLog('Sidebar Design switched to ' + sidebarVariant.toUpperCase());
-          prevSidebarVariant.current = sidebarVariant;
-      }
-  }, [sidebarVariant]);
-
-  const prevEnhanced = useRef(enhancedText);
-  useEffect(() => {
-      if (prevEnhanced.current !== enhancedText) {
-          dispatchSysLog('Enhanced Accessibility Text: ' + (enhancedText ? 'ENABLED' : 'DISABLED'));
-          prevEnhanced.current = enhancedText;
-      }
-  }, [enhancedText]);
 
   const getResolvedStreamSource = () => {
     if (useDeviceCsv && isConnected && connectedDevice) {
@@ -137,14 +101,9 @@ function App() {
 
     const quadH = Math.max(100, Math.round(height));
     const quadW = Math.max(100, Math.round(width));
-    
     const quadTop = paddingTop + (availableHeight - quadH) / 2;
 
-    setDashboardStyle({
-      width: quadW,
-      height: quadH,
-      top: quadTop
-    });
+    setDashboardStyle({ width: quadW, height: quadH, top: quadTop });
   };
 
   useEffect(() => {
@@ -155,9 +114,7 @@ function App() {
 
   useEffect(() => {
     const handleWheel = (e) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-      }
+      if (e.ctrlKey || e.metaKey) e.preventDefault();
     };
     const handleZoomKeys = (e) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '0')) {
@@ -198,24 +155,14 @@ function App() {
         e.preventDefault();
         e.stopPropagation();
         if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-        setIsSettingsOpen((prev) => {
-            const next = !prev;
-            if (next) dispatchSysLog('Settings modal opened');
-            return next;
-        });
+        setIsSettingsOpen(prev => !prev);
       }
-      if (e.key === 'Escape') {
-        setIsSettingsOpen(false);
-      }
+      if (e.key === 'Escape') setIsSettingsOpen(false);
       if (e.key === '`' || e.key === '~') {
         e.preventDefault();
         e.stopPropagation();
         if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-        setIsSidebarCollapsed(prev => {
-            const next = !prev;
-            dispatchSysLog('Sidebar ' + (next ? 'collapsed' : 'expanded'));
-            return next;
-        });
+        setIsSidebarCollapsed(prev => !prev);
         setIsToolbarRevealed(false);
         setIsSidebarRevealed(false);
       }
@@ -235,11 +182,8 @@ function App() {
   }, [panelRadius, tallyOpacity]);
 
   useEffect(() => {
-    if (enhancedText) {
-      document.documentElement.setAttribute('data-enhanced-text', 'true');
-    } else {
-      document.documentElement.removeAttribute('data-enhanced-text');
-    }
+    if (enhancedText) document.documentElement.setAttribute('data-enhanced-text', 'true');
+    else document.documentElement.removeAttribute('data-enhanced-text');
   }, [enhancedText]);
 
   const toggleLightMode = () => {
@@ -290,11 +234,7 @@ function App() {
           <button 
             className="top-bar-btn"
             onClick={() => {
-              setIsSidebarCollapsed(prev => {
-                const next = !prev;
-                dispatchSysLog('Sidebar ' + (next ? 'collapsed' : 'expanded'));
-                return next;
-              });
+              setIsSidebarCollapsed(prev => !prev);
               setIsToolbarRevealed(false);
               setIsSidebarRevealed(false);
             }}
@@ -383,14 +323,11 @@ function App() {
 
           <button 
             className="top-bar-btn"
-            onClick={() => {
-                setIsSettingsOpen(true);
-                dispatchSysLog('Settings modal opened');
-            }}
+            onClick={() => setIsSettingsOpen(true)}
             data-description="Settings (Cmd/Ctrl + ,)"
           >
             <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49-.12-.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
+                <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49-.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
             </svg>
           </button>
         </div>
@@ -423,10 +360,7 @@ function App() {
             handleQuadrantDragLeave={handleQuadrantDragLeave}
             handleQuadrantDrop={handleQuadrantDrop}
             setQuadrantOrder={setQuadrantOrder}
-            
             consoleFont={consoleFont}
-            consoleLcdEffect={consoleLcdEffect}
-            enableTBar={enableTBar}
           />
         </main>
       </div>
@@ -449,8 +383,6 @@ function App() {
         quadrantOrder={quadrantOrder} setQuadrantOrder={setQuadrantOrder}
         sidebarVariant={sidebarVariant} setSidebarVariant={setSidebarVariant}
         consoleFont={consoleFont} setConsoleFont={setConsoleFont}
-        consoleLcdEffect={consoleLcdEffect} setConsoleLcdEffect={setConsoleLcdEffect}
-        enableTBar={enableTBar} setEnableTBar={setEnableTBar}
       /> 
     </div>
   );

@@ -1,2 +1,2 @@
 v3.89
-[OPS] Positioned T-Bar in Column 9 stretching vertically without header text, added bidirectional LCD meter tracking and synchronized AUTO movement. Put FTB back to flush right in Column 10. Added Theme/Style Editor tab in Settings with default reset, Pandorum Light/Bold fonts, separated LCD sheen from scanlines with darkened glossy backdrop, local OS clock timestamps, 3-state TIME toggle, and monochrome text selection.
+[OPS] Updated OPS.bat and OPS.sh font bootstrappers with individual file-existence checks to prevent redundant downloads. Version held at v3.89.

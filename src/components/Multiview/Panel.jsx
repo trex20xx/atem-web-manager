@@ -9,14 +9,14 @@ import Skeleton from '../UI/Skeleton';
 import QuadrantContextMenu from '../UI/QuadrantContextMenu';
 
 // =========================================================================
-// ATEM WEB MANAGER - PANEL COMPONENT (v3.85)
+// ATEM WEB MANAGER - PANEL COMPONENT (v3.89)
 // =========================================================================
 // 1: Stream | 2: Media Pool | 3: Mixer | 5: Macros Compact | 6: Console | 0: None
 
 const Panel = ({ 
     panelId, positionIndex, currentVideoSource, isConnected, connectedDevice, activeDeviceIp, isLoading,
     enableQuadrantDrag, handleDragStart, handleDragOver, handleDragLeave, handleDrop, onReorderQuadrant,
-    consoleFont, consoleLcdEffect, enableTBar 
+    consoleFont
 }) => {
     const [contextMenu, setContextMenu] = useState(null);
 
@@ -41,9 +41,9 @@ const Panel = ({
         switch (panelId) {
             case 1: return <Player currentVideoSource={currentVideoSource} isConnected={isConnected} />;
             case 2: return <MediaPool connectedDevice={connectedDevice} />;
-            case 3: return <AtemConstellationBus connectedDevice={connectedDevice} enableTBar={enableTBar} />;
+            case 3: return <AtemConstellationBus connectedDevice={connectedDevice} />;
             case 5: return <AtemMacrosCompact connectedDevice={connectedDevice} />;
-            case 6: return <ConsolePanel activeDeviceIp={activeDeviceIp} isConnected={isConnected} consoleFont={consoleFont} consoleLcdEffect={consoleLcdEffect} />;
+            case 6: return <ConsolePanel activeDeviceIp={activeDeviceIp} isConnected={isConnected} consoleFont={consoleFont} />;
             default: return null;
         }
     };

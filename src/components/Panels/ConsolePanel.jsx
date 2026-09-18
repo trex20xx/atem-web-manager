@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { APP_VERSION } from '../../version';
-import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // =========================================================================
-// ATEM WEB MANAGER - CONSOLE PANEL (v3.89)
+// ATEM WEB MANAGER - CONSOLE PANEL (v3.90)
 // =========================================================================
 
 let globalBridgeLogs = [];
@@ -25,9 +24,6 @@ const formatLocalTime = (ts, mode) => {
 
 const formatPrettyMessage = (msg) => {
     if (typeof msg !== 'string') return String(msg);
-    if (msg.includes('source set to') || msg.includes('Set ') || msg.includes('routed to') || msg.includes('set to Input')) {
-        return msg;
-    }
     if (msg.includes('Routed Media Player') && msg.includes('{')) {
         try {
             const match = msg.match(/Routed Media Player (\d+) source: (\{.*\})/);
@@ -46,8 +42,7 @@ const formatPrettyMessage = (msg) => {
 const ConsolePanel = ({ 
     activeDeviceIp = '192.168.10.240', 
     isConnected = false, 
-    consoleFont = 'Pandorum', 
-    consoleLcdEffect = false 
+    consoleFont = 'Pandorum'
 }) => {
     const [logs, setLogs] = useState(() => [...globalBridgeLogs]);
     const [showAllDevices, setShowAllDevices] = useState(false);
@@ -58,15 +53,10 @@ const ConsolePanel = ({
         USER: true, 
         ATEM: true, 
         BRIDGE: true, 
-        SYSTEM: true 
+        SYSTEM: true,
+        DEBUG: false 
     });
 
-    const [localLcdSheen] = useLocalStorage('atem_consoleLcdSheen', false);
-    const [localLcdEffect] = useLocalStorage('atem_consoleLcdEffect', false);
-
-    const isScanlines = consoleLcdEffect || localLcdEffect;
-    const isSheen = localLcdSheen;
-    
     const endRef = useRef(null);
     const bodyRef = useRef(null);
     const wsRef = useRef(null);
@@ -83,14 +73,14 @@ const ConsolePanel = ({
                     const enriched = { 
                         ...data, 
                         source: src, 
-                        ip: data.ip || (src === 'SYSTEM' ? 'SYSTEM' : '192.168.10.240') 
+                        ip: src === 'SYSTEM' || src === 'DEBUG' ? 'SYSTEM' : (data.ip || '192.168.10.240') 
                     };
 
                     const lastLog = globalBridgeLogs[globalBridgeLogs.length - 1];
                     const isDuplicate = lastLog && 
                         lastLog.source === enriched.source && 
                         lastLog.message === enriched.message && 
-                        (enriched.timestamp - lastLog.timestamp) < 250;
+                        (enriched.timestamp - lastLog.timestamp) < 200;
 
                     if (!isDuplicate) {
                         globalBridgeLogs.push(enriched);
@@ -128,7 +118,7 @@ const ConsolePanel = ({
     };
 
     const handleEnableAllSources = () => {
-        setFilters({ USER: true, ATEM: true, BRIDGE: true, SYSTEM: true });
+        setFilters({ USER: true, ATEM: true, BRIDGE: true, SYSTEM: true, DEBUG: true });
     };
 
     const handleClearReset = () => {
@@ -147,13 +137,13 @@ const ConsolePanel = ({
         else setTimeMode('full');
     };
 
-    const areAllSourcesActive = filters.USER && filters.ATEM && filters.BRIDGE && filters.SYSTEM;
+    const areAllSourcesActive = filters.USER && filters.ATEM && filters.BRIDGE && filters.SYSTEM && filters.DEBUG;
     const currentIp = activeDeviceIp || '192.168.10.240';
     
     const visibleLogs = logs.filter(log => {
         if (isCleared && log.timestamp <= clearTimestamp) return false;
         
-        if (!showAllDevices && log.source !== 'SYSTEM') {
+        if (!showAllDevices && log.source !== 'SYSTEM' && log.source !== 'DEBUG') {
             if (log.ip && log.ip !== 'SYSTEM' && log.ip !== currentIp) {
                 return false;
             }
@@ -163,7 +153,7 @@ const ConsolePanel = ({
 
     const handleExport = () => {
         const textContent = logs.filter(log => {
-            if (!showAllDevices && log.source !== 'SYSTEM' && log.ip !== 'SYSTEM' && log.ip !== currentIp) return false;
+            if (!showAllDevices && log.source !== 'SYSTEM' && log.source !== 'DEBUG' && log.ip !== 'SYSTEM' && log.ip !== currentIp) return false;
             return filters[log.source];
         }).map(log => {
             const timeStr = formatLocalTime(log.timestamp, 'full');
@@ -189,13 +179,6 @@ const ConsolePanel = ({
         URL.revokeObjectURL(url);
     };
 
-    const boxClasses = [
-        'macro-section-box',
-        'console-box',
-        isScanlines ? 'console-lcd-scanlines' : '',
-        isSheen ? 'console-glossy-dark' : ''
-    ].filter(Boolean).join(' ');
-
     if (!isConnected) {
         return (
             <div className="quadrant-master-panel">
@@ -203,8 +186,7 @@ const ConsolePanel = ({
                     <div className="macro-compact-header-row">
                         <span className="atem-section-title">CONSOLE</span>
                     </div>
-                    <div className={boxClasses} style={{ flex: 1, minHeight: 0, padding: '12px' }}>
-                        {isSheen && <div className="console-lcd-reflection" />}
+                    <div className="macro-section-box console-box" style={{ flex: 1, minHeight: 0, padding: '12px' }}>
                         <div className="console-standby-container">
                             <div className="console-standby-title" style={{ fontFamily: `"${consoleFont}", Orbitron, Oxanium, sans-serif`, color: 'var(--muted)', opacity: 0.35 }}>
                                 ATEM WEB MANAGER
@@ -261,6 +243,13 @@ const ConsolePanel = ({
                             SYSTEM
                         </button>
                         <button 
+                            className={'macro-action-text-btn ' + (filters.DEBUG ? 'active-debug' : '')} 
+                            onClick={() => toggleFilter('DEBUG')}
+                            title="Toggle raw ATEM UDP debug telemetry"
+                        >
+                            DEBUG
+                        </button>
+                        <button 
                             className={'macro-action-text-btn ' + (timeMode !== 'full' ? 'active-orange' : '')}
                             style={{ color: timeMode === 'full' ? '#5c6370' : undefined }}
                             onClick={handleTimeCycle}
@@ -284,8 +273,7 @@ const ConsolePanel = ({
                         </button>
                     </div>
                 </div>
-                <div className={boxClasses} style={{ flex: 1, minHeight: 0, padding: '8px' }}>
-                    {isSheen && <div className="console-lcd-reflection" />}
+                <div className="macro-section-box console-box" style={{ flex: 1, minHeight: 0, padding: '8px' }}>
                     <div className="console-body selectable" ref={bodyRef}>
                         {visibleLogs.map((log, i) => {
                             const timeStr = formatLocalTime(log.timestamp, timeMode);

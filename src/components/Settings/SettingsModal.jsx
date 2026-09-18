@@ -34,8 +34,7 @@ const SettingsModal = ({
     currentVideoSource, setCurrentVideoSource, quadrantOrder, setQuadrantOrder, 
     sidebarVariant, setSidebarVariant, useDeviceCsv, setUseDeviceCsv,
     deviceCsvContent, setDeviceCsvContent,
-    consoleFont, setConsoleFont, consoleLcdEffect, setConsoleLcdEffect,
-    enableTBar, setEnableTBar
+    consoleFont, setConsoleFont
 }) => {
     const modalRef = useRef(null);
     const [activeTab, setActiveTab] = useState('general');
@@ -43,7 +42,6 @@ const SettingsModal = ({
     const [pos, setPos] = useState({ x: 0, y: 0 });
     const dragOffset = useRef({ x: 0, y: 0 });
 
-    const [consoleLcdSheen, setConsoleLcdSheen] = useLocalStorage('atem_consoleLcdSheen', false);
     const [customTheme, setCustomTheme] = useLocalStorage('atem_custom_theme', DEFAULT_THEME_VARS);
 
     const applyThemeVars = (vars) => {
@@ -205,17 +203,6 @@ const SettingsModal = ({
                                 <div style={{ margin: '24px 0', borderTop: '1px solid var(--atem-border)' }}></div>
 
                                 <div className="setting-group">
-                                    <label>Enable T-Bar (Mixer Panel):</label>
-                                    <div className="setting-group-control">
-                                        <input 
-                                            type="checkbox" 
-                                            className="toggle-switch" 
-                                            checked={enableTBar} 
-                                            onChange={e => setEnableTBar(e.target.checked)} 
-                                        />
-                                    </div>
-                                </div>
-                                <div className="setting-group">
                                     <label>Console Display Font:</label>
                                     <div className="setting-group-control">
                                         <select value={consoleFont} onChange={e => setConsoleFont(e.target.value)}>
@@ -230,28 +217,6 @@ const SettingsModal = ({
                                             <option value="Share Tech Mono">Share Tech Mono</option>
                                             <option value="Black Ops One">Black Ops One</option>
                                         </select>
-                                    </div>
-                                </div>
-                                <div className="setting-group">
-                                    <label>Console LCD Scanlines:</label>
-                                    <div className="setting-group-control">
-                                        <input 
-                                            type="checkbox" 
-                                            className="toggle-switch" 
-                                            checked={consoleLcdEffect} 
-                                            onChange={e => setConsoleLcdEffect(e.target.checked)} 
-                                        />
-                                    </div>
-                                </div>
-                                <div className="setting-group">
-                                    <label>Console Glossy Sheen:</label>
-                                    <div className="setting-group-control">
-                                        <input 
-                                            type="checkbox" 
-                                            className="toggle-switch" 
-                                            checked={consoleLcdSheen} 
-                                            onChange={e => setConsoleLcdSheen(e.target.checked)} 
-                                        />
                                     </div>
                                 </div>
                                 <div style={{ margin: '24px 0', borderTop: '1px solid var(--atem-border)' }}></div>

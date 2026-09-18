@@ -196,14 +196,10 @@ if not exist "%PROJECT_ROOT%\bridge\node_modules\" (
     cd /d "%PROJECT_ROOT%"
 )
 
-:: Download embedded local broadcast display fonts from immutable jsDelivr CDN if absent
-echo.
-echo -----------------------------------------------------------------
-echo     SYNCING EMBEDDED BROADCAST FONTS INTO PROJECT (OFFLINE)   
-echo -----------------------------------------------------------------
-if not exist "%PROJECT_ROOT%\public\fonts" mkdir "%PROJECT_ROOT%\public\fonts"
+:: Download embedded local broadcast display fonts (per-file existence check)
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$dest = '%PROJECT_ROOT%\public\fonts';" ^
+    "if (-not (Test-Path -LiteralPath $dest)) { New-Item -ItemType Directory -Path $dest -Force | Out-Null };" ^
     "$fonts = @(" ^
     "    @{ name='roboto-400.woff2'; url='https://cdn.jsdelivr.net/npm/@fontsource/roboto@5.0.13/files/roboto-latin-400-normal.woff2' }," ^
     "    @{ name='roboto-500.woff2'; url='https://cdn.jsdelivr.net/npm/@fontsource/roboto@5.0.13/files/roboto-latin-500-normal.woff2' }," ^
@@ -220,13 +216,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     ");" ^
     "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;" ^
     "$ProgressPreference = 'SilentlyContinue';" ^
+    "$downloadedAny = $false;" ^
     "foreach ($f in $fonts) {" ^
     "    $target = Join-Path $dest $f.name;" ^
     "    if (-not (Test-Path -LiteralPath $target)) {" ^
-    "        Write-Host ('  [*] Downloading ' + $f.name + '...');" ^
+    "        if (-not $downloadedAny) { Write-Host '  [*] Downloading missing broadcast display fonts...' };" ^
+    "        $downloadedAny = $true;" ^
+    "        Write-Host ('      [+] ' + $f.name);" ^
     "        Invoke-WebRequest -Uri $f.url -OutFile $target -UseBasicParsing;" ^
     "    }" ^
-    "};"
+    "};" ^
+    "if ($downloadedAny) { Write-Host '  [DONE] Broadcast fonts bootstrapped successfully.' };"
 goto :eof
 
 :SYNC_CHANGELOG
