@@ -1,2 +1,2 @@
-v3.89
-[OPS] Updated OPS.bat and OPS.sh font bootstrappers with individual file-existence checks to prevent redundant downloads. Version held at v3.89.
+v3.90
+[OPS] Synchronized master memory bank specifications (ops/HANDOVER.MD and ops/SYSTEM_INSTRUCTIONS.MD) to v3.90. Documented restored 4-row mixer layout, diagnostic bridge engine, local OS clock logging, pre-commit audit gate, and permanent offline font caching.

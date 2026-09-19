@@ -2,16 +2,14 @@
 setlocal
 
 :: =============================================================================
-:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.89)
+:: ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (Windows) (v3.90)
 :: =============================================================================
-:: This CLI manages the end-to-end development lifecycle:
-:: 1. Self-contained portable Node.js runtime resolution and integrity verification.
-:: 2. Dual-package dependency installations and local broadcast font bootstrapping.
-:: 3. Background hardware bridge daemon management with automated port cleanup.
-:: 4. Consolidated GitHub Operations menu via Trunk-Based Development.
-:: 5. Standard interactive text prompts with Enter submission and empty-Enter cancellation.
-:: 6. Token-guarded workspace cleaning and silent scratch re-cloning via ghost scripts.
-:: 7. Clean terminal exit logic.
+:: 1. Automated Pre-Commit Version Integrity Audit Gate with Override Options.
+:: 2. Whole-project serialization to codebase.txt (including ops/ scripts).
+:: 3. Descending version-sorted changelog merger and missing changelog reporter.
+:: 4. Per-file font existence check and immutable CDN bootstrapping.
+:: 5. Background hardware bridge daemon management and port cleaner.
+:: 6. Trunk-Based Development Git operations with automated release tagging.
 :: =============================================================================
 
 chcp 65001 >nul
@@ -32,7 +30,7 @@ cd /d "%PROJECT_ROOT%"
 :MENU
 cls
 echo -----------------------------------------------------------------
-echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.89)       
+echo           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.90)       
 echo -----------------------------------------------------------------
 echo   [1] RUN ^& EVALUATE     (Vite + Daemon, Auto-Export ^& Evaluation)
 echo   [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)
@@ -129,7 +127,7 @@ if %ERRORLEVEL% equ 0 (
 
 echo.
 echo -----------------------------------------------------------------
-echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.89)                
+echo             PORTABLE NODE.JS BOOTSTRAPPER (v3.90)                
 echo -----------------------------------------------------------------
 echo  Node.js was not found on your system or in bin\node.
 echo  Downloading official portable Node.js LTS (v20.18.0 x64)...
@@ -196,7 +194,7 @@ if not exist "%PROJECT_ROOT%\bridge\node_modules\" (
     cd /d "%PROJECT_ROOT%"
 )
 
-:: Download embedded local broadcast display fonts (per-file existence check)
+:: Download embedded local broadcast display fonts (per-file check)
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$dest = '%PROJECT_ROOT%\public\fonts';" ^
     "if (-not (Test-Path -LiteralPath $dest)) { New-Item -ItemType Directory -Path $dest -Force | Out-Null };" ^
@@ -216,22 +214,40 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     ");" ^
     "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;" ^
     "$ProgressPreference = 'SilentlyContinue';" ^
-    "$downloadedAny = $false;" ^
+    "$dl = $false;" ^
     "foreach ($f in $fonts) {" ^
     "    $target = Join-Path $dest $f.name;" ^
     "    if (-not (Test-Path -LiteralPath $target)) {" ^
-    "        if (-not $downloadedAny) { Write-Host '  [*] Downloading missing broadcast display fonts...' };" ^
-    "        $downloadedAny = $true;" ^
-    "        Write-Host ('      [+] ' + $f.name);" ^
+    "        if (-not $dl) { Write-Host '  [*] Downloading missing broadcast display fonts...' };" ^
+    "        $dl = $true; Write-Host ('      [+] ' + $f.name);" ^
     "        Invoke-WebRequest -Uri $f.url -OutFile $target -UseBasicParsing;" ^
     "    }" ^
     "};" ^
-    "if ($downloadedAny) { Write-Host '  [DONE] Broadcast fonts bootstrapped successfully.' };"
+    "if ($dl) { Write-Host '  [DONE] Broadcast fonts bootstrapped successfully.' };"
 goto :eof
 
 :SYNC_CHANGELOG
 if not exist "ops\CHANGELOG" goto :eof
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$m='ops\CHANGELOG.MD'; if (-not (Test-Path $m)) { Set-Content -Path $m -Value '# ATEM WEB MANAGER - Complete Version History' -Encoding UTF8 }; $files=Get-ChildItem -Path 'ops\CHANGELOG\*.md' -ErrorAction SilentlyContinue; if ($files) { $mt=Get-Content $m -Raw; foreach ($f in $files) { $c=(Get-Content $f.FullName -Raw).Trim(); if ($c -match '\[v[0-9]+(\.[0-9]+)*\]') { $tag=$matches[0]; if ($mt -notmatch [regex]::Escape($tag)) { Write-Host ('[OPS] Merging ' + $tag + ' into ' + $m + '...'); $lines=Get-Content $m; $header=$lines[0]; $rest=if ($lines.Count -gt 1) { $lines[1..($lines.Count - 1)] } else { @() }; @($header, '', $c, '') + $rest | Set-Content -Path $m -Encoding UTF8; $mt=Get-Content $m -Raw } } } }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$m='ops\CHANGELOG.MD'; $dir='ops\CHANGELOG';" ^
+    "$files = Get-ChildItem -Path (Join-Path $dir '*.md') -ErrorAction SilentlyContinue;" ^
+    "if ($files) {" ^
+    "    $parsed = @();" ^
+    "    foreach ($f in $files) {" ^
+    "        $text = (Get-Content -LiteralPath $f.FullName -Raw).Trim();" ^
+    "        if ($text -match '\[v([0-9]+)\.([0-9]+)\]') {" ^
+    "            $major = [int]$matches[1]; $minor = [int]$matches[2];" ^
+    "            $weight = ($major * 1000) + $minor;" ^
+    "            $parsed += [PSCustomObject]@{ Weight=$weight; Tag=$matches[0]; Text=$text; File=$f.Name };" ^
+    "        }" ^
+    "    };" ^
+    "    $sorted = $parsed | Sort-Object -Property Weight -Descending;" ^
+    "    $header = '# ATEM WEB MANAGER - Complete Version History';" ^
+    "    $allBlocks = @($header, '');" ^
+    "    foreach ($item in $sorted) { $allBlocks += $item.Text; $allBlocks += '' };" ^
+    "    [System.IO.File]::WriteAllLines((Join-Path (Get-Location) $m), $allBlocks, [System.Text.Encoding]::UTF8);" ^
+    "    Write-Host '  [OPS] Chronologically synchronized CHANGELOG.MD (Descending).';" ^
+    "}"
 goto :eof
 
 :CLEANUP_PORTS
@@ -241,16 +257,17 @@ goto :eof
 :EXPORT_CODEBASE
 echo.
 echo -----------------------------------------------------------------
-echo        SERIALIZING CODEBASE FOR AI HANDOVER (codebase.txt)       
+echo        SERIALIZING WHOLE PROJECT FOR AI HANDOVER (codebase.txt)       
 echo -----------------------------------------------------------------
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$out='codebase.txt'; $all=@();" ^
-    "Write-Host -NoNewline '  [*] Serializing project modules...';" ^
+    "Write-Host -NoNewline '  [*] Serializing project modules, scripts, and specifications...';" ^
     "@('index.html','vite.config.js','package.json') | ForEach-Object { if (Test-Path $_) { $all += ('=== FILE: ' + $_ + ' === '); $all += (Get-Content $_ -Raw); $all += ' ' } };" ^
     "if (Test-Path 'bridge') { Get-ChildItem -Path 'bridge' -File | Where-Object { $_.Name -ne 'package-lock.json' } | ForEach-Object { $all += ('=== FILE: bridge/' + $_.Name + ' === '); $all += (Get-Content $_.FullName -Raw); $all += ' ' } };" ^
+    "if (Test-Path 'ops') { Get-ChildItem -Path 'ops' -File | Where-Object { $_.Name -notmatch '\.(png|jpg|ico)$' } | ForEach-Object { $all += ('=== FILE: ops/' + $_.Name + ' === '); $all += (Get-Content $_.FullName -Raw); $all += ' ' } };" ^
     "if (Test-Path 'src') { $baseLen=(Get-Location).Path.Length + 1; Get-ChildItem -Path 'src' -Recurse -File | Where-Object { $_.Extension -match '^\.(js|jsx|css)$' } | ForEach-Object { $rel=$_.FullName.Substring($baseLen).Replace('\', '/'); $all += ('=== FILE: ' + $rel + ' === '); $all += (Get-Content $_.FullName -Raw); $all += ' ' } };" ^
     "[System.IO.File]::WriteAllLines((Join-Path (Get-Location) $out), $all, [System.Text.Encoding]::UTF8);" ^
-    "Write-Host '  [DONE] Serialized workspace to codebase.txt';"
+    "Write-Host '  [DONE] Serialized entire workspace to codebase.txt';"
 goto :eof
 
 :RESOLVE_COMMIT_MSG
@@ -259,42 +276,54 @@ set "DESC_FILE=%PROJECT_ROOT%\ops\DESCRIPTOR.txt"
 
 set "DETECTED_VER="
 for /f "usebackq delims=" %%v in (`powershell -NoProfile -Command "(Get-Content -LiteralPath 'src\version.js' | Select-String -Pattern 'v[0-9]+\.[0-9]+').Matches.Value"` ) do set "DETECTED_VER=%%v"
-if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.89"
+if "%DETECTED_VER%"=="" set "DETECTED_VER=v3.90"
 
-if not exist "%DESC_FILE%" goto MANUAL_PROMPT
-
+:: PRE-COMMIT VERSION INTEGRITY AUDIT GATE
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "$lines = Get-Content -LiteralPath '%DESC_FILE%' -Encoding UTF8;" ^
-    "$fileVer = if ($lines.Count -ge 1) { $lines[0].Trim() } else { '' };" ^
-    "$fileMsg = if ($lines.Count -ge 2) { ($lines[1..($lines.Count - 1)] -join [Environment]::NewLine).Trim() } else { '' };" ^
-    "if ($fileVer -eq '%DETECTED_VER%' -and -not [string]::IsNullOrWhiteSpace($fileMsg)) {" ^
-    "    [System.IO.File]::WriteAllText('%COMMIT_TMP%', $fileMsg, [System.Text.Encoding]::UTF8);" ^
-    "    Write-Host ('[DESCRIPTOR VERIFIED] Ingested message for ' + $fileVer + ':');" ^
-    "    Write-Host ('\"' + $fileMsg + '\"');" ^
-    "    exit 0;" ^
-    "} else {" ^
-    "    Write-Host ('[VERSION MISMATCH] DESCRIPTOR.txt (' + $fileVer + ') does not match version.js (' + '%DETECTED_VER%' + ')');" ^
-    "    exit 2;" ^
-    "}"
+    "$v = '%DETECTED_VER%';" ^
+    "$desc = '%DESC_FILE%';" ^
+    "$fail = $false;" ^
+    "$status = git status --porcelain;" ^
+    "$lines = if (Test-Path -LiteralPath $desc) { Get-Content -LiteralPath $desc -Encoding UTF8 } else { @() };" ^
+    "$descVer = if ($lines.Count -ge 1) { $lines[0].Trim() } else { '' };" ^
+    "if ($descVer -ne $v) {" ^
+    "    Write-Host ('  [FAIL] ops/DESCRIPTOR.txt version (' + $descVer + ') does not match version.js (' + $v + ')');" ^
+    "    $fail = $true;" ^
+    "};" ^
+    "$chg = 'ops/CHANGELOG/' + $v + '.md';" ^
+    "if (-not (Test-Path -LiteralPath $chg)) {" ^
+    "    Write-Host ('  [WARN] Missing modular changelog snippet for current release: ' + $chg);" ^
+    "};" ^
+    "if ($fail) { exit 10 } else { exit 0 }"
 
-if %ERRORLEVEL% equ 0 exit /b 0
+if %ERRORLEVEL% equ 0 goto AUDIT_PASSED
 
 echo.
 echo -----------------------------------------------------------------
-echo  [WARNING] Descriptor file version does not match src/version.js!
-echo  src/version.js:      %DETECTED_VER%
+echo  [VERSION AUDIT WARNING] Discrepancies detected for %DETECTED_VER%!
 echo -----------------------------------------------------------------
-echo  [1] Enter commit description manually
-echo  [2] Abort to download/replace ops\DESCRIPTOR.txt
+echo   [1] Abort ^& Fix     (Cancel commit to update mismatched files)
+echo   [2] Force Override  (Deliberately commit ^& publish as %DETECTED_VER%)
+echo   [3] Target Custom   (Specify a different version tag)
 echo -----------------------------------------------------------------
-set "MISMATCH_CHOICE="
-set /p MISMATCH_CHOICE=" Select (1-2, or Enter to abort): "
-if "%MISMATCH_CHOICE%"=="1" goto MANUAL_PROMPT
+set "AUDIT_CHOICE="
+set /p AUDIT_CHOICE=" Select (1-3, or Enter to abort): "
+
+if "%AUDIT_CHOICE%"=="2" goto AUDIT_PASSED
+if "%AUDIT_CHOICE%"=="3" (
+    set /p DETECTED_VER=" Enter custom version tag (e.g. v3.90): "
+    goto AUDIT_PASSED
+)
+echo ^>^>^> Commit aborted. Workspace preserved untouched. ^<^<^<
+pause
 exit /b 1
 
-:MANUAL_PROMPT
-echo.
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$msg = Read-Host 'Enter iteration description / commit message'; if ([string]::IsNullOrWhiteSpace($msg)) { $msg = 'feat: iteration update (' + '%DETECTED_VER%' + ')' }; [System.IO.File]::WriteAllText('%COMMIT_TMP%', $msg, [System.Text.Encoding]::UTF8)"
+:AUDIT_PASSED
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$lines = if (Test-Path -LiteralPath '%DESC_FILE%') { Get-Content -LiteralPath '%DESC_FILE%' -Encoding UTF8 } else { @() };" ^
+    "$msg = if ($lines.Count -ge 2) { ($lines[1..($lines.Count - 1)] -join [Environment]::NewLine).Trim() } else { '' };" ^
+    "if ([string]::IsNullOrWhiteSpace($msg)) { $msg = 'feat: iteration update (' + '%DETECTED_VER%' + ')' };" ^
+    "[System.IO.File]::WriteAllText('%COMMIT_TMP%', $msg, [System.Text.Encoding]::UTF8);"
 exit /b 0
 
 :RUN_EVAL

@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
 
 # =============================================================================
-# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS/Linux) (v3.89)
+# ATEM WEB MANAGER - UNIFIED MASTER OPERATIONS SUITE (macOS/Linux) (v3.90)
 # =============================================================================
-# This CLI manages the end-to-end development lifecycle:
-# 1. Self-contained Node.js runtime resolution and integrity verification.
-# 2. Dual-package dependency installations and local broadcast font bootstrapping.
-# 3. Background hardware bridge daemon management with automated port cleanup.
-# 4. Consolidated GitHub Operations menu via Trunk-Based Development.
-# 5. Standard interactive text prompts with Enter submission and empty-Enter cancellation.
-# 6. Token-guarded workspace cleaning and silent scratch re-cloning via ghost scripts.
-# 7. Clean terminal exit logic.
+# 1. Automated Pre-Commit Version Integrity Audit Gate with Override Options.
+# 2. Whole-project serialization to codebase.txt (including ops/ scripts).
+# 3. Descending version-sorted changelog merger and missing changelog reporter.
+# 4. Per-file font existence check and immutable CDN bootstrapping.
+# 5. Background hardware bridge daemon management and port cleaner.
+# 6. Trunk-Based Development Git operations with automated release tagging.
 # =============================================================================
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -18,10 +16,6 @@ cd "$PROJECT_ROOT" || exit 1
 
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
-
-# =============================================================================
-# CORE FUNCTIONS
-# =============================================================================
 
 cleanup_ports() {
     for port in 8080 3000 8000; do
@@ -127,34 +121,48 @@ check_dependencies() {
 
 sync_changelog() {
     local master="ops/CHANGELOG.MD"
-    if [ ! -f "$master" ]; then
-        echo "# ATEM WEB MANAGER - Complete Version History" > "$master"
-    fi
+    local dir="ops/CHANGELOG"
+    if [ ! -d "$dir" ]; then return; fi
 
-    for md in ops/CHANGELOG/*.md; do
-        [ -e "$md" ] || continue
-        tag=$(grep -oE '\[v[0-9]+(\.[0-9]+)*\]' "$md" | head -n 1)
-        if [ -n "$tag" ]; then
-            if ! grep -Fq "$tag" "$master"; then
-                echo "[OPS] Merging $tag into $master..."
-                content=$(cat "$md")
-                header=$(head -n 1 "$master")
-                rest=$(tail -n +2 "$master")
-                printf "%s\n\n%s\n\n%s\n" "$header" "$content" "$rest" > "$master.tmp"
-                mv "$master.tmp" "$master"
-            fi
-        fi
-    done
+    echo "# ATEM WEB MANAGER - Complete Version History" > "$master.tmp"
+    echo "" >> "$master.tmp"
+
+    # Sort version snippets descending based on version weight
+    python3 -c "
+import os, re
+
+files = [f for f in os.listdir('$dir') if f.endswith('.md')]
+entries = []
+for f in files:
+    m = re.search(r'v(\d+)\.(\d+)', f)
+    if m:
+        weight = int(m.group(1)) * 1000 + int(m.group(2))
+        path = os.path.join('$dir', f)
+        with open(path, 'r', encoding='utf-8') as fp:
+            entries.append((weight, fp.read().strip()))
+
+entries.sort(key=lambda x: x[0], reverse=True)
+with open('$master.tmp', 'a', encoding='utf-8') as out:
+    for _, content in entries:
+        out.write(content + '\n\n')
+" 2>/dev/null
+
+    if [ -s "$master.tmp" ]; then
+        mv "$master.tmp" "$master"
+        echo "  [OPS] Chronologically synchronized CHANGELOG.MD (Descending)."
+    else
+        rm -f "$master.tmp"
+    fi
 }
 
 export_codebase() {
     echo ""
     echo "-----------------------------------------------------------------"
-    echo "        SERIALIZING CODEBASE FOR AI HANDOVER (codebase.txt)       "
+    echo "        SERIALIZING WHOLE PROJECT FOR AI HANDOVER (codebase.txt)       "
     echo "-----------------------------------------------------------------"
     OUT="codebase.txt"
     > "$OUT"
-    echo "  [*] Serializing project modules..."
+    echo "  [*] Serializing project modules, scripts, and specifications..."
     for file in index.html vite.config.js package.json; do
         if [ -f "$file" ]; then
             printf "=== FILE: %s === \n" "$file" >> "$OUT"
@@ -171,6 +179,15 @@ export_codebase() {
             fi
         done
     fi
+    if [ -d "ops" ]; then
+        for file in ops/*; do
+            if [ -f "$file" ]; then
+                printf "=== FILE: %s === \n" "$file" >> "$OUT"
+                cat "$file" >> "$OUT"
+                printf "\n \n" >> "$OUT"
+            fi
+        done
+    fi
     if [ -d "src" ]; then
         find src -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.css" \) | while read -r file; do
             printf "=== FILE: %s === \n" "$file" >> "$OUT"
@@ -178,7 +195,7 @@ export_codebase() {
             printf "\n \n" >> "$OUT"
         done
     fi
-    echo "  [DONE] Serialized workspace to codebase.txt"
+    echo "  [DONE] Serialized entire workspace to codebase.txt"
 }
 
 resolve_commit_msg() {
@@ -188,39 +205,50 @@ resolve_commit_msg() {
     
     DETECTED_VER=$(grep -oE 'v[0-9]+\.[0-9]+' src/version.js | head -n 1)
     if [ -z "$DETECTED_VER" ]; then
-        DETECTED_VER="v3.89"
+        DETECTED_VER="v3.90"
     fi
 
-    if [ ! -f "$DESC_FILE" ]; then
-        manual_prompt
-        return $?
+    # PRE-COMMIT VERSION INTEGRITY AUDIT GATE
+    AUDIT_FAIL=0
+    FILE_VER=$(head -n 1 "$DESC_FILE" 2>/dev/null | tr -d '\r\n')
+    if [ "$FILE_VER" != "$DETECTED_VER" ]; then
+        echo "  [FAIL] ops/DESCRIPTOR.txt version ($FILE_VER) does not match version.js ($DETECTED_VER)"
+        AUDIT_FAIL=1
     fi
 
-    FILE_VER=$(head -n 1 "$DESC_FILE" | tr -d '\r\n')
-    FILE_MSG=$(tail -n +2 "$DESC_FILE" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+    CHG_FILE="ops/CHANGELOG/${DETECTED_VER}.md"
+    if [ ! -f "$CHG_FILE" ]; then
+        echo "  [WARN] Missing modular changelog snippet for current release: $CHG_FILE"
+    fi
 
-    if [ "$FILE_VER" == "$DETECTED_VER" ] && [ -n "$FILE_MSG" ]; then
-        echo "$FILE_MSG" > "$COMMIT_TMP"
-        echo "[DESCRIPTOR VERIFIED] Ingested message for $FILE_VER:"
-        echo "\"$FILE_MSG\""
-        return 0
-    else
-        echo "[VERSION MISMATCH] DESCRIPTOR.txt ($FILE_VER) does not match version.js ($DETECTED_VER)"
+    if [ $AUDIT_FAIL -eq 1 ]; then
         echo ""
         echo "-----------------------------------------------------------------"
-        echo "  [WARNING] Descriptor file version does not match src/version.js!"
-        echo "  src/version.js:      $DETECTED_VER"
+        echo "  [VERSION AUDIT WARNING] Discrepancies detected for $DETECTED_VER!"
         echo "-----------------------------------------------------------------"
-        echo "  [1] Enter commit description manually"
-        echo "  [2] Abort to download/replace ops/DESCRIPTOR.txt"
+        echo "   [1] Abort & Fix     (Cancel commit to update mismatched files)"
+        echo "   [2] Force Override  (Deliberately commit & publish as $DETECTED_VER)"
+        echo "   [3] Target Custom   (Specify a different version tag)"
         echo "-----------------------------------------------------------------"
-        read -p " Select (1-2, or Enter to abort): " MISMATCH_CHOICE
-        if [ "$MISMATCH_CHOICE" == "1" ]; then
-            manual_prompt
-            return 0
+        read -p " Select (1-3, or Enter to abort): " AUDIT_CHOICE
+
+        if [ "$AUDIT_CHOICE" == "2" ]; then
+            :
+        elif [ "$AUDIT_CHOICE" == "3" ]; then
+            read -p " Enter custom version tag (e.g. v3.90): " DETECTED_VER
+        else
+            echo ">>> Commit aborted. Workspace preserved untouched. <<<"
+            read -p "Press Enter to continue..."
+            return 1
         fi
-        return 1
     fi
+
+    FILE_MSG=$(tail -n +2 "$DESC_FILE" 2>/dev/null | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+    if [ -z "$FILE_MSG" ]; then
+        FILE_MSG="feat: iteration update ($DETECTED_VER)"
+    fi
+    echo "$FILE_MSG" > "$COMMIT_TMP"
+    return 0
 }
 
 manual_prompt() {
@@ -232,10 +260,6 @@ manual_prompt() {
     echo "$msg" > "$COMMIT_TMP"
     return 0
 }
-
-# =============================================================================
-# MENUS
-# =============================================================================
 
 run_eval() {
     setup_node_env
@@ -464,13 +488,10 @@ EOF
     exit 0
 }
 
-# =============================================================================
-# MAIN LOOP
-# =============================================================================
 while true; do
     clear
     echo "-----------------------------------------------------------------"
-    echo "           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.89)       "
+    echo "           ATEM WEB MANAGER - MASTER OPERATIONS CLI (v3.90)       "
     echo "-----------------------------------------------------------------"
     echo "  [1] RUN & EVALUATE     (Vite + Daemon, Auto-Export & Evaluation)"
     echo "  [2] GITHUB OPERATIONS  (Merge to Main, Push Branch, Switch)"
